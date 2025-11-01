@@ -104,7 +104,8 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 #### 1.2.1 config/schema.py
 
-- [ ] **Define Pydantic models:**
+- [x] **Define Pydantic models:**
+  - [x 2025-11-02] Completed all 7 Pydantic models (Intent, Brands, ModelConfig, RunSettings, WatcherConfig, RuntimeModel, RuntimeConfig) with validation in commit 9fc6b73
   - [ ] `Intent` model
     - Fields: `id: str`, `prompt: str`
     - Validator: `id` must be alphanumeric with hyphens/underscores

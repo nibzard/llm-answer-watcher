@@ -401,7 +401,7 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 2.1 LLM Runner Module - Models (llm_runner/models.py)
 
-- [ ] **Define `LLMClient` Protocol:**
+- [x] **Define `LLMClient` Protocol:**
   ```python
   from typing import Protocol
 
@@ -414,12 +414,13 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
           """
   ```
 
-- [ ] **Implement `build_client(provider: str, model_name: str, api_key: str) -> LLMClient`**
-  - [ ] Check provider in supported list
-  - [ ] If provider == "openai", return OpenAIClient instance
-  - [ ] If provider == "anthropic", raise NotImplementedError (stub for future)
-  - [ ] Raise ValueError for unsupported provider
-  - [ ] Add comprehensive docstring
+- [x] **Implement `build_client(provider: str, model_name: str, api_key: str) -> LLMClient`**
+  - [x] Check provider in supported list
+  - [x] If provider == "openai", return OpenAIClient instance
+  - [x] If provider == "anthropic", raise NotImplementedError (stub for future)
+  - [x] Raise ValueError for unsupported provider
+  - [x] Add comprehensive docstring
+  - [x 2025-11-02 commit d76941a] Completed with LLMClient Protocol and build_client() factory implementation
 
 ### 2.2 LLM Runner Module - Retry Config (llm_runner/retry_config.py)
 
@@ -470,7 +471,7 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 2.4 Utils Module - Cost Estimation (utils/cost.py)
 
-- [ ] **Define pricing table:**
+- [x] **Define pricing table:**
   ```python
   PRICING = {
       "openai": {
@@ -486,18 +487,19 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
   }
   ```
 
-- [ ] **Implement `estimate_cost(provider: str, model: str, usage_meta: dict) -> float`**
-  - [ ] Get pricing for provider/model from PRICING table
-  - [ ] Return 0.0 with warning if pricing unavailable
-  - [ ] Extract prompt_tokens and completion_tokens from usage_meta
-  - [ ] Calculate: (input_tokens * input_price) + (output_tokens * output_price)
-  - [ ] Round to 6 decimal places
-  - [ ] Return cost in USD
-  - [ ] Add comprehensive docstring with disclaimer
+- [x] **Implement `estimate_cost(provider: str, model: str, usage_meta: dict) -> float`**
+  - [x] Get pricing for provider/model from PRICING table
+  - [x] Return 0.0 with warning if pricing unavailable
+  - [x] Extract prompt_tokens and completion_tokens from usage_meta
+  - [x] Calculate: (input_tokens * input_price) + (output_tokens * output_price)
+  - [x] Round to 6 decimal places
+  - [x] Return cost in USD
+  - [x] Add comprehensive docstring with disclaimer
 
-- [ ] **Add pricing update reminder in comments:**
-  - Note that pricing should be updated periodically
-  - Link to provider pricing pages
+- [x] **Add pricing update reminder in comments:**
+  - [x] Note that pricing should be updated periodically
+  - [x] Link to provider pricing pages
+  - [x 2025-11-02 commit d76941a] Completed with pricing table and estimate_cost() implementation
 
 ### 2.5 Extractor Module - Mention Detector (extractor/mention_detector.py)
 

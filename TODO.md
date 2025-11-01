@@ -65,7 +65,7 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
       cli.py
   ```
 
-- [ ] **Create pyproject.toml**
+- [x] **Create pyproject.toml**
   - Package name: `llm-answer-watcher`
   - Python requirement: `>=3.12,<3.14`
   - Dependencies:

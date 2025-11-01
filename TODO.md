@@ -86,11 +86,13 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
     - `ruff>=0.4.0`
   - Entry point: `llm-answer-watcher = llm_answer_watcher.cli:main`
 
-- [ ] **Create VERSION file**
+- [x] **Create VERSION file**
   - Initial version: `0.1.0`
+  - [x 2025-11-02] Completed in commit 59b8304
 
-- [ ] **Create SCHEMA_VERSION file**
+- [x] **Create SCHEMA_VERSION file**
   - Initial schema version: `1`
+  - [x 2025-11-02] Completed in commit 59b8304
 
 - [ ] **Verify LICENSE exists** (MIT, already created)
 

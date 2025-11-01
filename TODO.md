@@ -501,48 +501,50 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 2.5 Extractor Module - Mention Detector (extractor/mention_detector.py)
 
-- [ ] **Define `Mention` dataclass:**
+- [x] **Define `Mention` dataclass:**
   - Fields: `brand_name: str`, `normalized_name: str`, `first_position: int`, `match_type: str`
+  - [x 2025-11-02 commit 83fa4a3] Completed with implementation
 
-- [ ] **Implement helper functions:**
-  - [ ] `normalize_brand_name(name: str) -> str`
+- [x] **Implement helper functions:**
+  - [x] `normalize_brand_name(name: str) -> str`
     - Lowercase
     - Strip punctuation
     - Collapse whitespace
     - Return normalized form
 
-  - [ ] `create_word_boundary_pattern(alias: str) -> re.Pattern`
+  - [x] `create_word_boundary_pattern(alias: str) -> re.Pattern`
     - Escape special regex characters with `re.escape()`
     - Wrap with word boundaries: `\b{escaped}\b`
     - Compile with `re.IGNORECASE`
     - Return pattern
 
-- [ ] **Implement `detect_exact_mentions(text: str, brand_aliases: list[str]) -> list[Mention]`**
-  - [ ] For each brand alias:
+- [x] **Implement `detect_exact_mentions(text: str, brand_aliases: list[str]) -> list[Mention]`**
+  - [x] For each brand alias:
     - Create word-boundary regex pattern
     - Search for matches in text
     - Record first occurrence position
     - Store original brand name and normalized name
     - Mark match_type as "exact"
-  - [ ] Deduplicate by normalized name (keep earliest)
-  - [ ] Return list of Mention objects
+  - [x] Deduplicate by normalized name (keep earliest)
+  - [x] Return list of Mention objects
 
-- [ ] **Implement `detect_fuzzy_mentions(text: str, brand_aliases: list[str], threshold: float = 0.9) -> list[Mention]`**
-  - [ ] Import rapidfuzz.fuzz
-  - [ ] For each brand alias not found by exact match:
+- [x] **Implement `detect_fuzzy_mentions(text: str, brand_aliases: list[str], threshold: float = 0.9) -> list[Mention]`**
+  - [x] Import rapidfuzz.fuzz
+  - [x] For each brand alias not found by exact match:
     - Use rapidfuzz to find similar strings in text
     - Check similarity score >= threshold
     - Record match position
     - Mark match_type as "fuzzy"
-  - [ ] Return list of Mention objects
+  - [x] Return list of Mention objects
 
-- [ ] **Implement `detect_mentions(text: str, my_brands: list[str], competitor_brands: list[str], fuzzy: bool = False) -> tuple[list[Mention], list[Mention]]`**
-  - [ ] Detect exact mentions for my_brands
-  - [ ] Detect exact mentions for competitor_brands
-  - [ ] If fuzzy=True:
+- [x] **Implement `detect_mentions(text: str, my_brands: list[str], competitor_brands: list[str], fuzzy: bool = False) -> tuple[list[Mention], list[Mention]]`**
+  - [x] Detect exact mentions for my_brands
+  - [x] Detect exact mentions for competitor_brands
+  - [x] If fuzzy=True:
     - Detect fuzzy mentions for brands not found exactly
-  - [ ] Sort mentions by first_position
-  - [ ] Return (my_mentions, competitor_mentions)
+  - [x] Sort mentions by first_position
+  - [x] Return (my_mentions, competitor_mentions)
+  - [x 2025-11-02 commit 83fa4a3] Completed with word-boundary regex and fuzzy matching implementation
 
 ### 2.6 Extractor Module - Rank Extractor (extractor/rank_extractor.py)
 

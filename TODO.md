@@ -440,34 +440,35 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 2.3 LLM Runner Module - OpenAI Client (llm_runner/openai_client.py)
 
-- [ ] **Implement `OpenAIClient` class:**
-  - [ ] `__init__(self, model_name: str, api_key: str)`
+- [x] **Implement `OpenAIClient` class:**
+  - [x 2025-11-02 commit 86ead9e] Completed with OpenAIClient class, retry logic, cost tracking, and error handling
+  - [x] `__init__(self, model_name: str, api_key: str)`
     - Store model_name and api_key
     - Create httpx.Client with timeout=30.0
 
-  - [ ] `@retry(...)` decorator with tenacity config
+  - [x] `@retry(...)` decorator with tenacity config
 
-  - [ ] `generate_answer(self, prompt: str) -> tuple[str, dict]`
-    - [ ] Build chat completion request:
+  - [x] `generate_answer(self, prompt: str) -> tuple[str, dict]`
+    - [x] Build chat completion request:
       - System message: "You are an unbiased market analyst. Provide factual, balanced recommendations."
       - User message: prompt
-    - [ ] Make POST request to OpenAI chat completions endpoint
-    - [ ] Set Authorization header with Bearer token
-    - [ ] Handle non-retry status codes (401, 400, 404)
+    - [x] Make POST request to OpenAI chat completions endpoint
+    - [x] Set Authorization header with Bearer token
+    - [x] Handle non-retry status codes (401, 400, 404)
       - Raise immediately without retry
-    - [ ] Handle retry status codes (429, 500+)
+    - [x] Handle retry status codes (429, 500+)
       - Let tenacity handle retry
-    - [ ] Extract answer text from response
-    - [ ] Extract usage metadata (prompt_tokens, completion_tokens, etc.)
-    - [ ] Log success with context (no API key in logs)
-    - [ ] On final failure, raise RuntimeError with descriptive message
-    - [ ] Include request_id in error if available
-    - [ ] Return (answer_text, usage_meta)
+    - [x] Extract answer text from response
+    - [x] Extract usage metadata (prompt_tokens, completion_tokens, etc.)
+    - [x] Log success with context (no API key in logs)
+    - [x] On final failure, raise RuntimeError with descriptive message
+    - [x] Include request_id in error if available
+    - [x] Return (answer_text, usage_meta)
 
-  - [ ] `close(self)`
+  - [x] `close(self)`
     - Close httpx client
 
-- [ ] **Add comprehensive docstrings to all methods**
+- [x] **Add comprehensive docstrings to all methods**
 
 ### 2.4 Utils Module - Cost Estimation (utils/cost.py)
 

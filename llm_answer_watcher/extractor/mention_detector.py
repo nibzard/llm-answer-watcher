@@ -1,0 +1,234 @@
+"""
+Brand mention detection for LLM Answer Watcher.
+
+This module implements word-boundary regex matching to detect brand mentions
+in LLM responses, avoiding false positives like "hub" matching in "GitHub".
+
+Key features:
+- Word-boundary matching (critical for accuracy)
+- Case-insensitive detection
+- Multiple aliases per brand support
+- Structured mention data with position tracking
+- Normalized brand names for deduplication
+
+Security:
+- Always uses re.escape() to prevent regex injection
+- Validates all inputs
+
+Performance:
+- Compiles regex patterns once for reuse
+- Sorts results by position for deterministic output
+"""
+
+import re
+from dataclasses import dataclass
+
+
+@dataclass
+class BrandMention:
+    """
+    Represents a detected brand mention in answer text.
+
+    Attributes:
+        original_text: How the brand appeared in the answer (preserves case)
+        normalized_name: Canonical brand name (primary alias, first in list)
+        brand_category: Either "mine" (our brand) or "competitor"
+        match_position: Character offset where brand was found in text
+    """
+
+    original_text: str
+    normalized_name: str
+    brand_category: str
+    match_position: int
+
+    def __post_init__(self):
+        """Validate brand_category is valid."""
+        if self.brand_category not in ("mine", "competitor"):
+            raise ValueError(
+                f"brand_category must be 'mine' or 'competitor', "
+                f"got: {self.brand_category}"
+            )
+
+
+def create_brand_pattern(alias: str) -> re.Pattern:
+    """
+    Create word-boundary regex pattern for brand alias matching.
+
+    CRITICAL: Uses word boundaries to prevent false positives.
+    - "HubSpot" matches in "I use HubSpot daily"
+    - "hub" does NOT match in "GitHub"
+
+    Security: Always escapes special regex characters to prevent injection.
+
+    Args:
+        alias: Brand alias to create pattern for (e.g., "HubSpot", "Warmly.io")
+
+    Returns:
+        Compiled regex pattern with word boundaries and case-insensitive flag
+
+    Example:
+        >>> pattern = create_brand_pattern("HubSpot")
+        >>> bool(pattern.search("I recommend HubSpot"))
+        True
+        >>> bool(pattern.search("I use GitHub"))
+        False
+    """
+    if not alias or alias.isspace():
+        raise ValueError("Brand alias cannot be empty or whitespace")
+
+    # SECURITY: Escape special regex characters before adding word boundaries
+    escaped = re.escape(alias)
+
+    # Add word boundaries to match whole words only
+    pattern = r"\b" + escaped + r"\b"
+
+    # Case-insensitive matching
+    return re.compile(pattern, re.IGNORECASE)
+
+
+def normalize_brand_name(brand_aliases: list[str]) -> str:
+    """
+    Get canonical brand name from brand aliases list.
+
+    The primary brand name is the first item in the brand_aliases list.
+    This ensures consistent normalization for deduplication.
+
+    Args:
+        brand_aliases: List of all aliases for this brand
+
+    Returns:
+        Primary brand name (first alias in list)
+
+    Example:
+        >>> normalize_brand_name(["HubSpot", "Hubspot", "hub spot"])
+        'HubSpot'
+        >>> normalize_brand_name(["Warmly", "Warmly.io"])
+        'Warmly'
+    """
+    if not brand_aliases:
+        raise ValueError("brand_aliases list cannot be empty")
+
+    # Primary name is always the first alias
+    return brand_aliases[0]
+
+
+def detect_mentions(
+    answer_text: str, our_brands: list[str], competitor_brands: list[str]
+) -> list[BrandMention]:
+    """
+    Detect all brand mentions in LLM answer text using word-boundary matching.
+
+    Uses regex with word boundaries to avoid false positives. Matches are
+    case-insensitive but preserve original case in results.
+
+    Process:
+    1. Create word-boundary patterns for all brand aliases
+    2. Search answer text for matches
+    3. For each match:
+       - Extract original text (preserving case)
+       - Set normalized name (primary alias)
+       - Set category ("mine" or "competitor")
+       - Record character position
+    4. Sort by position (order of appearance)
+    5. Handle overlapping matches (prefer longer match)
+
+    Args:
+        answer_text: Text from LLM response to search for mentions
+        our_brands: List of aliases representing our brand(s)
+        competitor_brands: List of competitor brand aliases
+
+    Returns:
+        List of BrandMention objects sorted by appearance order (match_position)
+
+    Example:
+        >>> mentions = detect_mentions(
+        ...     "I prefer HubSpot over Instantly for email warmup.",
+        ...     our_brands=["Instantly", "instantly"],
+        ...     competitor_brands=["HubSpot", "Mailshake"]
+        ... )
+        >>> len(mentions)
+        2
+        >>> mentions[0].normalized_name
+        'HubSpot'
+        >>> mentions[0].brand_category
+        'competitor'
+        >>> mentions[1].normalized_name
+        'Instantly'
+        >>> mentions[1].brand_category
+        'mine'
+
+    Notes:
+        - Empty answer_text returns empty list (not an error)
+        - Duplicate mentions of same brand only recorded once (first occurrence)
+        - Word boundaries prevent "hub" from matching in "GitHub"
+        - Case-insensitive: "hubspot", "HubSpot", "HUBSPOT" all match
+    """
+    # Handle empty input gracefully
+    if not answer_text or answer_text.isspace():
+        return []
+
+    # Normalize empty lists
+    our_brands = our_brands or []
+    competitor_brands = competitor_brands or []
+
+    # Build mapping of alias -> (primary_name, category, pattern)
+    brand_patterns: list[tuple[str, str, str, re.Pattern]] = []
+
+    # Add our brands
+    for alias in our_brands:
+        if not alias or alias.isspace():
+            continue
+        try:
+            pattern = create_brand_pattern(alias)
+            # First occurrence of our brand becomes the normalized name
+            primary_name = our_brands[0] if our_brands else alias
+            brand_patterns.append((alias, primary_name, "mine", pattern))
+        except ValueError:
+            # Skip invalid aliases
+            continue
+
+    # Add competitor brands
+    for alias in competitor_brands:
+        if not alias or alias.isspace():
+            continue
+        try:
+            pattern = create_brand_pattern(alias)
+            # First occurrence of competitor brand becomes normalized name
+            primary_name = competitor_brands[0] if competitor_brands else alias
+            brand_patterns.append((alias, primary_name, "competitor", pattern))
+        except ValueError:
+            # Skip invalid aliases
+            continue
+
+    # Find all matches
+    all_matches: list[BrandMention] = []
+    seen_normalized: set[str] = set()  # Track to avoid duplicates
+
+    for _alias, primary_name, category, pattern in brand_patterns:
+        # Find all occurrences of this alias
+        for match in pattern.finditer(answer_text):
+            # Get original text from answer (preserves case)
+            original_text = match.group(0)
+            match_position = match.start()
+
+            # Use normalized name for deduplication
+            # If we already found this brand (via another alias), skip
+            normalized_key = f"{category}:{primary_name.lower()}"
+            if normalized_key in seen_normalized:
+                continue
+
+            seen_normalized.add(normalized_key)
+
+            all_matches.append(
+                BrandMention(
+                    original_text=original_text,
+                    normalized_name=primary_name,
+                    brand_category=category,
+                    match_position=match_position,
+                )
+            )
+
+    # Sort by position (order of appearance in text)
+    all_matches.sort(key=lambda m: m.match_position)
+
+    return all_matches

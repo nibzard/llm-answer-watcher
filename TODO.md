@@ -168,20 +168,21 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 1.3 Utils Module - Time (utils/time.py)
 
-- [ ] **Implement UTC timestamp utilities:**
-  - [ ] `utc_now() -> datetime`
+- [x] **Implement UTC timestamp utilities:**
+  - [x 2025-11-02] Completed in commit 3dea6bc with 4 UTC functions (utc_now, utc_timestamp, run_id_from_timestamp, parse_timestamp)
+  - [x] `utc_now() -> datetime`
     - Return current time in UTC with timezone info
 
-  - [ ] `utc_timestamp() -> str`
+  - [x] `utc_timestamp() -> str`
     - Return ISO 8601 timestamp with 'Z' suffix
     - Format: `YYYY-MM-DDTHH:MM:SSZ`
 
-  - [ ] `run_id_from_timestamp(dt: datetime | None = None) -> str`
+  - [x] `run_id_from_timestamp(dt: datetime | None = None) -> str`
     - Generate run_id slug from timestamp
     - Format: `YYYY-MM-DDTHH-MM-SSZ` (hyphens instead of colons)
     - Default to current time if dt is None
 
-  - [ ] `parse_timestamp(ts: str) -> datetime`
+  - [x] `parse_timestamp(ts: str) -> datetime`
     - Parse ISO 8601 timestamp to datetime
     - Raise ValueError if no 'Z' suffix
     - Raise ValueError if invalid format

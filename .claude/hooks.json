@@ -39,7 +39,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo \"\\n🚀 LLM Answer Watcher Development Session\"; echo \"📋 Project hooks active: ruff linting, git reminders\"; if git rev-parse --git-dir > /dev/null 2>&1; then branch=$(git branch --show-current 2>/dev/null); echo \"🌿 Git branch: $branch\"; fi; if [ -f SPECS.md ]; then echo \"📄 SPECS.md found\"; fi; if [ -d .claude/agents ]; then agent_count=$(ls -1 .claude/agents/*.md 2>/dev/null | wc -l); echo \"🤖 $agent_count subagent(s) available\"; fi; echo \"\""
+            "command": "echo \"\\n🚀 LLM Answer Watcher Development Session\"; echo \"📋 Project hooks active: ruff linting, git reminders, TODO tracking\"; if git rev-parse --git-dir > /dev/null 2>&1; then branch=$(git branch --show-current 2>/dev/null); echo \"🌿 Git branch: $branch\"; fi; if [ -f SPECS.md ]; then echo \"📄 SPECS.md found\"; fi; if [ -d .claude/agents ]; then agent_count=$(ls -1 .claude/agents/*.md 2>/dev/null | wc -l); echo \"🤖 $agent_count subagent(s) available\"; fi; if [ -f TODO.md ]; then echo \"\"; echo \"📋 TODO.md Status:\"; pending=$(grep -c '\\- \\[ \\]' TODO.md 2>/dev/null || echo 0); completed=$(grep -c '\\- \\[x\\]' TODO.md 2>/dev/null || echo 0); total=$((pending + completed)); if [ $total -gt 0 ]; then percent=$((completed * 100 / total)); echo \"   ✅ Completed: $completed/$total tasks ($percent%)\"; echo \"   ⏳ Pending: $pending tasks\"; echo \"\"; echo \"💡 Next pending tasks:\"; grep -n '\\- \\[ \\]' TODO.md 2>/dev/null | head -3 | while IFS=: read -r line_num content; do task=$(echo \"$content\" | sed 's/^[[:space:]]*- \\[ \\] //'); echo \"   Line $line_num: $task\" | head -c 80; echo; done; else echo \"   No tasks tracked yet\"; fi; echo \"\"; echo \"💡 Tip: Read TODO.md to pick your next task\"; fi; echo \"\""
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f TODO.md ]; then echo \"\\n📋 Subagent work complete!\"; echo \"💡 Remember to update TODO.md:\"; echo \"   - Mark completed tasks with [x]\"; echo \"   - Update progress in milestone checklists\"; echo \"   - Commit TODO.md with your changes\"; echo \"\"; pending=$(grep -c '\\- \\[ \\]' TODO.md 2>/dev/null || echo 0); completed=$(grep -c '\\- \\[x\\]' TODO.md 2>/dev/null || echo 0); total=$((pending + completed)); if [ $total -gt 0 ]; then percent=$((completed * 100 / total)); echo \"📊 Current progress: $completed/$total tasks ($percent%)\"; fi; fi"
           }
         ]
       }

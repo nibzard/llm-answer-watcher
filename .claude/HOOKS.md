@@ -82,6 +82,96 @@ git commit -m "chore: add ruff and pytest to dependencies"
 
 ---
 
+### 3. **Protected Files Warning** 🛡️
+
+**Event**: `PreToolUse` (runs before Edit/Write operations)
+**Matcher**: `Edit|Write`
+**Purpose**: Warn before modifying critical project files
+
+**What it does**:
+- Detects edits to SPECS.md, agent files, or other protected files
+- Shows warning before modification
+- Reminds you to be intentional with changes
+
+**Protected files**:
+- `SPECS.md` - Project specification
+- `.claude/agents/developer.md` - Developer agent prompt
+- `.claude/agents/tester.md` - Tester agent prompt
+- `.claude/agents/reviewer.md` - Reviewer agent prompt
+
+**Example output**:
+```
+⚠️  WARNING: Modifying protected file: SPECS.md
+💡 This file is critical to the project. Make sure changes are intentional.
+```
+
+---
+
+### 4. **TODO Progress Tracker** 📋
+
+**Event**: `SessionStart` (runs when development session starts)
+**Matcher**: `*` (all tools)
+**Purpose**: Show TODO.md progress and suggest next tasks
+
+**What it does**:
+- Counts completed and pending tasks in TODO.md
+- Calculates completion percentage
+- Shows next 3 pending tasks with line numbers
+- Helps you pick what to work on next
+
+**Example output**:
+```
+🚀 LLM Answer Watcher Development Session
+📋 Project hooks active: ruff linting, git reminders, TODO tracking
+🌿 Git branch: main
+📄 SPECS.md found
+🤖 3 subagent(s) available
+
+📋 TODO.md Status:
+   ✅ Completed: 45/150 tasks (30%)
+   ⏳ Pending: 105 tasks
+
+💡 Next pending tasks:
+   Line 65: Create module directory structure
+   Line 72: Create pyproject.toml
+   Line 85: Create VERSION file
+
+💡 Tip: Read TODO.md to pick your next task
+```
+
+---
+
+### 5. **Subagent Completion Reminder** ✅
+
+**Event**: `SubagentStop` (runs when subagent finishes work)
+**Matcher**: `*` (all tools)
+**Purpose**: Remind to update TODO.md after subagent completes tasks
+
+**What it does**:
+- Triggers after Developer, Tester, or Reviewer agents finish
+- Reminds you to mark completed tasks
+- Shows current progress percentage
+- Encourages committing TODO.md updates
+
+**Example output**:
+```
+📋 Subagent work complete!
+💡 Remember to update TODO.md:
+   - Mark completed tasks with [x]
+   - Update progress in milestone checklists
+   - Commit TODO.md with your changes
+
+📊 Current progress: 48/150 tasks (32%)
+```
+
+**Why this matters**:
+- Keeps TODO.md synchronized with actual work
+- Maintains accurate progress tracking
+- Creates clear development history
+- Helps you stay organized
+
+---
+
 ## Hook Configuration
 
 Hooks are defined in `.claude/hooks.json` and apply to this project only.

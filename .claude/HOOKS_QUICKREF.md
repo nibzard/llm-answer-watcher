@@ -7,7 +7,8 @@
 | 🛡️ **Protected Files** | `PreToolUse` on Edit/Write | Warns before modifying SPECS.md or agent files |
 | 🔍 **Ruff Linting** | `PostToolUse` on Edit/Write | Auto-lints Python files after editing |
 | 📝 **Git Reminder** | `Stop` after any tool | Shows uncommitted changes + commit format |
-| 🚀 **Session Welcome** | `SessionStart` | Displays project info on session start |
+| 📋 **TODO Tracker** | `SessionStart` | Shows TODO.md progress + next tasks |
+| ✅ **Subagent Reminder** | `SubagentStop` | Reminds to update TODO.md after work |
 
 ## Conventional Commit Types
 

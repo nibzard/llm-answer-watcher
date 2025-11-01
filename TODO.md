@@ -94,7 +94,8 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
   - Initial schema version: `1`
   - [x 2025-11-02] Completed in commit 59b8304
 
-- [ ] **Verify LICENSE exists** (MIT, already created)
+- [x] **Verify LICENSE exists** (MIT, already created)
+  - [x 2025-11-02] Completed - LICENSE file confirmed present in project root
 
 - [ ] **Create requirements.txt** (fallback for pip users)
   - Generate from pyproject.toml

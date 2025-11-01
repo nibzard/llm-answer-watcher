@@ -1,0 +1,36 @@
+run_settings:
+  output_dir: "./output"
+  sqlite_db_path: "./output/watcher.db"
+
+  models:
+    - provider: "openai"
+      model_name: "gpt-4o-mini"
+      env_api_key: "OPENAI_API_KEY"
+
+    - provider: "anthropic"
+      model_name: "claude-3-5-haiku-20241022"
+      env_api_key: "ANTHROPIC_API_KEY"
+
+  use_llm_rank_extraction: false
+
+brands:
+  mine:
+    - "Warmly"
+    - "Warmly.io"
+
+  competitors:
+    - "Instantly"
+    - "Lemwarm"
+    - "HubSpot"
+    - "Apollo.io"
+    - "Woodpecker"
+
+intents:
+  - id: "best-email-warmup-tools"
+    prompt: "What are the best email warmup tools?"
+
+  - id: "email-warmup-comparison"
+    prompt: "Compare the top email warmup tools for improving deliverability"
+
+  - id: "sales-engagement-platforms"
+    prompt: "What are the best sales engagement platforms?"

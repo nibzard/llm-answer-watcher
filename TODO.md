@@ -214,7 +214,8 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 #### 1.5.1 Schema Definition
 
-- [ ] **Implement `init_db_if_needed(db_path: str) -> None`**
+- [x] **Implement `init_db_if_needed(db_path: str) -> None`**
+  - [x 2025-11-02] Completed in commit 2a474ea with database initialization and schema v1
   - [ ] Connect to SQLite database
   - [ ] Create `schema_version` table if not exists
   - [ ] Create `runs` table if not exists

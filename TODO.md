@@ -151,19 +151,20 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 #### 1.2.2 config/loader.py
 
-- [ ] **Implement `load_config(config_path: str) -> RuntimeConfig`**
-  - [ ] Load YAML file from path
-  - [ ] Handle FileNotFoundError with clear message
-  - [ ] Parse YAML into dict
-  - [ ] Validate with WatcherConfig Pydantic model
-  - [ ] Catch ValidationError and provide helpful error messages
-  - [ ] For each ModelConfig, resolve environment variable
-  - [ ] Check if env var exists with `os.environ.get()`
-  - [ ] Raise ValueError if API key env var missing
-  - [ ] Build list of RuntimeModel instances with resolved keys
-  - [ ] Construct and return RuntimeConfig
-  - [ ] Add comprehensive docstring with Args, Returns, Raises
-  - [ ] **Security:** Never log API keys
+- [x] **Implement `load_config(config_path: str) -> RuntimeConfig`**
+  - [x] Load YAML file from path
+  - [x] Handle FileNotFoundError with clear message
+  - [x] Parse YAML into dict
+  - [x] Validate with WatcherConfig Pydantic model
+  - [x] Catch ValidationError and provide helpful error messages
+  - [x] For each ModelConfig, resolve environment variable
+  - [x] Check if env var exists with `os.environ.get()`
+  - [x] Raise ValueError if API key env var missing
+  - [x] Build list of RuntimeModel instances with resolved keys
+  - [x] Construct and return RuntimeConfig
+  - [x] Add comprehensive docstring with Args, Returns, Raises
+  - [x] **Security:** Never log API keys
+  - [x 2025-11-02] Completed in commit 0a0e44f with load_config() and resolve_api_keys() implementation
 
 ### 1.3 Utils Module - Time (utils/time.py)
 

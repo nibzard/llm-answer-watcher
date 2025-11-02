@@ -100,14 +100,11 @@ class SecretRedactingFilter(logging.Filter):
     SECRET_PATTERNS = [
         # OpenAI project keys: sk-proj-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
         (re.compile(r"\bsk-proj-[a-zA-Z0-9_-]{48}\b"), "sk-proj-...{last4}"),
-
         # OpenAI standard keys: sk-XXXXXXXXXXXXXXXXXXXXXXXX (51 chars for new keys) or sk-XXXXXXXXXXXXXXXXXXXX (20 chars for legacy)
         (re.compile(r"\bsk-[a-zA-Z0-9_-]{20}\b"), "sk-...{last4}"),
         (re.compile(r"\bsk-[a-zA-Z0-9_-]{51}\b"), "sk-...{last4}"),
-
         # Anthropic Claude API keys: sk-ant-api03-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
         (re.compile(r"\bsk-ant-api03-[a-zA-Z0-9_-]{64,}\b"), "sk-ant-api03-...{last4}"),
-
         # Generic bearer tokens (more conservative - require actual "Bearer " prefix)
         # Match the whole thing but be more specific about the format
         (re.compile(r"Bearer\s+[a-zA-Z0-9_-]{20,}"), "Bearer ***{last4}"),

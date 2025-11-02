@@ -2270,7 +2270,498 @@ We consider OSS v1 ready to publish when all conditions below are met:
 
 ---
 
-## 14. Future enhancements (post-v1)
+## 14. Evaluation Framework (Evals)
+
+### 14.1 Why Evals Matter for Us
+
+Unlike generic chatbot evals, our evaluation strategy focuses on **pipeline correctness** rather than LLM quality.
+
+**Our product's promise:**
+> "We tell you how LLMs describe your market, who they recommend, and whether you show up."
+
+**What we're actually evaluating:**
+- ✅ **Our extraction accuracy** (Did we correctly detect mentions?)
+- ✅ **Our ranking inference** (Did we correctly parse the rank order?)
+- ✅ **Our false positive rate** (Are we hallucinating competitors that aren't there?)
+- ❌ NOT evaluating the LLM's quality or truthfulness
+
+**Why this matters:**
+- If our extraction is wrong, we literally send false alarms or miss critical changes
+- False positives cause panic ("Competitor X just appeared!" when they didn't)
+- Missed mentions cause blindness ("You're still #1!" when we actually disappeared)
+- Data is our moat — if the data is corrupted, the product collapses
+
+### 14.2 Evals Architecture
+
+**New module: `evals/`**
+
+```
+llm_answer_watcher/
+    evals/
+        __init__.py
+        schema.py        # EvalTestCase, EvalResult, EvalMetricScore
+        runner.py        # run_eval_suite() to execute all eval cases
+        metrics.py       # mention precision/recall, rank accuracy
+        deepeval_bridge.py  # (optional/future) LLM-as-a-judge wrappers
+```
+
+**When evals run:**
+- ✅ In CI/CD on every PR (pytest integration)
+- ✅ Locally by contributors (`llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml`)
+- ✅ Periodically in Cloud to detect regressions
+- ❌ NOT on every user CLI run (this is QA for maintainers, not production)
+
+### 14.3 What We're Evaluating
+
+#### 14.3.1 Mention Extraction Accuracy
+
+**Precision** = TP / (TP + FP)
+- How many of the brands we said "appeared" truly appeared?
+- Target: ≥ 0.9 (90% precision)
+
+**Recall** = TP / (TP + FN)
+- How many of the brands that truly appeared did we successfully catch?
+- Target: ≥ 0.8 (80% recall)
+
+**Example:**
+- Ground truth competitor mentions: ["Instantly", "Lemwarm"]
+- Extractor output: ["Instantly", "HubSpot"]
+- TP = 1 (Instantly)
+- FP = 1 (HubSpot - false positive)
+- FN = 1 (Lemwarm - missed)
+- Precision = 1/(1+1) = 0.5 ❌ FAIL
+- Recall = 1/(1+1) = 0.5 ❌ FAIL
+
+#### 14.3.2 Ownership Classification Accuracy
+
+**Critical guardrail:**
+- We must NEVER classify a competitor as `is_mine = 1`
+- This is a binary pass/fail check
+- If violated, halt the build — this is a critical failure
+
+#### 14.3.3 Rank Extraction Accuracy
+
+**Top-1 accuracy:**
+- Did we get the #1 ranked tool correct?
+- Most alerts hinge on the #1 slot ("you got replaced today")
+- Target: ≥ 0.85 (85% accuracy)
+
+**Rank confidence calibration:**
+- If we say confidence = 0.95, we should be right 95% of the time
+- Track predicted confidence vs. actual accuracy
+- Calibration plot over time
+
+#### 14.3.4 Hallucination Detection
+
+**False positive brands:**
+- Did we claim a competitor was mentioned when it wasn't in the text?
+- This is EXTREMELY bad (causes panic for customers)
+- Measured by precision metric above
+- In future Cloud: use LLM-as-a-judge to double-check borderline cases
+
+### 14.4 Eval Test Case Format
+
+**Schema (evals/schema.py):**
+
+```python
+from pydantic import BaseModel
+
+class EvalTestCase(BaseModel):
+    description: str
+    intent_id: str
+    llm_answer_text: str  # simulated or recorded answer
+    brands_mine: list[str]
+    brands_competitors: list[str]
+
+    # Ground truth labels:
+    expected_my_mentions: list[str]
+    expected_competitor_mentions: list[str]
+    expected_ranked_list: list[str]
+
+class EvalMetricScore(BaseModel):
+    name: str
+    value: float
+    passed: bool
+    details: dict | None = None
+
+class EvalResult(BaseModel):
+    test_description: str
+    metrics: list[EvalMetricScore]
+    overall_passed: bool
+```
+
+**Test case sources:**
+- Hand-curated fixtures (ship in repo under `evals/testcases/fixtures.yaml`)
+- Real historical answers (redacted/anonymized)
+- Synthetic answers we generate ourselves
+- Edge cases discovered during testing
+
+### 14.5 Scoring Metrics
+
+**Deterministic metrics (OSS v1):**
+
+1. **Mention Precision/Recall**
+   - For "my mentions" and "competitor mentions"
+   - Computed via set comparison (TP, FP, FN)
+   - Thresholds: precision ≥ 0.9, recall ≥ 0.8
+
+2. **Rank Top-1 Accuracy**
+   - Did we get the #1 slot correct?
+   - Binary: match or no match
+   - Threshold: ≥ 0.85 (85% of test cases)
+
+3. **No False is_mine**
+   - Assert no competitor has `is_mine = 1`
+   - Binary: pass or CRITICAL FAIL
+   - Threshold: 100% (zero tolerance)
+
+**LLM-as-a-Judge metrics (future Cloud):**
+
+1. **Hallucination/Faithfulness**
+   - Ask judge LLM: "Given this answer text, is 'Apollo.io' actually referenced? yes/no."
+   - Uses DeepEval's `HallucinationMetric` or `FaithfulnessMetric`
+   - Helps catch subtle false positives (e.g., "hub" matching in "GitHub")
+
+2. **Ranking Justification Quality**
+   - Ask judge LLM: "Is this tool presented as the top recommendation?"
+   - Validates our rank extraction didn't just misread bullet formatting
+
+### 14.6 Eval Runner Pipeline
+
+**Pseudocode (evals/runner.py):**
+
+```python
+def run_eval_suite(test_cases: list[EvalTestCase]) -> list[EvalResult]:
+    """
+    For each test case:
+    1. Run extractor.parser.extract_answer() on test_case.llm_answer_text
+       using test_case.brands_mine / brands_competitors
+    2. Compare ExtractionResult to expected ground truth
+    3. Compute metrics (precision, recall, rank accuracy, etc.)
+    4. Return EvalResult objects with scores + pass/fail flags
+    """
+    results = []
+
+    for test_case in test_cases:
+        # Run extraction
+        extraction = parse_answer(
+            answer_text=test_case.llm_answer_text,
+            brands=Brands(
+                mine=test_case.brands_mine,
+                competitors=test_case.brands_competitors
+            ),
+            intent_id=test_case.intent_id,
+            provider="eval",
+            model_name="test",
+            timestamp_utc=utc_timestamp()
+        )
+
+        # Compute metrics
+        metrics = []
+
+        # Mention precision/recall
+        precision, recall = compute_mention_metrics(
+            extraction.my_mentions,
+            extraction.competitor_mentions,
+            test_case.expected_my_mentions,
+            test_case.expected_competitor_mentions
+        )
+        metrics.append(EvalMetricScore(
+            name="mention_precision",
+            value=precision,
+            passed=precision >= 0.9
+        ))
+        metrics.append(EvalMetricScore(
+            name="mention_recall",
+            value=recall,
+            passed=recall >= 0.8
+        ))
+
+        # Rank accuracy
+        rank_correct = (
+            extraction.ranked_list[0] == test_case.expected_ranked_list[0]
+            if extraction.ranked_list and test_case.expected_ranked_list
+            else False
+        )
+        metrics.append(EvalMetricScore(
+            name="rank_top1_accuracy",
+            value=1.0 if rank_correct else 0.0,
+            passed=rank_correct
+        ))
+
+        # No false is_mine
+        false_is_mine = any(
+            m.normalized_name in [
+                normalize_brand_name(b)
+                for b in test_case.brands_competitors
+            ]
+            for m in extraction.my_mentions
+        )
+        metrics.append(EvalMetricScore(
+            name="no_false_is_mine",
+            value=0.0 if false_is_mine else 1.0,
+            passed=not false_is_mine
+        ))
+
+        # Overall pass/fail
+        overall_passed = all(m.passed for m in metrics)
+
+        results.append(EvalResult(
+            test_description=test_case.description,
+            metrics=metrics,
+            overall_passed=overall_passed
+        ))
+
+    return results
+```
+
+**pytest integration:**
+
+```python
+# tests/test_evals.py
+
+import pytest
+from llm_answer_watcher.evals.runner import run_eval_suite
+from llm_answer_watcher.evals.schema import EvalTestCase
+
+def load_fixtures():
+    """Load eval test cases from fixtures.yaml."""
+    # Implementation here
+    pass
+
+def test_eval_suite_passes():
+    """Run full eval suite and ensure all metrics pass."""
+    test_cases = load_fixtures()
+    results = run_eval_suite(test_cases)
+
+    # Aggregate scores
+    all_passed = all(r.overall_passed for r in results)
+
+    # Fail the build if any eval fails
+    assert all_passed, f"Eval suite failed: {[r for r in results if not r.overall_passed]}"
+```
+
+### 14.7 Eval Results Storage
+
+**Separate database: `eval_results.db`**
+
+Location: `./output/evals/eval_results.db`
+
+**Why separate?**
+- Don't pollute production `watcher.db` with test data
+- Track eval regression over time
+- Easy to delete/reset without affecting production data
+
+**Schema:**
+
+```sql
+-- Track eval runs
+CREATE TABLE IF NOT EXISTS eval_runs (
+    eval_run_id TEXT PRIMARY KEY,
+    timestamp_utc TEXT NOT NULL,
+    total_test_cases INTEGER NOT NULL,
+    passed INTEGER NOT NULL,
+    failed INTEGER NOT NULL,
+    pass_rate REAL NOT NULL  -- 0.0 to 1.0
+);
+
+-- Store detailed eval results
+CREATE TABLE IF NOT EXISTS eval_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    eval_run_id TEXT NOT NULL,
+    test_description TEXT NOT NULL,
+    metric_name TEXT NOT NULL,
+    metric_value REAL NOT NULL,
+    passed INTEGER NOT NULL,  -- 1 or 0
+    details_json TEXT,
+    FOREIGN KEY (eval_run_id) REFERENCES eval_runs(eval_run_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_results_run ON eval_results(eval_run_id);
+CREATE INDEX IF NOT EXISTS idx_eval_results_metric ON eval_results(metric_name);
+```
+
+**Usage:**
+- Track regression: "Has our mention precision dropped this week?"
+- Detect drift: "Are we getting less accurate at rank extraction?"
+- Prove correctness: "We maintained ≥90% precision for 6 months straight"
+
+### 14.8 Integration with CI/CD
+
+**GitHub Actions workflow (.github/workflows/evals.yml):**
+
+```yaml
+name: Evals
+
+on: [push, pull_request]
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run eval suite
+        run: |
+          uv run llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml
+
+      - name: Run pytest evals
+        run: |
+          uv run pytest tests/test_evals.py -v
+
+      - name: Fail build if evals fail
+        run: |
+          # Exit code 0 = pass, non-zero = fail
+          # pytest will handle this automatically
+```
+
+**Key principle:**
+- Treat extraction quality like a unit test with thresholds
+- If precision drops below 0.9, fail the build
+- Don't merge PRs that regress eval metrics
+
+### 14.9 OSS vs Cloud Split
+
+**OSS (v1 and beyond):**
+- Ships basic deterministic evals in `evals/` module
+- Ships fixtures + pytest hook (`llm-answer-watcher eval`)
+- Stores eval history in local `eval_results.db`
+- Catches regressions before merging PRs
+- Open-source users can add their own test cases
+
+**Cloud (future):**
+- Periodically re-runs evals with LLM-as-a-judge scoring
+  - Uses affordable judge models (e.g., GPT-4o-mini) to manage cost
+  - DeepEval supports swapping judge models for cost control
+- Tracks eval scores + production traces per tenant
+  - Langfuse-style observability: human annotation queues, drift detection
+  - Attach evaluation scores to traces/sessions
+  - Catch failures, bias, toxicity in production
+- Uses evals to gate new features
+  - "Don't ship this extraction model — it dropped precision to 0.75"
+- Drives upsell opportunities
+  - "Explanation pack" feature with confidence scores
+  - "Alert confidence" (e.g., "We think you were replaced — 0.91 confidence")
+
+### 14.10 Industry Best Practices Alignment
+
+Our eval strategy follows current LLM evaluation best practices (2025):
+
+1. **Continuous evaluation** ✅
+   - Run evals on every code change, not just once
+   - Track drift over time in production
+
+2. **Dataset-based** ✅
+   - Curated test cases with ground truth labels
+   - Cover real-world scenarios and edge cases
+
+3. **Mixed scoring** ✅
+   - Automated metrics (precision, recall, accuracy)
+   - Human review (future: annotation queues in Cloud)
+   - LLM-as-a-judge (future: DeepEval integration)
+
+4. **Aligned to business outcomes** ✅
+   - Metrics directly measure "did we correctly detect who appeared?"
+   - Not generic "is it coherent?" scoring
+
+5. **Stored for drift tracking** ✅
+   - `eval_results.db` accumulates historical eval runs
+   - Similar to Langfuse: keep traces + scores over time
+
+**References:**
+- DeepEval: "pytest for LLMs" with 40+ SOTA metrics
+- Langfuse: Production observability with eval scores attached to traces
+- Industry consensus: Continuous, dataset-driven evals with thresholded pass/fail
+
+### 14.11 Future: LLM-as-a-Judge Integration
+
+**Optional in OSS, default in Cloud:**
+
+**DeepEval bridge (evals/deepeval_bridge.py):**
+
+```python
+from deepeval.metrics import HallucinationMetric, FaithfulnessMetric
+
+def eval_hallucination(answer_text: str, extracted_mentions: list[str]) -> float:
+    """
+    Use DeepEval's HallucinationMetric to verify extracted mentions
+    are actually present in the answer text.
+
+    Returns: Score 0.0-1.0 (higher = less hallucination)
+    """
+    metric = HallucinationMetric(minimum_score=0.7, model="gpt-4o-mini")
+
+    # Build test case for DeepEval
+    test_case = {
+        "context": answer_text,
+        "actual_output": ", ".join(extracted_mentions)
+    }
+
+    metric.measure(test_case)
+    return metric.score
+
+def eval_faithfulness(answer_text: str, ranked_list: list[str]) -> float:
+    """
+    Use DeepEval's FaithfulnessMetric to verify ranking is supported
+    by the answer text.
+
+    Returns: Score 0.0-1.0 (higher = more faithful)
+    """
+    metric = FaithfulnessMetric(threshold=0.7, model="gpt-4o-mini")
+
+    test_case = {
+        "context": answer_text,
+        "actual_output": f"Top tools: {', '.join(ranked_list)}"
+    }
+
+    metric.measure(test_case)
+    return metric.score
+```
+
+**When to use:**
+- ❌ Not in OSS v1 (adds dependency + cost)
+- ✅ In Cloud for high-stakes alerts
+- ✅ To validate borderline cases (confidence 0.5-0.7)
+- ✅ To calibrate our pattern-based extraction
+
+**Cost management:**
+- Use cheaper judge models (GPT-4o-mini, not GPT-4)
+- Batch eval requests
+- Cache judge results for identical inputs
+- DeepEval supports model swapping for cost control
+
+### 14.12 Summary: Why Evals Future-Proof the Product
+
+**For OSS:**
+- Catches extraction regressions before merge
+- Maintains data quality (our moat)
+- Contributors can add test cases for edge cases
+- Transparent quality metrics for users
+
+**For Cloud:**
+- Enables "confidence-scored alerts" feature
+- Supports human-in-the-loop annotation
+- Tracks production drift and anomalies
+- Justifies premium pricing with provable accuracy
+- Creates defensible competitive advantage
+
+**Core principle:**
+> If our extraction is wrong, the product has no value. Evals are not a nice-to-have — they're core product QA.
+
+---
+
+## 16. Future enhancements (post-v1)
 
 Ideas for future versions (not in scope for v1):
 
@@ -2287,7 +2778,7 @@ Ideas for future versions (not in scope for v1):
 
 ---
 
-## 15. TL;DR
+## 17. TL;DR
 
 - We are building an OSS **Python 3.12+/3.13 CLI** called `llm-answer-watcher`.
 - User supplies:

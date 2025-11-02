@@ -335,7 +335,9 @@ def run_all(config: RuntimeConfig) -> dict:
                                 rank_position = ranked.rank_position
                                 break
 
-                        with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
+                        with sqlite3.connect(
+                            config.run_settings.sqlite_db_path
+                        ) as conn:
                             insert_mention(
                                 conn=conn,
                                 run_id=run_id,

@@ -91,7 +91,7 @@ def _check_brands_appeared(
         return False
 
     try:
-        with open(parsed_path, encoding='utf-8') as f:
+        with open(parsed_path, encoding="utf-8") as f:
             parsed_data = json.load(f)
 
         # Check if my_brands_mentioned list is non-empty
@@ -101,6 +101,7 @@ def _check_brands_appeared(
     except (json.JSONDecodeError, OSError, KeyError):
         # If we can't read the file or it's malformed, assume no mentions
         return False
+
 
 # Exit codes
 EXIT_SUCCESS = 0  # All queries successful

@@ -37,6 +37,10 @@ from llm_answer_watcher.utils.time import utc_timestamp
 # System message to ensure unbiased, factual responses
 SYSTEM_MESSAGE = "You are an unbiased market analyst. Provide factual, balanced recommendations."
 
+# Suppress HTTPX request logging to prevent test interference
+httpx_logger = logging.getLogger("httpx")
+httpx_logger.setLevel(logging.WARNING)
+
 # OpenAI API endpoint
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 

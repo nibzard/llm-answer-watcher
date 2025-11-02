@@ -11,9 +11,9 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ## Progress Overview
 
-- [ ] Milestone 1: Project skeleton & config
-- [ ] Milestone 2: Provider client + runner core
-- [ ] Milestone 3: Report generation + CLI
+- [x] Milestone 1: Project skeleton & config (COMPLETE)
+- [x] Milestone 2: Provider client + runner core (COMPLETE - 220 tests, 97-100% coverage)
+- [ ] Milestone 3: Report generation + CLI (NEXT)
 - [ ] Milestone 4: Polish, docs, tests
 
 ---
@@ -741,15 +741,14 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
     }
     ```
   - [x 2025-11-02 commit 0268841] Completed with full orchestration pipeline, error handling, and database/file writing
-  - **BLOCKER:** Tests for runner.py pending due to import complexity - requires refactoring to decouple dependencies or advanced mocking
 
 ### 2.11 Testing - Milestone 2
 
 **Progress Update (2025-11-02):**
-- ✅ Completed 6 major test suites today (211 total tests)
-- ✅ All tests passing with 99-100% coverage on tested modules
+- ✅ Completed 7 major test suites today (220 total tests)
+- ✅ All tests passing with 97-100% coverage on tested modules
 - ✅ Fixed import issues in llm_runner/models.py and llm_runner/openai_client.py
-- ✅ Fixed critical bugs in parser.py and mention_detector.py discovered during testing
+- ✅ Fixed critical bugs in parser.py, mention_detector.py, and runner.py discovered during testing
 - ✅ All commits made via git-master subagent
 - 📊 Test breakdown:
   - llm_runner/models.py: 19 tests (100% coverage)
@@ -758,6 +757,7 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
   - extractor/mention_detector.py: 46 tests (100% coverage)
   - extractor/rank_extractor.py: 51 tests (99% coverage)
   - extractor/parser.py: 32 tests (100% coverage)
+  - llm_runner/runner.py: 9 tests (97% coverage)
 
 - [x] **Test llm_runner/models.py:**
   - [x] Test build_client() with "openai" provider
@@ -823,49 +823,63 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
     - parser.py: Fixed incorrect detect_mentions() call - was unpacking 4 values instead of 2-tuple
     - mention_detector.py: Fixed brand normalization logic - our_brands should use all aliases for one brand, competitors are separate brands
 
-- [ ] **Test storage/writer.py:**
-  - [ ] Test create_run_directory()
-  - [ ] Test write_json() with dict
-  - [ ] Test write_json() with list
-  - [ ] Test UTF-8 encoding
-  - [ ] Test write_raw_answer()
-  - [ ] Test write_parsed_answer()
-  - [ ] Test write_error()
-  - [ ] Use tmp_path fixture
+- [x] **Test storage/writer.py:**
+  - [x] Test create_run_directory()
+  - [x] Test write_json() with dict
+  - [x] Test write_json() with list
+  - [x] Test UTF-8 encoding
+  - [x] Test write_raw_answer()
+  - [x] Test write_parsed_answer()
+  - [x] Test write_error()
+  - [x] Use tmp_path fixture
+  - [x 2025-11-02] Completed with 27 comprehensive tests in tests/test_storage_writer.py - all passing, 100% coverage
 
-- [ ] **Test llm_runner/runner.py:**
-  - [ ] Mock LLM client responses
-  - [ ] Test run_all() end-to-end
-  - [ ] Test run_id generation
-  - [ ] Test directory creation
-  - [ ] Test database inserts
-  - [ ] Test JSON file creation
-  - [ ] Test cost accumulation
-  - [ ] Test error handling (API failure)
-  - [ ] Test partial success (some queries fail)
-  - [ ] Verify error JSON written on failure
-  - [ ] Use temp database and output directory
+- [x] **Test llm_runner/runner.py:**
+  - [x] Mock LLM client responses
+  - [x] Test run_all() end-to-end
+  - [x] Test run_id generation
+  - [x] Test directory creation
+  - [x] Test database inserts
+  - [x] Test JSON file creation
+  - [x] Test cost accumulation
+  - [x] Test error handling (API failure)
+  - [x] Test partial success (some queries fail)
+  - [x] Verify error JSON written on failure
+  - [x] Use temp database and output directory
+  - [x 2025-11-02] Completed with 9 comprehensive tests in tests/test_llm_runner_runner.py - all passing, 97% coverage
+  - **BUGS DISCOVERED AND FIXED:**
+    - runner.py: Fixed incorrect import (insert_answer → insert_answer_raw)
+    - runner.py: Fixed incorrect function call
+    - runner.py: Fixed estimate_cost() signature (usage_meta dict instead of individual tokens)
+    - runner.py: Removed unused imports
 
 ### 2.12 Milestone 2 Deliverable Checklist
 
-- [ ] LLM client interface defined
-- [ ] OpenAI client implemented with retry logic
-- [ ] Retry works correctly (429, 500+ status codes)
-- [ ] Cost estimation working
-- [ ] Mention detection with word boundaries
-- [ ] Fuzzy matching with rapidfuzz
-- [ ] Rank extraction with pattern matching
-- [ ] Parser orchestrates mention + rank extraction
-- [ ] Runner orchestrates full execution
-- [ ] JSON artifacts written correctly
-- [ ] SQLite inserts working
-- [ ] Costs calculated and tracked
-- [ ] Error handling robust (queries can fail gracefully)
-- [ ] Tests pass with 80%+ coverage
-- [ ] HTTP mocking working in tests
-- [ ] Developer agent implemented code
-- [ ] Tester agent wrote comprehensive tests
-- [ ] Reviewer agent validated implementation
+- [x] LLM client interface defined
+- [x] OpenAI client implemented with retry logic
+- [x] Retry works correctly (429, 500+ status codes)
+- [x] Cost estimation working
+- [x] Mention detection with word boundaries
+- [x] Fuzzy matching with rapidfuzz
+- [x] Rank extraction with pattern matching
+- [x] Parser orchestrates mention + rank extraction
+- [x] Runner orchestrates full execution
+- [x] JSON artifacts written correctly
+- [x] SQLite inserts working
+- [x] Costs calculated and tracked
+- [x] Error handling robust (queries can fail gracefully)
+- [x] Tests pass with 80%+ coverage (achieved 97-100% coverage)
+- [x] HTTP mocking working in tests
+- [x] Developer agent implemented code
+- [x] Tester agent wrote comprehensive tests
+- [x] Reviewer agent validated implementation
+
+**MILESTONE 2 STATUS: ✅ COMPLETE (100%)**
+- All implementation tasks completed
+- All test suites completed (220 tests total)
+- All bugs discovered during testing have been fixed
+- Coverage exceeds 80% target (97-100% on all modules)
+- Ready to proceed to Milestone 3
 
 ---
 

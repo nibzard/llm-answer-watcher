@@ -44,7 +44,7 @@ dev = [
 ]
 
 [project.scripts]
-llm-answer-watcher = "llm_answer_watcher.cli:main"
+llm-answer-watcher = "llm_answer_watcher.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/nikolabalic/llm-answer-watcher"

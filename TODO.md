@@ -1530,15 +1530,16 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
   - [x] Fail build if tests fail
   - [x] Badge for README (badge created, README update pending)
 
-- [ ] **Create .github/workflows/lint.yml:**
-  - [ ] Trigger on push and pull requests
-  - [ ] Steps:
-    - [ ] Checkout code
-    - [ ] Setup Python
-    - [ ] Install ruff
-    - [ ] Run `ruff check .`
-    - [ ] Run `ruff format --check .`
-  - [ ] Fail build if linting fails
+- [x] **Create .github/workflows/lint.yml:**
+  - [x] Trigger on push and pull requests
+  - [x] Steps:
+    - [x] Checkout code
+    - [x] Setup Python
+    - [x] Install ruff
+    - [x] Run `ruff check .`
+    - [x] Run `ruff format --check .`
+  - [x] Fail build if linting fails
+  - **✅ COMPLETED (commit d239644):** Created complete GitHub Actions workflow for linting with ruff, configured to trigger on push/PR, run on Python 3.12, and fail build on linting errors.
 
 ### 4.5 Example Output
 

@@ -218,25 +218,26 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 - [x] **Implement `init_db_if_needed(db_path: str) -> None`**
   - [x 2025-11-02] Completed in commit 2a474ea with database initialization and schema v1
-  - [ ] Connect to SQLite database
-  - [ ] Create `schema_version` table if not exists
-  - [ ] Create `runs` table if not exists
-  - [ ] Create `answers_raw` table if not exists
-  - [ ] Create `mentions` table if not exists
-  - [ ] Create indexes on common query columns
-  - [ ] Check current schema version
-  - [ ] Run migrations if needed (call storage.migrations)
-  - [ ] Close connection properly
+  - [x] Connect to SQLite database
+  - [x] Create `schema_version` table if not exists
+  - [x] Create `runs` table if not exists
+  - [x] Create `answers_raw` table if not exists
+  - [x] Create `mentions` table if not exists
+  - [x] Create indexes on common query columns
+  - [x] Check current schema version
+  - [x] Run migrations if needed (call storage.migrations)
+  - [x] Close connection properly
 
-- [ ] **Schema: `schema_version` table**
+- [x] **Schema: `schema_version` table**
   ```sql
   CREATE TABLE IF NOT EXISTS schema_version (
       version INTEGER PRIMARY KEY,
       applied_at TEXT NOT NULL
   );
   ```
+  - [x 2025-11-02 commit 2a474ea] Completed with version tracking
 
-- [ ] **Schema: `runs` table**
+- [x] **Schema: `runs` table**
   ```sql
   CREATE TABLE IF NOT EXISTS runs (
       run_id TEXT PRIMARY KEY,
@@ -246,8 +247,9 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
       total_cost_usd REAL DEFAULT 0.0
   );
   ```
+  - [x 2025-11-02 commit 2a474ea] Completed with cost tracking
 
-- [ ] **Schema: `answers_raw` table**
+- [x] **Schema: `answers_raw` table**
   ```sql
   CREATE TABLE IF NOT EXISTS answers_raw (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -265,8 +267,9 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
       UNIQUE(run_id, intent_id, model_provider, model_name)
   );
   ```
+  - [x 2025-11-02 commit 2a474ea] Completed with UNIQUE constraint and foreign key
 
-- [ ] **Schema: `mentions` table**
+- [x] **Schema: `mentions` table**
   ```sql
   CREATE TABLE IF NOT EXISTS mentions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -285,8 +288,9 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
       UNIQUE(run_id, intent_id, model_provider, model_name, normalized_name)
   );
   ```
+  - [x 2025-11-02 commit 2a474ea] Completed with UNIQUE constraint and foreign key
 
-- [ ] **Create indexes:**
+- [x] **Create indexes:**
   ```sql
   CREATE INDEX IF NOT EXISTS idx_mentions_timestamp ON mentions(timestamp_utc);
   CREATE INDEX IF NOT EXISTS idx_mentions_intent ON mentions(intent_id);
@@ -295,48 +299,55 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
   CREATE INDEX IF NOT EXISTS idx_mentions_rank ON mentions(rank_position);
   CREATE INDEX IF NOT EXISTS idx_answers_timestamp ON answers_raw(timestamp_utc);
   ```
+  - [x 2025-11-02 commit 2a474ea] Completed all indexes for query optimization
 
 #### 1.5.2 Database Operations
 
-- [ ] **Implement `insert_run(conn, run_id, timestamp_utc, total_intents, total_models)`**
-  - [ ] Use parameterized query (prevent SQL injection)
-  - [ ] Handle UNIQUE constraint (idempotent)
-  - [ ] Commit transaction
+- [x] **Implement `insert_run(conn, run_id, timestamp_utc, total_intents, total_models)`**
+  - [x] Use parameterized query (prevent SQL injection)
+  - [x] Handle UNIQUE constraint (idempotent)
+  - [x] Commit transaction
+  - [x 2025-11-02 commit 22fc014] Completed with parameterized queries and error handling
 
-- [ ] **Implement `insert_answer_raw(conn, ...)`**
-  - [ ] Insert into answers_raw table
-  - [ ] Use parameterized query
-  - [ ] Handle UNIQUE constraint
-  - [ ] Store usage_meta as JSON string
+- [x] **Implement `insert_answer_raw(conn, ...)`**
+  - [x] Insert into answers_raw table
+  - [x] Use parameterized query
+  - [x] Handle UNIQUE constraint
+  - [x] Store usage_meta as JSON string
+  - [x 2025-11-02 commit 22fc014] Completed with parameterized queries and JSON serialization
 
-- [ ] **Implement `insert_mention(conn, ...)`**
-  - [ ] Insert into mentions table
-  - [ ] Use parameterized query
-  - [ ] Handle UNIQUE constraint
-  - [ ] Store is_mine as 1 or 0
+- [x] **Implement `insert_mention(conn, ...)`**
+  - [x] Insert into mentions table
+  - [x] Use parameterized query
+  - [x] Handle UNIQUE constraint
+  - [x] Store is_mine as 1 or 0
+  - [x 2025-11-02 commit 22fc014] Completed with parameterized queries and boolean conversion
 
-- [ ] **Implement `update_run_cost(conn, run_id, total_cost)`**
-  - [ ] Update runs table with final cost
-  - [ ] Use parameterized query
+- [x] **Implement `update_run_cost(conn, run_id, total_cost)`**
+  - [x] Update runs table with final cost
+  - [x] Use parameterized query
+  - [x 2025-11-02 commit 22fc014] Completed with parameterized query
 
 ### 1.6 Storage Module - Migrations (storage/migrations.py)
 
-- [ ] **Create migration framework:**
-  - [ ] `CURRENT_SCHEMA_VERSION = 1` constant
+- [x] **Create migration framework:**
+  - [x] `CURRENT_SCHEMA_VERSION = 1` constant
 
-  - [ ] `get_current_version(conn) -> int`
+  - [x] `get_current_version(conn) -> int` (implemented as `get_schema_version()` in db.py)
     - Query schema_version table
     - Return max version or 0 if empty
 
-  - [ ] `apply_migrations(conn, from_version: int)`
+  - [x] `apply_migrations(conn, from_version: int)` (implemented in db.py)
     - Apply all migrations from from_version to CURRENT
     - Call migration functions in order
     - Insert version record after each migration
     - Commit transactions
 
-  - [ ] `migration_1(conn)`
+  - [x] `migration_1(conn)` (implemented as `_migrate_to_v1()` in db.py)
     - Initial schema (already created by init_db)
     - Record version 1 application
+
+  - [x 2025-11-02] Completed in db.py (lines 34, 109, 139, 218) - migrations framework integrated into db.py rather than separate migrations.py file
 
 ### 1.7 Testing - Milestone 1
 
@@ -352,14 +363,15 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
   - [ ] Use pytest fixtures for temp config files
   - [ ] Mock os.environ for API key resolution
 
-- [ ] **Test utils/time.py:**
-  - [ ] Test utc_now() returns UTC datetime
-  - [ ] Test utc_timestamp() format is correct
-  - [ ] Test run_id_from_timestamp() format
-  - [ ] Test parse_timestamp() with valid input
-  - [ ] Test parse_timestamp() raises on missing 'Z'
-  - [ ] Test parse_timestamp() raises on invalid format
-  - [ ] Use freezegun to mock time
+- [x] **Test utils/time.py:**
+  - [x] Test utc_now() returns UTC datetime
+  - [x] Test utc_timestamp() format is correct
+  - [x] Test run_id_from_timestamp() format
+  - [x] Test parse_timestamp() with valid input
+  - [x] Test parse_timestamp() raises on missing 'Z'
+  - [x] Test parse_timestamp() raises on invalid format
+  - [x] Use freezegun to mock time
+  - [x 2025-11-02 commit bcb3a9c] Completed with 100% coverage for utils/time.py
 
 - [ ] **Test storage/db.py:**
   - [ ] Test init_db_if_needed() creates tables

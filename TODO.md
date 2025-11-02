@@ -1994,13 +1994,13 @@ These tasks are NOT required for v1 but are documented for future reference:
 
 #### Eval Results Storage
 
-- [ ] **Create eval results database (storage/eval_db.py):**
-  - [ ] `init_eval_db_if_needed(db_path: str)`
+- [x] **Create eval results database (storage/eval_db.py):**
+  - [x] `init_eval_db_if_needed(db_path: str)`
     - Create `./output/evals/eval_results.db` if not exists
     - Create tables: `eval_runs`, `eval_results`
     - Create indexes on: `eval_run_id`, `metric_name`
 
-  - [ ] Schema: `eval_runs` table
+  - [x] Schema: `eval_runs` table
     ```sql
     CREATE TABLE IF NOT EXISTS eval_runs (
         eval_run_id TEXT PRIMARY KEY,
@@ -2012,7 +2012,7 @@ These tasks are NOT required for v1 but are documented for future reference:
     );
     ```
 
-  - [ ] Schema: `eval_results` table
+  - [x] Schema: `eval_results` table
     ```sql
     CREATE TABLE IF NOT EXISTS eval_results (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2029,18 +2029,18 @@ These tasks are NOT required for v1 but are documented for future reference:
     CREATE INDEX IF NOT EXISTS idx_eval_results_metric ON eval_results(metric_name);
     ```
 
-- [ ] **Implement insert operations:**
-  - [ ] `insert_eval_run(conn, run_id, timestamp, total, passed, failed, pass_rate)`
-  - [ ] `insert_eval_result(conn, run_id, test_description, metric_name, metric_value, passed, details)`
+- [x] **Implement insert operations:**
+  - [x] `insert_eval_run(conn, run_id, timestamp, total, passed, failed, pass_rate)`
+  - [x] `insert_eval_result(conn, run_id, test_description, metric_name, metric_value, passed, details)`
 
-- [ ] **Implement query helpers:**
-  - [ ] `get_recent_eval_runs(conn, limit=10) -> list[dict]`
-  - [ ] `get_metric_trend(conn, metric_name: str, days: int = 30) -> list[tuple]`
-  - [ ] `get_failing_tests(conn, run_id: str) -> list[dict]`
+- [x] **Implement query helpers:**
+  - [x] `get_recent_eval_runs(conn, limit=10) -> list[dict]`
+  - [x] `get_metric_trend(conn, metric_name: str, days: int = 30) -> list[tuple]`
+  - [x] `get_failing_tests(conn, run_id: str) -> list[dict]`
 
 #### CLI Integration (cli.py)
 
-- [ ] **Add `eval` command:**
+- [x] **Add `eval` command:**
   ```python
   @app.command()
   def eval(
@@ -2067,18 +2067,20 @@ These tasks are NOT required for v1 but are documented for future reference:
         1: Some evals failed (check output for details)
       """
   ```
+  ✅ **COMPLETED**: Complete eval command implementation with fixtures loading, dual output modes (text/JSON), proper error handling, and comprehensive help documentation.
 
-- [ ] **Implement eval command logic:**
-  - [ ] Load fixtures from YAML
-  - [ ] Generate eval_run_id (UTC timestamp)
-  - [ ] Run eval suite via `run_eval_suite()`
-  - [ ] Display results based on format:
+- [x] **Implement eval command logic:**
+  - [x] Load fixtures from YAML
+  - [x] Generate eval_run_id (UTC timestamp)
+  - [x] Run eval suite via `run_eval_suite()`
+  - [x] Display results based on format:
     - Text mode: Rich table with test descriptions, metrics, pass/fail
     - JSON mode: Structured JSON output
-  - [ ] If save_results=True:
+  - [x] If save_results=True:
     - Init eval_results.db
     - Write results to database
-  - [ ] Return exit code 0 if all passed, 1 if any failed
+  - [x] Return exit code 0 if all passed, 1 if any failed
+  ✅ **COMPLETED**: Full eval command implementation with proper exit codes (0/1/2), Rich text formatting, structured JSON output, and database integration.
 
 #### pytest Integration (tests/test_evals.py)
 

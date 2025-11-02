@@ -351,17 +351,18 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 1.7 Testing - Milestone 1
 
-- [ ] **Test config/loader.py:**
-  - [ ] Test loading valid config file
-  - [ ] Test FileNotFoundError for missing file
-  - [ ] Test ValidationError for invalid YAML structure
-  - [ ] Test ValidationError for duplicate intent IDs
-  - [ ] Test ValidationError for empty brand aliases
-  - [ ] Test ValueError for missing env var
-  - [ ] Test ValueError for empty API key in env
-  - [ ] Test all Pydantic validators fire correctly
-  - [ ] Use pytest fixtures for temp config files
-  - [ ] Mock os.environ for API key resolution
+- [x] **Test config/loader.py:**
+  - [x] Test loading valid config file
+  - [x] Test FileNotFoundError for missing file
+  - [x] Test ValidationError for invalid YAML structure
+  - [x] Test ValidationError for duplicate intent IDs
+  - [x] Test ValidationError for empty brand aliases
+  - [x] Test ValueError for missing env var
+  - [x] Test ValueError for empty API key in env
+  - [x] Test all Pydantic validators fire correctly
+  - [x] Use pytest fixtures for temp config files
+  - [x] Mock os.environ for API key resolution
+  - [x 2025-11-02 commit af58993] Completed with 97% coverage for config module (schema.py and loader.py)
 
 - [x] **Test utils/time.py:**
   - [x] Test utc_now() returns UTC datetime

@@ -35,10 +35,9 @@ Architecture:
 import logging
 from dataclasses import asdict, dataclass
 
-from ..config.schema import Brands, RuntimeConfig
+from ..config.schema import RuntimeConfig
 from ..extractor.parser import parse_answer
-from ..storage.db import insert_answer, insert_mention, insert_run
-from ..storage.layout import get_run_directory
+from ..storage.db import insert_answer_raw, insert_mention, insert_run
 from ..storage.writer import (
     create_run_directory,
     write_error,
@@ -141,7 +140,9 @@ def run_all(config: RuntimeConfig) -> dict:
     Example:
         >>> config = load_config("examples/watcher.config.yaml")
         >>> result = run_all(config)
-        >>> print(f"Completed {result['success_count']}/{result['total_queries']} queries")
+        >>> success = result['success_count']
+        >>> total = result['total_queries']
+        >>> print(f"Completed {success}/{total} queries")
         Completed 5/6 queries
         >>> print(f"Total cost: ${result['total_cost_usd']:.4f}")
         Total cost: $0.0123
@@ -210,8 +211,7 @@ def run_all(config: RuntimeConfig) -> dict:
                 cost_usd = estimate_cost(
                     provider=model_config.provider,
                     model=model_config.model_name,
-                    prompt_tokens=usage_meta.get("prompt_tokens", 0),
-                    completion_tokens=usage_meta.get("completion_tokens", 0),
+                    usage_meta=usage_meta,
                 )
 
                 # Create raw answer record
@@ -238,7 +238,7 @@ def run_all(config: RuntimeConfig) -> dict:
 
                 # Insert raw answer into database
                 try:
-                    insert_answer(
+                    insert_answer_raw(
                         db_path=config.run_settings.sqlite_db_path,
                         run_id=run_id,
                         intent_id=intent.id,
@@ -310,7 +310,8 @@ def run_all(config: RuntimeConfig) -> dict:
 
                 # Insert mentions into database
                 all_mentions = (
-                    extraction_result.my_mentions + extraction_result.competitor_mentions
+                    extraction_result.my_mentions
+                    + extraction_result.competitor_mentions
                 )
                 for mention in all_mentions:
                     try:
@@ -357,7 +358,8 @@ def run_all(config: RuntimeConfig) -> dict:
                 # Query failed - write error file and track
                 error_message = str(e)
                 logger.error(
-                    f"Failed query: intent={intent.id}, provider={model_config.provider}, "
+                    f"Failed query: intent={intent.id}, "
+                    f"provider={model_config.provider}, "
                     f"model={model_config.model_name}, error={error_message}",
                     exc_info=True,
                 )

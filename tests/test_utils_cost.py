@@ -11,8 +11,6 @@ Tests cover:
 
 import logging
 
-import pytest
-
 from llm_answer_watcher.utils.cost import PRICING, estimate_cost
 
 
@@ -405,7 +403,9 @@ class TestEstimateCostIntegration:
         usage = {"prompt_tokens": 1000, "completion_tokens": 500}
 
         cost_gpt4o_mini = estimate_cost("openai", "gpt-4o-mini", usage)
-        cost_claude_haiku = estimate_cost("anthropic", "claude-3-5-haiku-20241022", usage)
+        cost_claude_haiku = estimate_cost(
+            "anthropic", "claude-3-5-haiku-20241022", usage
+        )
         cost_mistral_small = estimate_cost("mistral", "mistral-small-latest", usage)
 
         # All should be positive

@@ -35,7 +35,9 @@ from llm_answer_watcher.utils.cost import estimate_cost
 from llm_answer_watcher.utils.time import utc_timestamp
 
 # System message to ensure unbiased, factual responses
-SYSTEM_MESSAGE = "You are an unbiased market analyst. Provide factual, balanced recommendations."
+SYSTEM_MESSAGE = (
+    "You are an unbiased market analyst. Provide factual, balanced recommendations."
+)
 
 # Suppress HTTPX request logging to prevent test interference
 httpx_logger = logging.getLogger("httpx")
@@ -227,7 +229,9 @@ class OpenAIClient:
 
         except httpx.ConnectError as e:
             # Connection failed (network issue)
-            logger.error(f"OpenAI API connection error: model={self.model_name}, error={e}")
+            logger.error(
+                f"OpenAI API connection error: model={self.model_name}, error={e}"
+            )
             raise
 
         except httpx.TimeoutException as e:
@@ -239,9 +243,7 @@ class OpenAIClient:
         try:
             data = response.json()
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to parse OpenAI response JSON: {e}"
-            ) from e
+            raise RuntimeError(f"Failed to parse OpenAI response JSON: {e}") from e
 
         # Extract answer text
         answer_text = self._extract_answer_text(data)
@@ -296,9 +298,7 @@ class OpenAIClient:
             return str(content)
 
         except (KeyError, IndexError, TypeError) as e:
-            raise RuntimeError(
-                f"Invalid OpenAI response structure: {e}"
-            ) from e
+            raise RuntimeError(f"Invalid OpenAI response structure: {e}") from e
 
     def _extract_token_usage(self, data: dict[str, Any]) -> int:
         """

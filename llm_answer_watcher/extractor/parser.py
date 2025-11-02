@@ -37,7 +37,11 @@ from dataclasses import dataclass
 
 from ..config.schema import Brands
 from .mention_detector import BrandMention, detect_mentions
-from .rank_extractor import RankedBrand, extract_ranked_list_pattern, extract_ranked_list_llm
+from .rank_extractor import (
+    RankedBrand,
+    extract_ranked_list_llm,
+    extract_ranked_list_pattern,
+)
 
 
 @dataclass

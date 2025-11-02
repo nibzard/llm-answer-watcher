@@ -23,8 +23,8 @@ import sys
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from llm_answer_watcher.llm_runner.openai_client import OpenAIClient
 from llm_answer_watcher.llm_runner.models import build_client
+from llm_answer_watcher.llm_runner.openai_client import OpenAIClient
 
 
 def main():
@@ -51,13 +51,13 @@ def main():
     try:
         response = client.generate_answer(prompt)
 
-        print(f"\n✓ Response received:")
+        print("\n✓ Response received:")
         print(f"  - Provider: {response.provider}")
         print(f"  - Model: {response.model_name}")
         print(f"  - Tokens used: {response.tokens_used}")
         print(f"  - Cost: ${response.cost_usd:.6f}")
         print(f"  - Timestamp: {response.timestamp_utc}")
-        print(f"\nAnswer (first 200 chars):")
+        print("\nAnswer (first 200 chars):")
         print(f"  {response.answer_text[:200]}...")
 
     except Exception as e:
@@ -79,10 +79,10 @@ def main():
     try:
         response2 = client2.generate_answer(prompt2)
 
-        print(f"\n✓ Response received:")
+        print("\n✓ Response received:")
         print(f"  - Tokens: {response2.tokens_used}")
         print(f"  - Cost: ${response2.cost_usd:.6f}")
-        print(f"\nAnswer (first 200 chars):")
+        print("\nAnswer (first 200 chars):")
         print(f"  {response2.answer_text[:200]}...")
 
     except Exception as e:

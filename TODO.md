@@ -1517,18 +1517,18 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 4.4 CI/CD Pipeline
 
-- [ ] **Create .github/workflows/test.yml:**
-  - [ ] Trigger on push and pull requests
-  - [ ] Test matrix: Python 3.12 and 3.13
-  - [ ] Steps:
-    - [ ] Checkout code
-    - [ ] Setup Python
-    - [ ] Install uv
-    - [ ] Run `uv sync`
-    - [ ] Run `pytest --cov`
-    - [ ] Upload coverage to Codecov (optional)
-  - [ ] Fail build if tests fail
-  - [ ] Badge for README
+- [x] **Create .github/workflows/test.yml:** ✅ (commit: ee5696d)
+  - [x] Trigger on push and pull requests
+  - [x] Test matrix: Python 3.12 and 3.13
+  - [x] Steps:
+    - [x] Checkout code
+    - [x] Setup Python
+    - [x] Install uv
+    - [x] Run `uv sync`
+    - [x] Run `pytest --cov`
+    - [x] Upload coverage to Codecov (optional)
+  - [x] Fail build if tests fail
+  - [x] Badge for README (badge created, README update pending)
 
 - [ ] **Create .github/workflows/lint.yml:**
   - [ ] Trigger on push and pull requests

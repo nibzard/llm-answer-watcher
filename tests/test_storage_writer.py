@@ -6,7 +6,6 @@ Tests file writing utilities for JSON/HTML output with proper error handling.
 
 import json
 import os
-from pathlib import Path
 
 import pytest
 from freezegun import freeze_time

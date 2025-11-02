@@ -109,7 +109,10 @@ class TestGenerateAnswerSuccess:
 
         # Verify response structure
         assert isinstance(response, LLMResponse)
-        assert response.answer_text == "Based on market research, the top CRM tools are Salesforce, HubSpot, and Zoho."
+        assert (
+            response.answer_text
+            == "Based on market research, the top CRM tools are Salesforce, HubSpot, and Zoho."
+        )
         assert response.tokens_used == 150
         assert response.cost_usd > 0  # Should have calculated cost
         assert response.provider == "openai"

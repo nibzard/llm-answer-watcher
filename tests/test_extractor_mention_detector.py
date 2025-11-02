@@ -288,9 +288,7 @@ class TestDetectMentionsCaseInsensitive:
     def test_detect_mentions_case_insensitive_matching(self):
         """Test that matching is case-insensitive."""
         text = "I use hubspot daily."
-        mentions = detect_mentions(
-            text, our_brands=[], competitor_brands=["HubSpot"]
-        )
+        mentions = detect_mentions(text, our_brands=[], competitor_brands=["HubSpot"])
 
         assert len(mentions) == 1
         # Should match despite different case
@@ -298,9 +296,7 @@ class TestDetectMentionsCaseInsensitive:
     def test_detect_mentions_preserves_original_case(self):
         """Test that original text case is preserved."""
         text = "I use HUBSPOT daily."
-        mentions = detect_mentions(
-            text, our_brands=[], competitor_brands=["HubSpot"]
-        )
+        mentions = detect_mentions(text, our_brands=[], competitor_brands=["HubSpot"])
 
         assert len(mentions) == 1
         assert mentions[0].original_text == "HUBSPOT"  # Preserves uppercase from text
@@ -350,7 +346,9 @@ class TestDetectMentionsEdgeCases:
 
     def test_detect_mentions_empty_text(self):
         """Test handling of empty answer text."""
-        mentions = detect_mentions("", our_brands=["Warmly"], competitor_brands=["HubSpot"])
+        mentions = detect_mentions(
+            "", our_brands=["Warmly"], competitor_brands=["HubSpot"]
+        )
         assert mentions == []
 
     def test_detect_mentions_whitespace_only_text(self):
@@ -402,9 +400,7 @@ class TestDetectMentionsEdgeCases:
     def test_detect_mentions_special_characters_in_brand(self):
         """Test brands with special characters (dots work, parentheses are tricky)."""
         text = "Try Warmly.io today."
-        mentions = detect_mentions(
-            text, our_brands=["Warmly.io"], competitor_brands=[]
-        )
+        mentions = detect_mentions(text, our_brands=["Warmly.io"], competitor_brands=[])
 
         assert len(mentions) == 1
         assert mentions[0].normalized_name == "Warmly.io"
@@ -458,9 +454,7 @@ class TestDetectMentionsSecurity:
         """Test that special regex characters are properly escaped."""
         # Test that dots are escaped (treated literally, not as wildcard)
         text = "Use Brand.io today."
-        mentions = detect_mentions(
-            text, our_brands=[], competitor_brands=["Brand.io"]
-        )
+        mentions = detect_mentions(text, our_brands=[], competitor_brands=["Brand.io"])
 
         assert len(mentions) == 1
         # Should match literally, not as regex pattern
@@ -470,7 +464,9 @@ class TestDetectMentionsSecurity:
         # Attempt regex injection via brand name
         text = "Use normal-brand here."
         mentions = detect_mentions(
-            text, our_brands=[], competitor_brands=[".*"]  # Regex wildcard
+            text,
+            our_brands=[],
+            competitor_brands=[".*"],  # Regex wildcard
         )
 
         # Should NOT match everything (would if not escaped)

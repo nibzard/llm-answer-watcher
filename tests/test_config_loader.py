@@ -11,7 +11,6 @@ This module tests configuration loading, validation, and API key resolution:
 Coverage target: 80%+ for both loader.py and schema.py
 """
 
-import os
 from pathlib import Path
 
 import pytest
@@ -28,7 +27,6 @@ from llm_answer_watcher.config.schema import (
     RuntimeModel,
     WatcherConfig,
 )
-
 
 # ============================================================================
 # Fixtures

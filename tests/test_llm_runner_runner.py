@@ -8,7 +8,6 @@ import json
 import os
 from unittest.mock import MagicMock, patch
 
-import pytest
 from freezegun import freeze_time
 
 from llm_answer_watcher.config.schema import (
@@ -19,8 +18,8 @@ from llm_answer_watcher.config.schema import (
     RuntimeConfig,
     RuntimeModel,
 )
-from llm_answer_watcher.extractor.parser import ExtractionResult
 from llm_answer_watcher.extractor.mention_detector import BrandMention
+from llm_answer_watcher.extractor.parser import ExtractionResult
 from llm_answer_watcher.extractor.rank_extractor import RankedBrand
 from llm_answer_watcher.llm_runner.runner import RawAnswerRecord, run_all
 
@@ -91,7 +90,11 @@ def create_test_config(
     if intents is None:
         intents = [Intent(id="test", prompt="Test prompt")]
     if models is None:
-        models = [RuntimeModel(provider="openai", model_name="gpt-4o-mini", api_key="test-key")]
+        models = [
+            RuntimeModel(
+                provider="openai", model_name="gpt-4o-mini", api_key="test-key"
+            )
+        ]
 
     # Build full brand list
     all_my_brands = [my_brand] + my_brand_aliases
@@ -104,8 +107,9 @@ def create_test_config(
                 ModelConfig(
                     provider=m.provider,
                     model_name=m.model_name,
-                    env_api_key="TEST_API_KEY"
-                ) for m in models
+                    env_api_key="TEST_API_KEY",
+                )
+                for m in models
             ],
             use_llm_rank_extraction=False,
         ),
@@ -174,7 +178,7 @@ class TestRunAll:
                     original_text="InstantFlow",
                     normalized_name="InstantFlow",
                     brand_category="mine",
-                    match_position=0
+                    match_position=0,
                 )
             ],
             competitor_mentions=[],
@@ -249,7 +253,9 @@ class TestRunAll:
                 Intent(id="intent2", prompt="Prompt 2"),
             ],
             models=[
-                RuntimeModel(provider="openai", model_name="gpt-4o-mini", api_key="key1"),
+                RuntimeModel(
+                    provider="openai", model_name="gpt-4o-mini", api_key="key1"
+                ),
                 RuntimeModel(provider="openai", model_name="gpt-4o", api_key="key2"),
             ],
             output_dir=str(tmp_path / "output"),
@@ -265,7 +271,15 @@ class TestRunAll:
         mock_build_client.return_value = mock_client
 
         # Mock parser - create function to return appropriate ExtractionResult
-        def create_extraction_result(answer_text, brands, intent_id, provider, model_name, timestamp_utc, **kwargs):
+        def create_extraction_result(
+            answer_text,
+            brands,
+            intent_id,
+            provider,
+            model_name,
+            timestamp_utc,
+            **kwargs,
+        ):
             return ExtractionResult(
                 intent_id=intent_id,
                 model_provider=provider,
@@ -278,6 +292,7 @@ class TestRunAll:
                 rank_extraction_method="pattern",
                 rank_confidence=0.0,
             )
+
         mock_parse_answer.side_effect = create_extraction_result
 
         # Run
@@ -348,7 +363,15 @@ class TestRunAll:
         mock_build_client.return_value = mock_client
 
         # Mock parser - create function to return appropriate ExtractionResult
-        def create_extraction_result(answer_text, brands, intent_id, provider, model_name, timestamp_utc, **kwargs):
+        def create_extraction_result(
+            answer_text,
+            brands,
+            intent_id,
+            provider,
+            model_name,
+            timestamp_utc,
+            **kwargs,
+        ):
             return ExtractionResult(
                 intent_id=intent_id,
                 model_provider=provider,
@@ -361,6 +384,7 @@ class TestRunAll:
                 rank_extraction_method="pattern",
                 rank_confidence=0.0,
             )
+
         mock_parse_answer.side_effect = create_extraction_result
 
         # Run
@@ -435,7 +459,15 @@ class TestRunAll:
         mock_build_client.return_value = mock_client
 
         # Mock parser - create function to return appropriate ExtractionResult
-        def create_extraction_result(answer_text, brands, intent_id, provider, model_name, timestamp_utc, **kwargs):
+        def create_extraction_result(
+            answer_text,
+            brands,
+            intent_id,
+            provider,
+            model_name,
+            timestamp_utc,
+            **kwargs,
+        ):
             return ExtractionResult(
                 intent_id=intent_id,
                 model_provider=provider,
@@ -448,6 +480,7 @@ class TestRunAll:
                 rank_extraction_method="pattern",
                 rank_confidence=0.0,
             )
+
         mock_parse_answer.side_effect = create_extraction_result
 
         # Run
@@ -500,7 +533,15 @@ class TestRunAll:
         mock_build_client.return_value = mock_client
 
         # Mock parser - create function to return appropriate ExtractionResult
-        def create_extraction_result(answer_text, brands, intent_id, provider, model_name, timestamp_utc, **kwargs):
+        def create_extraction_result(
+            answer_text,
+            brands,
+            intent_id,
+            provider,
+            model_name,
+            timestamp_utc,
+            **kwargs,
+        ):
             return ExtractionResult(
                 intent_id=intent_id,
                 model_provider=provider,
@@ -513,6 +554,7 @@ class TestRunAll:
                 rank_extraction_method="pattern",
                 rank_confidence=0.0,
             )
+
         mock_parse_answer.side_effect = create_extraction_result
 
         # Mock database operations to fail
@@ -582,7 +624,7 @@ class TestRunAll:
                     original_text="InstantFlow",
                     normalized_name="InstantFlow",
                     brand_category="mine",
-                    match_position=0
+                    match_position=0,
                 )
             ],
             competitor_mentions=[
@@ -590,7 +632,7 @@ class TestRunAll:
                     original_text="Competitor1",
                     normalized_name="Competitor1",
                     brand_category="competitor",
-                    match_position=18
+                    match_position=18,
                 )
             ],
             ranked_list=[
@@ -658,7 +700,15 @@ class TestRunAll:
         mock_build_client.return_value = mock_client
 
         # Mock parser - create function to return appropriate ExtractionResult
-        def create_extraction_result(answer_text, brands, intent_id, provider, model_name, timestamp_utc, **kwargs):
+        def create_extraction_result(
+            answer_text,
+            brands,
+            intent_id,
+            provider,
+            model_name,
+            timestamp_utc,
+            **kwargs,
+        ):
             return ExtractionResult(
                 intent_id=intent_id,
                 model_provider=provider,
@@ -671,6 +721,7 @@ class TestRunAll:
                 rank_extraction_method="pattern",
                 rank_confidence=0.0,
             )
+
         mock_parse_answer.side_effect = create_extraction_result
 
         # Run

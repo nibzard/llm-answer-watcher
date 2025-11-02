@@ -21,13 +21,12 @@ Test coverage targets:
 import pytest
 
 from llm_answer_watcher.config.schema import Brands
+from llm_answer_watcher.extractor.mention_detector import BrandMention
 from llm_answer_watcher.extractor.parser import (
     ExtractionResult,
     parse_answer,
 )
-from llm_answer_watcher.extractor.mention_detector import BrandMention
 from llm_answer_watcher.extractor.rank_extractor import RankedBrand
-
 
 # ============================================================================
 # Fixtures
@@ -305,7 +304,9 @@ def test_parse_answer_numbered_list_with_mine(numbered_list_answer, brands_confi
     assert result.rank_confidence == 1.0  # Numbered list has highest confidence
 
 
-def test_parse_answer_numbered_list_no_mine(numbered_list_answer_no_mine, brands_config):
+def test_parse_answer_numbered_list_no_mine(
+    numbered_list_answer_no_mine, brands_config
+):
     """Test parse_answer with numbered list where our brand does NOT appear."""
     result = parse_answer(
         answer_text=numbered_list_answer_no_mine,

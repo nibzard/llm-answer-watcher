@@ -24,14 +24,13 @@ import pytest
 
 from llm_answer_watcher.extractor.rank_extractor import (
     RankedBrand,
-    extract_ranked_list_pattern,
-    _extract_numbered_list,
     _extract_bullet_list,
-    _extract_headers,
     _extract_from_mention_order,
+    _extract_headers,
+    _extract_numbered_list,
     _match_brand,
+    extract_ranked_list_pattern,
 )
-
 
 # ============================================================================
 # Fixtures
@@ -678,7 +677,9 @@ def test_match_brand_returns_best_fuzzy_match():
 # ============================================================================
 
 
-def test_extract_ranked_list_pattern_numbered_priority(numbered_list_text, known_brands):
+def test_extract_ranked_list_pattern_numbered_priority(
+    numbered_list_text, known_brands
+):
     """Test main function prioritizes numbered lists (highest confidence)."""
     ranked, confidence = extract_ranked_list_pattern(numbered_list_text, known_brands)
 
@@ -696,16 +697,22 @@ def test_extract_ranked_list_pattern_bullet_priority(bullet_list_text, known_bra
     assert ranked[0].brand_name == "Warmly"
 
 
-def test_extract_ranked_list_pattern_header_priority(markdown_headers_text, known_brands):
+def test_extract_ranked_list_pattern_header_priority(
+    markdown_headers_text, known_brands
+):
     """Test main function falls back to headers when no numbered/bullet list."""
-    ranked, confidence = extract_ranked_list_pattern(markdown_headers_text, known_brands)
+    ranked, confidence = extract_ranked_list_pattern(
+        markdown_headers_text, known_brands
+    )
 
     assert len(ranked) == 3
     assert confidence == 0.8
     assert ranked[0].brand_name == "Warmly"
 
 
-def test_extract_ranked_list_pattern_mention_order_fallback(conversational_text, known_brands):
+def test_extract_ranked_list_pattern_mention_order_fallback(
+    conversational_text, known_brands
+):
     """Test main function falls back to mention order when no structure."""
     ranked, confidence = extract_ranked_list_pattern(conversational_text, known_brands)
 

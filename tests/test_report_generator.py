@@ -18,27 +18,24 @@ Coverage target: 100% (critical module for user-facing output)
 """
 
 import json
-import os
 from pathlib import Path
 
 import pytest
-from freezegun import freeze_time
 
 from llm_answer_watcher.config.schema import (
     Brands,
     Intent,
     ModelConfig,
     RunSettings,
-    RuntimeModel,
     RuntimeConfig,
+    RuntimeModel,
 )
 from llm_answer_watcher.report.generator import (
-    generate_report,
-    write_report,
     _build_template_data,
     _load_model_result,
+    generate_report,
+    write_report,
 )
-
 
 # ============================================================================
 # Fixtures - Configuration
@@ -79,12 +76,20 @@ def run_settings(sample_model) -> RunSettings:
     return RunSettings(
         output_dir="./output",
         sqlite_db_path="./output/watcher.db",
-        models=[ModelConfig(provider="openai", model_name="gpt-4o-mini", env_api_key="OPENAI_API_KEY")],
+        models=[
+            ModelConfig(
+                provider="openai",
+                model_name="gpt-4o-mini",
+                env_api_key="OPENAI_API_KEY",
+            )
+        ],
     )
 
 
 @pytest.fixture
-def runtime_config(run_settings, brands_config, sample_intent, sample_model) -> RuntimeConfig:
+def runtime_config(
+    run_settings, brands_config, sample_intent, sample_model
+) -> RuntimeConfig:
     """Complete RuntimeConfig for testing."""
     return RuntimeConfig(
         run_settings=run_settings,
@@ -102,8 +107,14 @@ def multi_intent_config(brands_config) -> RuntimeConfig:
             output_dir="./output",
             sqlite_db_path="./output/watcher.db",
             models=[
-                ModelConfig(provider="openai", model_name="gpt-4o-mini", env_api_key="OPENAI_API_KEY"),
-                ModelConfig(provider="openai", model_name="gpt-4o", env_api_key="OPENAI_API_KEY"),
+                ModelConfig(
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    env_api_key="OPENAI_API_KEY",
+                ),
+                ModelConfig(
+                    provider="openai", model_name="gpt-4o", env_api_key="OPENAI_API_KEY"
+                ),
             ],
         ),
         brands=brands_config,
@@ -112,7 +123,9 @@ def multi_intent_config(brands_config) -> RuntimeConfig:
             Intent(id="crm-tools", prompt="Top CRM platforms?"),
         ],
         models=[
-            RuntimeModel(provider="openai", model_name="gpt-4o-mini", api_key="sk-test1"),
+            RuntimeModel(
+                provider="openai", model_name="gpt-4o-mini", api_key="sk-test1"
+            ),
             RuntimeModel(provider="openai", model_name="gpt-4o", api_key="sk-test2"),
         ],
     )
@@ -250,7 +263,9 @@ def sample_parsed_data_empty() -> dict:
 # ============================================================================
 
 
-def create_parsed_json_file(run_dir: Path, intent_id: str, provider: str, model: str, data: dict):
+def create_parsed_json_file(
+    run_dir: Path, intent_id: str, provider: str, model: str, data: dict
+):
     """Helper to create a parsed JSON file in run directory."""
     filename = f"intent_{intent_id}_parsed_{provider}_{model}.json"
     filepath = run_dir / filename
@@ -282,7 +297,9 @@ def assert_html_not_contains(html: str, search_str: str, msg: str = ""):
 class TestGenerateReportBasic:
     """Tests for basic generate_report() functionality."""
 
-    def test_generates_valid_html(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_generates_valid_html(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that generate_report returns valid HTML string."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -308,7 +325,9 @@ class TestGenerateReportBasic:
         assert "<body>" in html
         assert "</body>" in html
 
-    def test_contains_title(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_contains_title(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test HTML contains proper title with run_id."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -323,9 +342,13 @@ class TestGenerateReportBasic:
             sample_results,
         )
 
-        assert_html_contains(html, "<title>LLM Answer Watcher Report - 2025-11-02T08-00-00Z</title>")
+        assert_html_contains(
+            html, "<title>LLM Answer Watcher Report - 2025-11-02T08-00-00Z</title>"
+        )
 
-    def test_contains_run_id_in_header(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_contains_run_id_in_header(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test HTML header displays run ID."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -352,7 +375,9 @@ class TestGenerateReportBasic:
                 sample_results,
             )
 
-    def test_includes_inline_css(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_includes_inline_css(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that HTML includes inline CSS (self-contained)."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -376,7 +401,9 @@ class TestGenerateReportBasic:
         # Should NOT have external CSS links
         assert_html_not_contains(html, '<link rel="stylesheet"')
 
-    def test_responsive_meta_tag(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_responsive_meta_tag(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test HTML includes viewport meta tag for mobile."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -387,7 +414,7 @@ class TestGenerateReportBasic:
         html = generate_report(str(run_dir), "test-run", runtime_config, sample_results)
 
         assert_html_contains(html, 'name="viewport"')
-        assert_html_contains(html, 'width=device-width')
+        assert_html_contains(html, "width=device-width")
 
 
 # ============================================================================
@@ -398,7 +425,9 @@ class TestGenerateReportBasic:
 class TestHtmlSections:
     """Tests for HTML sections and structure."""
 
-    def test_contains_summary_section(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_contains_summary_section(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test HTML includes summary card with stats."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -415,7 +444,9 @@ class TestHtmlSections:
         assert_html_contains(html, "Models Used")
         assert_html_contains(html, "Success Rate")
 
-    def test_contains_models_used_section(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_contains_models_used_section(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test HTML includes models used section."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -428,7 +459,9 @@ class TestHtmlSections:
         assert_html_contains(html, "Models Queried")
         assert_html_contains(html, "openai/gpt-4o-mini")
 
-    def test_contains_intent_sections(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_contains_intent_sections(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test HTML includes sections for each intent."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -442,7 +475,9 @@ class TestHtmlSections:
         assert_html_contains(html, "email-warmup")
         assert_html_contains(html, "What are the best email warmup tools?")
 
-    def test_contains_footer(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_contains_footer(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test HTML includes footer with disclaimer."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -464,7 +499,9 @@ class TestHtmlSections:
 class TestCostFormatting:
     """Tests for cost formatting in HTML report."""
 
-    def test_total_cost_formatted(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_total_cost_formatted(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test total cost is formatted correctly in summary."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -478,7 +515,9 @@ class TestCostFormatting:
         # Should format as $0.0012 (4 decimals)
         assert_html_contains(html, "$0.0012")
 
-    def test_per_model_cost_formatted(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_per_model_cost_formatted(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test per-model cost is displayed correctly."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -514,7 +553,9 @@ class TestCostFormatting:
 
         assert_html_contains(html, "$0.0000")
 
-    def test_very_small_cost_formatting(self, tmp_path, runtime_config, sample_parsed_data):
+    def test_very_small_cost_formatting(
+        self, tmp_path, runtime_config, sample_parsed_data
+    ):
         """Test that very small costs use 6 decimal places."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -537,7 +578,9 @@ class TestCostFormatting:
 
         assert_html_contains(html, "$0.000012")
 
-    def test_aggregates_total_cost(self, tmp_path, multi_intent_config, multi_model_results, sample_parsed_data):
+    def test_aggregates_total_cost(
+        self, tmp_path, multi_intent_config, multi_model_results, sample_parsed_data
+    ):
         """Test total cost is sum of all model costs."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -551,7 +594,9 @@ class TestCostFormatting:
         )
 
         # Total cost = 0.001 + 0.003 + 0.0 = 0.004
-        html = generate_report(str(run_dir), "test-run", multi_intent_config, multi_model_results)
+        html = generate_report(
+            str(run_dir), "test-run", multi_intent_config, multi_model_results
+        )
 
         assert_html_contains(html, "$0.0040")
 
@@ -564,7 +609,9 @@ class TestCostFormatting:
 class TestAppearedIndicators:
     """Tests for appeared/not found badge display."""
 
-    def test_appeared_badge_shown_when_mine(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_appeared_badge_shown_when_mine(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test green 'Appeared' badge shown when our brand appears."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -577,7 +624,7 @@ class TestAppearedIndicators:
         # Should contain "Appeared" badge
         assert_html_contains(html, "Appeared")
         # Should use 'yes' class for green styling
-        assert_html_contains(html, 'appeared-badge yes')
+        assert_html_contains(html, "appeared-badge yes")
 
     def test_not_found_badge_shown_when_not_mine(
         self, tmp_path, runtime_config, sample_results, sample_parsed_data_no_mine
@@ -594,9 +641,11 @@ class TestAppearedIndicators:
         # Should contain "Not Found" badge
         assert_html_contains(html, "Not Found")
         # Should use 'no' class for red styling
-        assert_html_contains(html, 'appeared-badge no')
+        assert_html_contains(html, "appeared-badge no")
 
-    def test_checkmark_unicode_in_appeared(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_checkmark_unicode_in_appeared(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that appeared badge includes checkmark character."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -633,7 +682,9 @@ class TestAppearedIndicators:
 class TestMentionsDisplay:
     """Tests for brand mentions display in HTML."""
 
-    def test_displays_my_mentions(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_displays_my_mentions(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that my mentions are displayed with correct data."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -652,7 +703,9 @@ class TestMentionsDisplay:
         # Should display position
         assert_html_contains(html, "pos: 45")
 
-    def test_displays_competitor_mentions(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_displays_competitor_mentions(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that competitor mentions are displayed."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -701,7 +754,9 @@ class TestMentionsDisplay:
 
         assert_html_contains(html, "No competitor mentions")
 
-    def test_mentions_sorted_by_position(self, tmp_path, runtime_config, sample_results):
+    def test_mentions_sorted_by_position(
+        self, tmp_path, runtime_config, sample_results
+    ):
         """Test mentions are displayed in position order."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -710,8 +765,18 @@ class TestMentionsDisplay:
         data = {
             "appeared_mine": True,
             "my_mentions": [
-                {"original_text": "Warmly.io", "match_position": 100, "match_type": "exact", "brand_category": "mine"},
-                {"original_text": "Warmly", "match_position": 50, "match_type": "exact", "brand_category": "mine"},
+                {
+                    "original_text": "Warmly.io",
+                    "match_position": 100,
+                    "match_type": "exact",
+                    "brand_category": "mine",
+                },
+                {
+                    "original_text": "Warmly",
+                    "match_position": 50,
+                    "match_type": "exact",
+                    "brand_category": "mine",
+                },
             ],
             "competitor_mentions": [],
             "ranked_list": [],
@@ -736,7 +801,9 @@ class TestMentionsDisplay:
 class TestRankedListDisplay:
     """Tests for ranked list display in HTML."""
 
-    def test_displays_ranked_list(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_displays_ranked_list(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that ranked list is displayed with positions."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -759,7 +826,9 @@ class TestRankedListDisplay:
         assert_html_contains(html, "HubSpot")
         assert_html_contains(html, "Instantly")
 
-    def test_ranked_list_shows_positions(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_ranked_list_shows_positions(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that rank positions are displayed (1, 2, 3)."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -775,7 +844,9 @@ class TestRankedListDisplay:
         assert_html_contains(html, 'rank-position">2</div>')
         assert_html_contains(html, 'rank-position">3</div>')
 
-    def test_ranked_list_shows_confidence_badges(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_ranked_list_shows_confidence_badges(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that confidence badges are displayed for each rank."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -859,7 +930,9 @@ class TestRankedListDisplay:
         assert_html_contains(html, "confidence-low")
         assert_html_contains(html, "30%")
 
-    def test_no_ranked_list_when_empty(self, tmp_path, runtime_config, sample_results, sample_parsed_data_empty):
+    def test_no_ranked_list_when_empty(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data_empty
+    ):
         """Test that ranked list section not shown when empty."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -885,7 +958,9 @@ class TestRankedListDisplay:
 class TestXssPrevention:
     """Critical security tests for XSS prevention via autoescaping."""
 
-    def test_escapes_script_tag_in_brand_name(self, tmp_path, runtime_config, sample_results):
+    def test_escapes_script_tag_in_brand_name(
+        self, tmp_path, runtime_config, sample_results
+    ):
         """Test that <script> tags in brand names are escaped."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -918,7 +993,9 @@ class TestXssPrevention:
         assert_html_contains(html, "&lt;script&gt;")
         assert_html_contains(html, "&lt;/script&gt;")
 
-    def test_escapes_img_onerror_in_brand_name(self, tmp_path, runtime_config, sample_results):
+    def test_escapes_img_onerror_in_brand_name(
+        self, tmp_path, runtime_config, sample_results
+    ):
         """Test that <img> tags with onerror are escaped."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -927,7 +1004,7 @@ class TestXssPrevention:
             "appeared_mine": True,
             "my_mentions": [
                 {
-                    "original_text": '<img src=x onerror=alert(1)>',
+                    "original_text": "<img src=x onerror=alert(1)>",
                     "normalized_name": "evil",
                     "match_position": 10,
                     "match_type": "exact",
@@ -945,10 +1022,12 @@ class TestXssPrevention:
         html = generate_report(str(run_dir), "test-run", runtime_config, sample_results)
 
         # Should be escaped
-        assert_html_not_contains(html, '<img src=x onerror=alert(1)>')
+        assert_html_not_contains(html, "<img src=x onerror=alert(1)>")
         assert_html_contains(html, "&lt;img")
 
-    def test_escapes_iframe_in_brand_name(self, tmp_path, runtime_config, sample_results):
+    def test_escapes_iframe_in_brand_name(
+        self, tmp_path, runtime_config, sample_results
+    ):
         """Test that <iframe> tags are escaped."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -978,7 +1057,9 @@ class TestXssPrevention:
         assert_html_not_contains(html, '<iframe src="javascript:alert(1)">')
         assert_html_contains(html, "&lt;iframe")
 
-    def test_escapes_malicious_intent_prompt(self, tmp_path, sample_results, sample_parsed_data):
+    def test_escapes_malicious_intent_prompt(
+        self, tmp_path, sample_results, sample_parsed_data
+    ):
         """Test that malicious content in intent prompts is escaped."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -988,7 +1069,13 @@ class TestXssPrevention:
             run_settings=RunSettings(
                 output_dir="./output",
                 sqlite_db_path="./output/watcher.db",
-                models=[ModelConfig(provider="openai", model_name="gpt-4o-mini", env_api_key="OPENAI_API_KEY")],
+                models=[
+                    ModelConfig(
+                        provider="openai",
+                        model_name="gpt-4o-mini",
+                        env_api_key="OPENAI_API_KEY",
+                    )
+                ],
             ),
             brands=Brands(mine=["Warmly"], competitors=[]),
             intents=[
@@ -997,18 +1084,28 @@ class TestXssPrevention:
                     prompt='<script>alert("xss")</script>What are the best tools?',
                 )
             ],
-            models=[RuntimeModel(provider="openai", model_name="gpt-4o-mini", api_key="sk-test")],
+            models=[
+                RuntimeModel(
+                    provider="openai", model_name="gpt-4o-mini", api_key="sk-test"
+                )
+            ],
         )
 
-        create_parsed_json_file(run_dir, "email-warmup", "openai", "gpt-4o-mini", sample_parsed_data)
+        create_parsed_json_file(
+            run_dir, "email-warmup", "openai", "gpt-4o-mini", sample_parsed_data
+        )
 
-        html = generate_report(str(run_dir), "test-run", malicious_config, sample_results)
+        html = generate_report(
+            str(run_dir), "test-run", malicious_config, sample_results
+        )
 
         # Script tag should be escaped
         assert_html_not_contains(html, '<script>alert("xss")</script>')
         assert_html_contains(html, "&lt;script&gt;")
 
-    def test_escapes_html_entities_in_ranked_brands(self, tmp_path, runtime_config, sample_results):
+    def test_escapes_html_entities_in_ranked_brands(
+        self, tmp_path, runtime_config, sample_results
+    ):
         """Test that HTML entities in ranked brand names are escaped."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1033,10 +1130,12 @@ class TestXssPrevention:
         html = generate_report(str(run_dir), "test-run", runtime_config, sample_results)
 
         # Bold tag should be escaped
-        assert_html_not_contains(html, '<b>Bold Brand</b>')
+        assert_html_not_contains(html, "<b>Bold Brand</b>")
         assert_html_contains(html, "&lt;b&gt;")
 
-    def test_no_javascript_protocol_urls(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_no_javascript_protocol_urls(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that generated HTML contains no javascript: URLs."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1047,9 +1146,13 @@ class TestXssPrevention:
         html = generate_report(str(run_dir), "test-run", runtime_config, sample_results)
 
         # Should not contain any javascript: protocol URLs
-        assert_html_not_contains(html, 'javascript:', msg="Found javascript: protocol in HTML")
+        assert_html_not_contains(
+            html, "javascript:", msg="Found javascript: protocol in HTML"
+        )
 
-    def test_no_inline_event_handlers(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_no_inline_event_handlers(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that generated HTML contains no inline event handlers."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1061,14 +1164,16 @@ class TestXssPrevention:
 
         # Should not contain inline event handlers
         dangerous_patterns = [
-            'onclick=',
-            'onerror=',
-            'onload=',
-            'onmouseover=',
+            "onclick=",
+            "onerror=",
+            "onload=",
+            "onmouseover=",
         ]
 
         for pattern in dangerous_patterns:
-            assert_html_not_contains(html, pattern, msg=f"Found dangerous pattern: {pattern}")
+            assert_html_not_contains(
+                html, pattern, msg=f"Found dangerous pattern: {pattern}"
+            )
 
 
 # ============================================================================
@@ -1079,7 +1184,9 @@ class TestXssPrevention:
 class TestErrorHandling:
     """Tests for error handling in report generation."""
 
-    def test_missing_parsed_file_logs_warning(self, tmp_path, runtime_config, sample_results, caplog):
+    def test_missing_parsed_file_logs_warning(
+        self, tmp_path, runtime_config, sample_results, caplog
+    ):
         """Test that missing parsed file logs warning but doesn't crash."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1095,7 +1202,9 @@ class TestErrorHandling:
         # Should log warning
         assert "Parsed file not found" in caplog.text
 
-    def test_invalid_json_logs_error(self, tmp_path, runtime_config, sample_results, caplog):
+    def test_invalid_json_logs_error(
+        self, tmp_path, runtime_config, sample_results, caplog
+    ):
         """Test that invalid JSON logs error and continues."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1139,7 +1248,9 @@ class TestErrorHandling:
         # Should log warning about skipping failed result
         assert "Skipping failed result" in caplog.text
 
-    def test_template_not_found_raises_value_error(self, tmp_path, runtime_config, sample_results, monkeypatch):
+    def test_template_not_found_raises_value_error(
+        self, tmp_path, runtime_config, sample_results, monkeypatch
+    ):
         """Test that missing template raises ValueError."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1170,7 +1281,9 @@ class TestErrorHandling:
 class TestDataAggregation:
     """Tests for _build_template_data() aggregation logic."""
 
-    def test_calculates_total_intents(self, tmp_path, multi_intent_config, multi_model_results):
+    def test_calculates_total_intents(
+        self, tmp_path, multi_intent_config, multi_model_results
+    ):
         """Test that total_intents is calculated correctly."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1184,7 +1297,9 @@ class TestDataAggregation:
 
         assert data["total_intents"] == 2
 
-    def test_calculates_total_models(self, tmp_path, multi_intent_config, multi_model_results):
+    def test_calculates_total_models(
+        self, tmp_path, multi_intent_config, multi_model_results
+    ):
         """Test that total_models is calculated correctly."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1198,7 +1313,9 @@ class TestDataAggregation:
 
         assert data["total_models"] == 2
 
-    def test_calculates_success_rate(self, tmp_path, multi_intent_config, multi_model_results):
+    def test_calculates_success_rate(
+        self, tmp_path, multi_intent_config, multi_model_results
+    ):
         """Test that success_rate is calculated as percentage."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1228,7 +1345,9 @@ class TestDataAggregation:
 
         assert data["success_rate"] == 0
 
-    def test_success_rate_hundred_when_all_success(self, tmp_path, runtime_config, sample_results):
+    def test_success_rate_hundred_when_all_success(
+        self, tmp_path, runtime_config, sample_results
+    ):
         """Test success_rate is 100 when all results succeed."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1242,7 +1361,9 @@ class TestDataAggregation:
 
         assert data["success_rate"] == 100
 
-    def test_aggregates_total_cost(self, tmp_path, multi_intent_config, multi_model_results):
+    def test_aggregates_total_cost(
+        self, tmp_path, multi_intent_config, multi_model_results
+    ):
         """Test that total cost is sum of all model costs."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1257,7 +1378,9 @@ class TestDataAggregation:
         # 0.001 + 0.003 + 0.0 = 0.004
         assert data["total_cost_formatted"] == "$0.0040"
 
-    def test_groups_results_by_intent(self, tmp_path, multi_intent_config, multi_model_results, sample_parsed_data):
+    def test_groups_results_by_intent(
+        self, tmp_path, multi_intent_config, multi_model_results, sample_parsed_data
+    ):
         """Test that results are grouped by intent ID."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1281,7 +1404,9 @@ class TestDataAggregation:
         assert len(data["intents"]) == 2
 
         # First intent should have 2 model results
-        email_warmup_intent = next(i for i in data["intents"] if i["intent_id"] == "email-warmup")
+        email_warmup_intent = next(
+            i for i in data["intents"] if i["intent_id"] == "email-warmup"
+        )
         assert len(email_warmup_intent["results"]) == 2
 
     def test_deduplicates_models_used(self, tmp_path, runtime_config):
@@ -1458,7 +1583,9 @@ class TestLoadModelResult:
 class TestWriteReport:
     """Tests for write_report() convenience function."""
 
-    def test_writes_report_html_file(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_writes_report_html_file(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that write_report creates report.html file."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1482,7 +1609,12 @@ class TestWriteReport:
         data = {
             "appeared_mine": True,
             "my_mentions": [
-                {"original_text": "测试品牌", "match_position": 10, "match_type": "exact", "brand_category": "mine"},
+                {
+                    "original_text": "测试品牌",
+                    "match_position": 10,
+                    "match_type": "exact",
+                    "brand_category": "mine",
+                },
             ],
             "competitor_mentions": [],
             "ranked_list": [],
@@ -1501,7 +1633,9 @@ class TestWriteReport:
 
         assert "测试品牌" in html
 
-    def test_extracts_run_id_from_path(self, tmp_path, runtime_config, sample_results, sample_parsed_data):
+    def test_extracts_run_id_from_path(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
         """Test that run_id is extracted from run_dir path."""
         run_dir = tmp_path / "2025-11-02T08-00-00Z"
         run_dir.mkdir()
@@ -1571,7 +1705,9 @@ class TestEmptyAndPartialData:
         # Should show 0% success rate
         assert "0%" in html
 
-    def test_partial_success(self, tmp_path, multi_intent_config, multi_model_results, sample_parsed_data):
+    def test_partial_success(
+        self, tmp_path, multi_intent_config, multi_model_results, sample_parsed_data
+    ):
         """Test report with mix of success and failure."""
         run_dir = tmp_path / "run"
         run_dir.mkdir()
@@ -1584,7 +1720,9 @@ class TestEmptyAndPartialData:
             run_dir, "email-warmup", "openai", "gpt-4o", sample_parsed_data
         )
 
-        html = generate_report(str(run_dir), "test-run", multi_intent_config, multi_model_results)
+        html = generate_report(
+            str(run_dir), "test-run", multi_intent_config, multi_model_results
+        )
 
         # Should show 66% success (2 of 3)
         assert "66%" in html
@@ -1598,11 +1736,21 @@ class TestEmptyAndPartialData:
             run_settings=RunSettings(
                 output_dir="./output",
                 sqlite_db_path="./output/watcher.db",
-                models=[ModelConfig(provider="openai", model_name="gpt-4o-mini", env_api_key="OPENAI_API_KEY")],
+                models=[
+                    ModelConfig(
+                        provider="openai",
+                        model_name="gpt-4o-mini",
+                        env_api_key="OPENAI_API_KEY",
+                    )
+                ],
             ),
             brands=Brands(mine=["Warmly"], competitors=[]),
             intents=[],  # No intents
-            models=[RuntimeModel(provider="openai", model_name="gpt-4o-mini", api_key="sk-test")],
+            models=[
+                RuntimeModel(
+                    provider="openai", model_name="gpt-4o-mini", api_key="sk-test"
+                )
+            ],
         )
 
         html = generate_report(str(run_dir), "test-run", config, [])
@@ -1621,7 +1769,11 @@ class TestIntegrationScenarios:
     """Integration tests with realistic multi-intent, multi-model scenarios."""
 
     def test_multi_intent_multi_model_report(
-        self, tmp_path, multi_intent_config, sample_parsed_data, sample_parsed_data_no_mine
+        self,
+        tmp_path,
+        multi_intent_config,
+        sample_parsed_data,
+        sample_parsed_data_no_mine,
     ):
         """Test complete report with multiple intents and models."""
         run_dir = tmp_path / "run"
@@ -1700,10 +1852,20 @@ class TestIntegrationScenarios:
         data = {
             "appeared_mine": True,
             "my_mentions": [
-                {"original_text": "🚀 Warmly", "match_position": 10, "match_type": "exact", "brand_category": "mine"},
+                {
+                    "original_text": "🚀 Warmly",
+                    "match_position": 10,
+                    "match_type": "exact",
+                    "brand_category": "mine",
+                },
             ],
             "competitor_mentions": [
-                {"original_text": "中文品牌", "match_position": 50, "match_type": "exact", "brand_category": "competitor"},
+                {
+                    "original_text": "中文品牌",
+                    "match_position": 50,
+                    "match_type": "exact",
+                    "brand_category": "competitor",
+                },
             ],
             "ranked_list": [],
             "rank_extraction_method": "pattern",
@@ -1728,7 +1890,12 @@ class TestIntegrationScenarios:
         data = {
             "appeared_mine": True,
             "my_mentions": [
-                {"original_text": long_name, "match_position": 10, "match_type": "exact", "brand_category": "mine"},
+                {
+                    "original_text": long_name,
+                    "match_position": 10,
+                    "match_type": "exact",
+                    "brand_category": "mine",
+                },
             ],
             "competitor_mentions": [],
             "ranked_list": [],
@@ -1777,11 +1944,26 @@ class TestIntegrationScenarios:
         data = {
             "appeared_mine": True,
             "my_mentions": [
-                {"original_text": "Warmly", "match_position": 45, "match_type": "exact", "brand_category": "mine"},
+                {
+                    "original_text": "Warmly",
+                    "match_position": 45,
+                    "match_type": "exact",
+                    "brand_category": "mine",
+                },
             ],
             "competitor_mentions": [
-                {"original_text": "HubSpot", "match_position": 89, "match_type": "exact", "brand_category": "competitor"},
-                {"original_text": "Instantly", "match_position": 123, "match_type": "exact", "brand_category": "competitor"},
+                {
+                    "original_text": "HubSpot",
+                    "match_position": 89,
+                    "match_type": "exact",
+                    "brand_category": "competitor",
+                },
+                {
+                    "original_text": "Instantly",
+                    "match_position": 123,
+                    "match_type": "exact",
+                    "brand_category": "competitor",
+                },
             ],
             "ranked_list": [
                 {"brand_name": "Warmly", "rank_position": 1, "confidence": 1.0},

@@ -122,9 +122,13 @@ class SecretRedactingFilter(logging.Filter):
         # Redact args if present
         if record.args:
             if isinstance(record.args, dict):
-                record.args = {k: self._redact_secrets(str(v)) for k, v in record.args.items()}
+                record.args = {
+                    k: self._redact_secrets(str(v)) for k, v in record.args.items()
+                }
             elif isinstance(record.args, tuple):
-                record.args = tuple(self._redact_secrets(str(arg)) for arg in record.args)
+                record.args = tuple(
+                    self._redact_secrets(str(arg)) for arg in record.args
+                )
 
         # Redact context if present
         if hasattr(record, "context") and isinstance(record.context, dict):
@@ -143,6 +147,7 @@ class SecretRedactingFilter(logging.Filter):
             String with secrets replaced by redacted versions
         """
         for pattern, template in self.SECRET_PATTERNS:
+
             def redact_match(match: re.Match) -> str:
                 matched = match.group(0)
                 last4 = matched[-4:]

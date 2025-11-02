@@ -29,7 +29,6 @@ from llm_answer_watcher.llm_runner.retry_config import (
     create_retry_decorator,
 )
 
-
 # ============================================================================
 # CONSTANTS TESTS
 # ============================================================================
@@ -58,13 +57,13 @@ def test_request_timeout_value():
 def test_retry_status_codes_values():
     """RETRY_STATUS_CODES should include 429 and 5xx errors."""
     expected = {429, 500, 502, 503, 504}
-    assert RETRY_STATUS_CODES == expected
+    assert expected == RETRY_STATUS_CODES
 
 
 def test_no_retry_status_codes_values():
     """NO_RETRY_STATUS_CODES should include 401, 400, 404."""
     expected = {401, 400, 404}
-    assert NO_RETRY_STATUS_CODES == expected
+    assert expected == NO_RETRY_STATUS_CODES
 
 
 def test_retry_and_no_retry_codes_are_disjoint():
@@ -351,9 +350,9 @@ def test_multiple_error_types_in_sequence():
 
         if attempt_count == 1:
             raise httpx.ConnectError("Connection failed")
-        elif attempt_count == 2:
+        if attempt_count == 2:
             raise httpx.TimeoutException("Timeout")
-        elif attempt_count == 3:
+        if attempt_count == 3:
             response = httpx.Response(status_code=429)
             raise httpx.HTTPStatusError("Rate limit", request=Mock(), response=response)
         return "success"

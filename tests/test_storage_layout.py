@@ -6,8 +6,6 @@ Tests file naming conventions and path utilities for deterministic output struct
 
 import os
 
-import pytest
-
 from llm_answer_watcher.storage.layout import (
     get_error_filename,
     get_parsed_answer_filename,
@@ -76,7 +74,9 @@ class TestGetRawAnswerFilename:
 
     def test_anthropic_provider(self):
         """Test with Anthropic provider and Claude model."""
-        result = get_raw_answer_filename("sales-tools", "anthropic", "claude-3-5-sonnet")
+        result = get_raw_answer_filename(
+            "sales-tools", "anthropic", "claude-3-5-sonnet"
+        )
         assert result == "intent_sales-tools_raw_anthropic_claude-3-5-sonnet.json"
 
     def test_intent_id_with_underscores(self):
@@ -120,7 +120,9 @@ class TestGetParsedAnswerFilename:
 
     def test_anthropic_provider(self):
         """Test with Anthropic provider and Claude model."""
-        result = get_parsed_answer_filename("sales-tools", "anthropic", "claude-3-5-sonnet")
+        result = get_parsed_answer_filename(
+            "sales-tools", "anthropic", "claude-3-5-sonnet"
+        )
         assert result == "intent_sales-tools_parsed_anthropic_claude-3-5-sonnet.json"
 
     def test_filename_differs_from_raw_by_keyword(self):
@@ -287,11 +289,13 @@ class TestFilenameConsistency:
         ]
 
         # Unsafe characters for most filesystems
-        unsafe_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|', '\0']
+        unsafe_chars = ["/", "\\", ":", "*", "?", '"', "<", ">", "|", "\0"]
 
         for filename in filenames:
             for char in unsafe_chars:
-                assert char not in filename, f"Filename '{filename}' contains unsafe char '{char}'"
+                assert char not in filename, (
+                    f"Filename '{filename}' contains unsafe char '{char}'"
+                )
 
     def test_filenames_are_grep_friendly(self):
         """Test that intent_id always appears in intent-related filenames."""
@@ -316,14 +320,17 @@ class TestFilenameConsistency:
         model = "gpt-4o"
 
         # Call each function twice
-        assert get_raw_answer_filename(intent_id, provider, model) == \
-               get_raw_answer_filename(intent_id, provider, model)
+        assert get_raw_answer_filename(
+            intent_id, provider, model
+        ) == get_raw_answer_filename(intent_id, provider, model)
 
-        assert get_parsed_answer_filename(intent_id, provider, model) == \
-               get_parsed_answer_filename(intent_id, provider, model)
+        assert get_parsed_answer_filename(
+            intent_id, provider, model
+        ) == get_parsed_answer_filename(intent_id, provider, model)
 
-        assert get_error_filename(intent_id, provider, model) == \
-               get_error_filename(intent_id, provider, model)
+        assert get_error_filename(intent_id, provider, model) == get_error_filename(
+            intent_id, provider, model
+        )
 
         assert get_run_meta_filename() == get_run_meta_filename()
         assert get_report_filename() == get_report_filename()
@@ -358,7 +365,10 @@ class TestIntegrationScenarios:
 
         # Verify full paths would be constructable
         full_raw = os.path.join(run_dir, raw_file)
-        assert full_raw == "./output/2025-11-02T08-00-00Z/intent_email-warmup_raw_openai_gpt-4o-mini.json"
+        assert (
+            full_raw
+            == "./output/2025-11-02T08-00-00Z/intent_email-warmup_raw_openai_gpt-4o-mini.json"
+        )
 
     def test_multiple_intents_same_run(self):
         """Test filename generation for multiple intents in same run."""
@@ -367,8 +377,12 @@ class TestIntegrationScenarios:
 
         intent_ids = ["email-warmup", "sales-tools", "crm-software"]
 
-        raw_files = [get_raw_answer_filename(iid, provider, model) for iid in intent_ids]
-        parsed_files = [get_parsed_answer_filename(iid, provider, model) for iid in intent_ids]
+        raw_files = [
+            get_raw_answer_filename(iid, provider, model) for iid in intent_ids
+        ]
+        parsed_files = [
+            get_parsed_answer_filename(iid, provider, model) for iid in intent_ids
+        ]
 
         # All filenames should be unique
         assert len(raw_files) == len(set(raw_files))

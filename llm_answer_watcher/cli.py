@@ -46,7 +46,6 @@ from llm_answer_watcher.llm_runner.runner import run_all
 from llm_answer_watcher.report.generator import write_report
 from llm_answer_watcher.storage.db import init_db_if_needed
 from llm_answer_watcher.utils.console import (
-    OutputMode,
     create_progress_bar,
     error,
     info,
@@ -240,7 +239,11 @@ def run(
                 progress_callback = None
 
             # Run all queries
-            with spinner("Running queries...") if not output_mode.is_human() else _nullcontext():
+            with (
+                spinner("Running queries...")
+                if not output_mode.is_human()
+                else _nullcontext()
+            ):
                 results = run_all(runtime_config)
 
         # Generate HTML report
@@ -356,10 +359,9 @@ def run(
     # Determine exit code
     if results["success_count"] == 0:
         raise typer.Exit(EXIT_COMPLETE_FAILURE)
-    elif results["success_count"] < total_queries:
+    if results["success_count"] < total_queries:
         raise typer.Exit(EXIT_PARTIAL_FAILURE)
-    else:
-        raise typer.Exit(EXIT_SUCCESS)
+    raise typer.Exit(EXIT_SUCCESS)
 
 
 @app.command()
@@ -508,7 +510,9 @@ def main(
 
         console = Console()
         version_str = _read_version()
-        console.print(f"[bold cyan]llm-answer-watcher[/bold cyan] version {version_str}")
+        console.print(
+            f"[bold cyan]llm-answer-watcher[/bold cyan] version {version_str}"
+        )
         console.print("Python CLI for monitoring brand mentions in LLM responses")
         raise typer.Exit(EXIT_SUCCESS)
 

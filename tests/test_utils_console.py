@@ -16,8 +16,7 @@ Coverage target: 80%+ (critical UI module)
 
 import json
 import re
-from io import StringIO
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -35,7 +34,6 @@ from llm_answer_watcher.utils.console import (
     success,
     warning,
 )
-
 
 # ========================================================================
 # Fixtures
@@ -270,7 +268,9 @@ class TestSuccessFunction:
     """Test success() output function."""
 
     @patch("llm_answer_watcher.utils.console.console")
-    def test_success_human_mode_prints_green_checkmark(self, mock_console, reset_output_mode):
+    def test_success_human_mode_prints_green_checkmark(
+        self, mock_console, reset_output_mode
+    ):
         """success() should print green checkmark in human mode."""
         output_mode.format = "text"
         output_mode.quiet = False
@@ -310,7 +310,9 @@ class TestErrorFunction:
     """Test error() output function."""
 
     @patch("llm_answer_watcher.utils.console.console_err")
-    def test_error_human_mode_prints_red_x_to_stderr(self, mock_console_err, reset_output_mode):
+    def test_error_human_mode_prints_red_x_to_stderr(
+        self, mock_console_err, reset_output_mode
+    ):
         """error() should print red X to stderr in human mode."""
         output_mode.format = "text"
 
@@ -338,7 +340,9 @@ class TestWarningFunction:
     """Test warning() output function."""
 
     @patch("llm_answer_watcher.utils.console.console")
-    def test_warning_human_mode_prints_yellow_symbol(self, mock_console, reset_output_mode):
+    def test_warning_human_mode_prints_yellow_symbol(
+        self, mock_console, reset_output_mode
+    ):
         """warning() should print yellow warning symbol in human mode."""
         output_mode.format = "text"
 
@@ -559,7 +563,9 @@ class TestPrintSummaryTable:
 
         assert output_mode._json_buffer["results"] == sample_results
 
-    def test_summary_table_quiet_mode_silent(self, sample_results, capsys, reset_output_mode):
+    def test_summary_table_quiet_mode_silent(
+        self, sample_results, capsys, reset_output_mode
+    ):
         """print_summary_table() should be silent in quiet mode."""
         output_mode.format = "text"
         output_mode.quiet = True
@@ -582,7 +588,9 @@ class TestPrintSummaryTable:
         # Should print table to console
         mock_console.print.assert_called_once()
 
-    def test_summary_table_empty_results(self, empty_results, capsys, reset_output_mode):
+    def test_summary_table_empty_results(
+        self, empty_results, capsys, reset_output_mode
+    ):
         """print_summary_table() should handle empty results list."""
         output_mode.format = "json"
 
@@ -598,7 +606,15 @@ class TestPrintSummaryTable:
         output_mode.format = "text"
         output_mode.quiet = False
 
-        results = [{"intent_id": "test", "model": "gpt-4o-mini", "appeared": True, "cost": 0.0, "status": "success"}]
+        results = [
+            {
+                "intent_id": "test",
+                "model": "gpt-4o-mini",
+                "appeared": True,
+                "cost": 0.0,
+                "status": "success",
+            }
+        ]
         print_summary_table(results)
 
         # Verify table was created (Rich Table would be created internally)
@@ -612,7 +628,15 @@ class TestPrintSummaryTable:
         output_mode.format = "text"
         output_mode.quiet = False
 
-        results = [{"intent_id": "test", "model": "gpt-4o-mini", "appeared": False, "cost": 0.0, "status": "success"}]
+        results = [
+            {
+                "intent_id": "test",
+                "model": "gpt-4o-mini",
+                "appeared": False,
+                "cost": 0.0,
+                "status": "success",
+            }
+        ]
         print_summary_table(results)
 
         mock_console.print.assert_called_once()
@@ -625,7 +649,15 @@ class TestPrintSummaryTable:
         output_mode.format = "text"
         output_mode.quiet = False
 
-        results = [{"intent_id": "test", "model": "gpt-4o-mini", "appeared": True, "cost": 0.123456, "status": "success"}]
+        results = [
+            {
+                "intent_id": "test",
+                "model": "gpt-4o-mini",
+                "appeared": True,
+                "cost": 0.123456,
+                "status": "success",
+            }
+        ]
         print_summary_table(results)
 
         mock_console.print.assert_called_once()
@@ -638,7 +670,15 @@ class TestPrintSummaryTable:
         output_mode.format = "text"
         output_mode.quiet = False
 
-        results = [{"intent_id": "test", "model": "gpt-4o-mini", "appeared": True, "cost": 0.0, "status": "pending"}]
+        results = [
+            {
+                "intent_id": "test",
+                "model": "gpt-4o-mini",
+                "appeared": True,
+                "cost": 0.0,
+                "status": "pending",
+            }
+        ]
         print_summary_table(results)
 
         mock_console.print.assert_called_once()
@@ -1044,7 +1084,9 @@ class TestEdgeCases:
 class TestIntegrationScenarios:
     """Integration tests combining multiple console operations."""
 
-    def test_full_run_workflow_agent_mode(self, capsys, sample_results, reset_output_mode):
+    def test_full_run_workflow_agent_mode(
+        self, capsys, sample_results, reset_output_mode
+    ):
         """Test complete run workflow in agent mode."""
         output_mode.format = "json"
 
@@ -1070,13 +1112,17 @@ class TestIntegrationScenarios:
         assert data["successful_queries"] == 2
         assert data["total_queries"] == 3
 
-    def test_full_run_workflow_quiet_mode(self, capsys, sample_results, reset_output_mode):
+    def test_full_run_workflow_quiet_mode(
+        self, capsys, sample_results, reset_output_mode
+    ):
         """Test complete run workflow in quiet mode."""
         output_mode.format = "text"
         output_mode.quiet = True
 
         # Most operations should be silent
-        print_banner("1.0.0")  # Actually shows banner - is_human() is True for text mode
+        print_banner(
+            "1.0.0"
+        )  # Actually shows banner - is_human() is True for text mode
         info("Processing...")  # Silent
         print_summary_table(sample_results)  # Silent
         print_final_summary(

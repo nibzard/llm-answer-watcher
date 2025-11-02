@@ -459,10 +459,10 @@ def print_banner(version: str) -> None:
         return
 
     banner = f"""
-[bold cyan]\u2554{'═' * 39}\u2557
+[bold cyan]\u2554{"═" * 39}\u2557
 \u2551   LLM Answer Watcher v{version:>15} \u2551
 \u2551   Monitor LLM responses for brands   \u2551
-\u255a{'═' * 39}\u255d[/bold cyan]
+\u255a{"═" * 39}\u255d[/bold cyan]
 """
 
     console.print(banner)

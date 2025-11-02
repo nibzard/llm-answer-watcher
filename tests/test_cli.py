@@ -26,7 +26,6 @@ Coverage target: 90%+ for cli.py
 import json
 import re
 from contextlib import contextmanager
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -393,9 +392,7 @@ class TestRunCommandExitCodes:
 
         mock_load_config.side_effect = FileNotFoundError("Config file not found")
 
-        result = cli_runner.invoke(
-            app, ["run", "--config", str(temp_file)]
-        )
+        result = cli_runner.invoke(app, ["run", "--config", str(temp_file)])
 
         assert result.exit_code == EXIT_CONFIG_ERROR
 
@@ -583,7 +580,8 @@ class TestRunCommandOutputModes:
         mock_run_all.return_value = mock_successful_run
 
         result = cli_runner.invoke(
-            app, ["run", "--config", str(valid_config_yaml), "--format", "json", "--yes"]
+            app,
+            ["run", "--config", str(valid_config_yaml), "--format", "json", "--yes"],
         )
 
         assert result.exit_code == EXIT_SUCCESS
@@ -621,16 +619,17 @@ class TestRunCommandOutputModes:
         mock_run_all.return_value = mock_successful_run
 
         result = cli_runner.invoke(
-            app, ["run", "--config", str(valid_config_yaml), "--format", "json", "--yes"]
+            app,
+            ["run", "--config", str(valid_config_yaml), "--format", "json", "--yes"],
         )
 
         assert result.exit_code == EXIT_SUCCESS
 
         # Check for ANSI escape codes
         ansi_pattern = re.compile(r"\x1b\[[0-9;]*m")
-        assert not ansi_pattern.search(
-            result.output
-        ), "ANSI codes found in agent mode output"
+        assert not ansi_pattern.search(result.output), (
+            "ANSI codes found in agent mode output"
+        )
 
     @patch("llm_answer_watcher.cli.run_all")
     @patch("llm_answer_watcher.cli.write_report")
@@ -656,7 +655,8 @@ class TestRunCommandOutputModes:
         mock_run_all.return_value = mock_successful_run
 
         result = cli_runner.invoke(
-            app, ["run", "--config", str(valid_config_yaml), "--format", "json", "--yes"]
+            app,
+            ["run", "--config", str(valid_config_yaml), "--format", "json", "--yes"],
         )
 
         assert result.exit_code == EXIT_SUCCESS
@@ -893,7 +893,9 @@ class TestRunCommandFlags:
         result = cli_runner.invoke(app, ["run", "--config", str(valid_config_yaml)])
 
         assert result.exit_code == EXIT_SUCCESS
-        assert "Cancelled by user" in result.output or "cancelled" in result.output.lower()
+        assert (
+            "Cancelled by user" in result.output or "cancelled" in result.output.lower()
+        )
 
     @patch("llm_answer_watcher.cli.setup_logging")
     @patch("llm_answer_watcher.cli.run_all")
@@ -934,7 +936,9 @@ class TestRunCommandFlags:
         self, mock_load_config, cli_runner, valid_config_yaml, reset_output_mode
     ):
         """Run with --verbose should show traceback on config error."""
-        mock_load_config.side_effect = ValueError("Config validation failed: test error")
+        mock_load_config.side_effect = ValueError(
+            "Config validation failed: test error"
+        )
 
         result = cli_runner.invoke(
             app, ["run", "--config", str(valid_config_yaml), "--verbose"]
@@ -942,7 +946,10 @@ class TestRunCommandFlags:
 
         assert result.exit_code == EXIT_CONFIG_ERROR
         # Verbose mode should show error message
-        assert "test error" in result.output.lower() or "validation" in result.output.lower()
+        assert (
+            "test error" in result.output.lower()
+            or "validation" in result.output.lower()
+        )
 
 
 # ============================================================================
@@ -962,7 +969,9 @@ class TestRunCommandErrorHandling:
         temp_file = tmp_path / "config.yaml"
         temp_file.write_text("# temp config")
 
-        mock_load_config.side_effect = FileNotFoundError("Config file not found: test.yaml")
+        mock_load_config.side_effect = FileNotFoundError(
+            "Config file not found: test.yaml"
+        )
 
         result = cli_runner.invoke(app, ["run", "--config", str(temp_file)])
 
@@ -979,7 +988,10 @@ class TestRunCommandErrorHandling:
         result = cli_runner.invoke(app, ["run", "--config", str(valid_config_yaml)])
 
         assert result.exit_code == EXIT_CONFIG_ERROR
-        assert "validation failed" in result.output.lower() or "invalid" in result.output.lower()
+        assert (
+            "validation failed" in result.output.lower()
+            or "invalid" in result.output.lower()
+        )
 
     @patch("llm_answer_watcher.cli.load_config")
     def test_run_unexpected_error_during_config_load(
@@ -991,7 +1003,10 @@ class TestRunCommandErrorHandling:
         result = cli_runner.invoke(app, ["run", "--config", str(valid_config_yaml)])
 
         assert result.exit_code == EXIT_CONFIG_ERROR
-        assert "unexpected error" in result.output.lower() or "error" in result.output.lower()
+        assert (
+            "unexpected error" in result.output.lower()
+            or "error" in result.output.lower()
+        )
 
     @patch("llm_answer_watcher.cli.init_db_if_needed")
     @patch("llm_answer_watcher.cli.load_config")
@@ -1078,7 +1093,9 @@ class TestValidateCommand:
 
         mock_load_config.return_value = mock_runtime_config
 
-        result = cli_runner.invoke(app, ["validate", "--config", str(valid_config_yaml)])
+        result = cli_runner.invoke(
+            app, ["validate", "--config", str(valid_config_yaml)]
+        )
 
         assert result.exit_code == EXIT_SUCCESS
         assert "valid" in result.output.lower()
@@ -1107,7 +1124,9 @@ class TestValidateCommand:
 
         mock_load_config.return_value = mock_runtime_config
 
-        result = cli_runner.invoke(app, ["validate", "--config", str(valid_config_yaml)])
+        result = cli_runner.invoke(
+            app, ["validate", "--config", str(valid_config_yaml)]
+        )
 
         assert result.exit_code == EXIT_SUCCESS
         # Should show counts
@@ -1121,10 +1140,15 @@ class TestValidateCommand:
         """Validate with invalid config should exit with code 1."""
         mock_load_config.side_effect = ValueError("Configuration validation failed")
 
-        result = cli_runner.invoke(app, ["validate", "--config", str(invalid_config_yaml)])
+        result = cli_runner.invoke(
+            app, ["validate", "--config", str(invalid_config_yaml)]
+        )
 
         assert result.exit_code == EXIT_CONFIG_ERROR
-        assert "validation failed" in result.output.lower() or "failed" in result.output.lower()
+        assert (
+            "validation failed" in result.output.lower()
+            or "failed" in result.output.lower()
+        )
 
     @patch("llm_answer_watcher.cli.load_config")
     def test_validate_with_missing_file_exits_config_error(

@@ -144,7 +144,9 @@ class TestBuildClient:
             build_client("anthropic", "claude-3-5-haiku-20241022", "sk-ant-test")
 
         # Verify error message mentions supported providers
-        with pytest.raises(NotImplementedError, match="Currently supported providers: openai"):
+        with pytest.raises(
+            NotImplementedError, match="Currently supported providers: openai"
+        ):
             build_client("anthropic", "claude-3-5-haiku-20241022", "sk-ant-test")
 
     def test_build_client_mistral_not_implemented(self):

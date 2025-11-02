@@ -56,9 +56,7 @@ class RankedBrand:
     def __post_init__(self):
         """Validate rank_position and confidence ranges."""
         if self.rank_position < 1:
-            raise ValueError(
-                f"rank_position must be >= 1, got: {self.rank_position}"
-            )
+            raise ValueError(f"rank_position must be >= 1, got: {self.rank_position}")
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError(
                 f"confidence must be in range [0.0, 1.0], got: {self.confidence}"

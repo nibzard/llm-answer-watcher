@@ -483,7 +483,9 @@ class TestFormatCostSummaryReturnStructure:
 
         # Ensure we're not accidentally returning floats
         for key, value in summary.items():
-            assert not isinstance(value, float), f"Value for '{key}' should not be float"
+            assert not isinstance(value, float), (
+                f"Value for '{key}' should not be float"
+            )
 
 
 class TestFormatCostSummaryStatisticsAccuracy:
@@ -590,7 +592,9 @@ class TestFormatCostSummaryIntegration:
 
         # Min uses 6 decimals, max uses 4 decimals
         assert summary["min"] == "$0.000050"
-        assert summary["max"] == "$0.0001"  # 0.00015 rounds to 0.0002 with 4 decimals, but max is 0.00015 which rounds to 0.0001
+        assert (
+            summary["max"] == "$0.0001"
+        )  # 0.00015 rounds to 0.0002 with 4 decimals, but max is 0.00015 which rounds to 0.0001
 
         # Total: 0.0003
         assert summary["total"] == "$0.0003"
@@ -601,4 +605,6 @@ class TestFormatCostSummaryIntegration:
         # Looking at code: if 0 < cost < 0.0001 uses 6 decimals
         # 0.0001 is NOT < 0.0001, so uses 4 decimals
         # But due to float precision, might be 0.0000999... or 0.0001000...
-        assert summary["average"] == "$0.000100"  # Uses 6 decimals (exactly at boundary edge)
+        assert (
+            summary["average"] == "$0.000100"
+        )  # Uses 6 decimals (exactly at boundary edge)

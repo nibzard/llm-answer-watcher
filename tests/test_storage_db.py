@@ -18,7 +18,6 @@ All tests use temporary databases to avoid filesystem pollution.
 
 import json
 import sqlite3
-from pathlib import Path
 
 import pytest
 from freezegun import freeze_time
@@ -35,7 +34,6 @@ from llm_answer_watcher.storage.db import (
     update_run_cost,
 )
 from llm_answer_watcher.utils.time import utc_timestamp
-
 
 # ============================================================================
 # Database Initialization Tests
@@ -387,7 +385,9 @@ def test_insert_run_is_idempotent(tmp_path):
         conn.commit()
 
         # Should still have original values
-        cursor = conn.execute("SELECT total_intents, total_models FROM runs WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT total_intents, total_models FROM runs WHERE run_id = ?", (run_id,)
+        )
         row = cursor.fetchone()
 
     assert row[0] == 3
@@ -480,7 +480,9 @@ def test_insert_answer_raw_computes_answer_length(tmp_path):
         )
         conn.commit()
 
-        cursor = conn.execute("SELECT answer_length FROM answers_raw WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT answer_length FROM answers_raw WHERE run_id = ?", (run_id,)
+        )
         length = cursor.fetchone()[0]
 
     assert length == 1234
@@ -558,7 +560,9 @@ def test_insert_answer_raw_is_idempotent(tmp_path):
         conn.commit()
 
         # Should still have first answer
-        cursor = conn.execute("SELECT answer_text FROM answers_raw WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT answer_text FROM answers_raw WHERE run_id = ?", (run_id,)
+        )
         answer_text = cursor.fetchone()[0]
 
     assert answer_text == "First answer"
@@ -587,7 +591,9 @@ def test_insert_answer_raw_with_unicode(tmp_path):
         )
         conn.commit()
 
-        cursor = conn.execute("SELECT answer_text FROM answers_raw WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT answer_text FROM answers_raw WHERE run_id = ?", (run_id,)
+        )
         stored_text = cursor.fetchone()[0]
 
     assert stored_text == answer_text
@@ -771,7 +777,9 @@ def test_insert_mention_is_idempotent(tmp_path):
         conn.commit()
 
         # Should still have first rank
-        cursor = conn.execute("SELECT rank_position FROM mentions WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT rank_position FROM mentions WHERE run_id = ?", (run_id,)
+        )
         rank = cursor.fetchone()[0]
 
     assert rank == 1
@@ -810,7 +818,9 @@ def test_insert_mention_multiple_brands(tmp_path):
             )
         conn.commit()
 
-        cursor = conn.execute("SELECT COUNT(*) FROM mentions WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM mentions WHERE run_id = ?", (run_id,)
+        )
         count = cursor.fetchone()[0]
 
     assert count == 3
@@ -834,7 +844,9 @@ def test_update_run_cost_updates_total_cost(tmp_path):
         conn.commit()
 
         # Verify initial cost is 0.0
-        cursor = conn.execute("SELECT total_cost_usd FROM runs WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT total_cost_usd FROM runs WHERE run_id = ?", (run_id,)
+        )
         initial_cost = cursor.fetchone()[0]
         assert initial_cost == 0.0
 
@@ -843,7 +855,9 @@ def test_update_run_cost_updates_total_cost(tmp_path):
         conn.commit()
 
         # Verify cost updated
-        cursor = conn.execute("SELECT total_cost_usd FROM runs WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT total_cost_usd FROM runs WHERE run_id = ?", (run_id,)
+        )
         updated_cost = cursor.fetchone()[0]
 
     assert updated_cost == 0.0234
@@ -872,7 +886,9 @@ def test_update_run_cost_with_zero_cost(tmp_path):
         update_run_cost(conn, run_id, 0.0)
         conn.commit()
 
-        cursor = conn.execute("SELECT total_cost_usd FROM runs WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT total_cost_usd FROM runs WHERE run_id = ?", (run_id,)
+        )
         cost = cursor.fetchone()[0]
 
     assert cost == 0.0
@@ -892,7 +908,9 @@ def test_update_run_cost_with_high_precision(tmp_path):
         update_run_cost(conn, run_id, high_precision_cost)
         conn.commit()
 
-        cursor = conn.execute("SELECT total_cost_usd FROM runs WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT total_cost_usd FROM runs WHERE run_id = ?", (run_id,)
+        )
         cost = cursor.fetchone()[0]
 
     assert cost == pytest.approx(high_precision_cost, abs=1e-9)
@@ -953,7 +971,13 @@ def test_get_run_summary_returns_dict_with_correct_keys(tmp_path):
         summary = get_run_summary(conn, run_id)
 
     assert summary is not None
-    expected_keys = {"run_id", "timestamp_utc", "total_intents", "total_models", "total_cost_usd"}
+    expected_keys = {
+        "run_id",
+        "timestamp_utc",
+        "total_intents",
+        "total_models",
+        "total_cost_usd",
+    }
     assert set(summary.keys()) == expected_keys
 
 
@@ -1222,10 +1246,14 @@ def test_foreign_key_allows_valid_references(tmp_path):
         conn.commit()
 
         # Verify both inserted
-        cursor = conn.execute("SELECT COUNT(*) FROM answers_raw WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM answers_raw WHERE run_id = ?", (run_id,)
+        )
         answer_count = cursor.fetchone()[0]
 
-        cursor = conn.execute("SELECT COUNT(*) FROM mentions WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM mentions WHERE run_id = ?", (run_id,)
+        )
         mention_count = cursor.fetchone()[0]
 
     assert answer_count == 1
@@ -1263,7 +1291,9 @@ def test_complete_workflow(tmp_path):
             timestamp_utc=timestamp,
             prompt="What are the best tools?",
             answer_text="I recommend Warmly and HubSpot.",
-            usage_meta_json=json.dumps({"prompt_tokens": 100, "completion_tokens": 200}),
+            usage_meta_json=json.dumps(
+                {"prompt_tokens": 100, "completion_tokens": 200}
+            ),
             estimated_cost_usd=0.0012,
         )
 
@@ -1313,10 +1343,14 @@ def test_complete_workflow(tmp_path):
         summary = get_run_summary(conn, run_id)
 
         # 6. Verify all data
-        cursor = conn.execute("SELECT COUNT(*) FROM answers_raw WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM answers_raw WHERE run_id = ?", (run_id,)
+        )
         answer_count = cursor.fetchone()[0]
 
-        cursor = conn.execute("SELECT COUNT(*) FROM mentions WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM mentions WHERE run_id = ?", (run_id,)
+        )
         mention_count = cursor.fetchone()[0]
 
     # Assertions
@@ -1380,7 +1414,9 @@ def test_multiple_answers_per_run(tmp_path):
                 )
         conn.commit()
 
-        cursor = conn.execute("SELECT COUNT(*) FROM answers_raw WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM answers_raw WHERE run_id = ?", (run_id,)
+        )
         count = cursor.fetchone()[0]
 
     assert count == 4
@@ -1422,7 +1458,9 @@ def test_multiple_mentions_per_answer(tmp_path):
             )
         conn.commit()
 
-        cursor = conn.execute("SELECT COUNT(*) FROM mentions WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM mentions WHERE run_id = ?", (run_id,)
+        )
         count = cursor.fetchone()[0]
 
     assert count == 5
@@ -1455,7 +1493,10 @@ def test_empty_strings_handled_correctly(tmp_path):
         )
         conn.commit()
 
-        cursor = conn.execute("SELECT prompt, answer_text, answer_length FROM answers_raw WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT prompt, answer_text, answer_length FROM answers_raw WHERE run_id = ?",
+            (run_id,),
+        )
         row = cursor.fetchone()
 
     assert row[0] == ""
@@ -1486,7 +1527,10 @@ def test_very_long_text_stored_correctly(tmp_path):
         )
         conn.commit()
 
-        cursor = conn.execute("SELECT answer_text, answer_length FROM answers_raw WHERE run_id = ?", (run_id,))
+        cursor = conn.execute(
+            "SELECT answer_text, answer_length FROM answers_raw WHERE run_id = ?",
+            (run_id,),
+        )
         row = cursor.fetchone()
 
     assert row[0] == long_text
@@ -1511,7 +1555,9 @@ def test_sql_injection_prevention_in_queries(tmp_path):
         cursor = conn.execute("SELECT COUNT(*) FROM runs")
         count = cursor.fetchone()[0]
 
-        cursor = conn.execute("SELECT run_id FROM runs WHERE run_id = ?", (malicious_run_id,))
+        cursor = conn.execute(
+            "SELECT run_id FROM runs WHERE run_id = ?", (malicious_run_id,)
+        )
         stored_run_id = cursor.fetchone()[0]
 
     assert count == 1

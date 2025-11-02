@@ -24,14 +24,13 @@ import logging
 from typing import Any
 
 import httpx
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 from llm_runner.models import LLMResponse
+from llm_runner.retry_config import (
+    NO_RETRY_STATUS_CODES,
+    REQUEST_TIMEOUT,
+    create_retry_decorator,
+)
 from utils.cost import estimate_cost
 from utils.time import utc_timestamp
 
@@ -72,9 +71,9 @@ class OpenAIClient:
     Retry behavior:
         - Retries on: 429 (rate limit), 500, 502, 503, 504 (server errors)
         - Fails immediately on: 401 (auth), 400 (bad request), 404 (not found)
-        - Max attempts: 3
-        - Backoff: Exponential starting at 2s, max 60s
-        - Timeout: 30s per request
+        - Max attempts: 3 (from retry_config.MAX_ATTEMPTS)
+        - Backoff: Exponential starting at 1s, max 60s (from retry_config)
+        - Timeout: 30s per request (from retry_config.REQUEST_TIMEOUT)
 
     Note:
         This implementation is synchronous (no async) per v1 requirements.
@@ -115,12 +114,7 @@ class OpenAIClient:
         # Log initialization (never log api_key)
         logger.info(f"Initialized OpenAI client for model: {model_name}")
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=60),
-        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException)),
-        reraise=True,
-    )
+    @create_retry_decorator()
     def generate_answer(self, prompt: str) -> LLMResponse:
         """
         Execute LLM query with automatic retry and cost tracking.
@@ -194,7 +188,7 @@ class OpenAIClient:
 
         # Make HTTP request with context manager for proper cleanup
         try:
-            with httpx.Client(timeout=30.0) as client:
+            with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
                 response = client.post(
                     OPENAI_API_URL,
                     json=payload,
@@ -203,7 +197,7 @@ class OpenAIClient:
 
                 # Check for non-retryable errors first
                 # These should fail immediately without retry
-                if response.status_code in (401, 400, 404):
+                if response.status_code in NO_RETRY_STATUS_CODES:
                     error_detail = self._extract_error_detail(response)
                     raise RuntimeError(
                         f"OpenAI API error (non-retryable): "

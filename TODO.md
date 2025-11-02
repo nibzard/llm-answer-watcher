@@ -746,9 +746,10 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 ### 2.11 Testing - Milestone 2
 
 **Progress Update (2025-11-02):**
-- ✅ Completed 5 major test suites today (179 total tests)
+- ✅ Completed 6 major test suites today (211 total tests)
 - ✅ All tests passing with 99-100% coverage on tested modules
 - ✅ Fixed import issues in llm_runner/models.py and llm_runner/openai_client.py
+- ✅ Fixed critical bugs in parser.py and mention_detector.py discovered during testing
 - ✅ All commits made via git-master subagent
 - 📊 Test breakdown:
   - llm_runner/models.py: 19 tests (100% coverage)
@@ -756,6 +757,7 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
   - utils/cost.py: 32 tests (100% coverage)
   - extractor/mention_detector.py: 46 tests (100% coverage)
   - extractor/rank_extractor.py: 51 tests (99% coverage)
+  - extractor/parser.py: 32 tests (100% coverage)
 
 - [x] **Test llm_runner/models.py:**
   - [x] Test build_client() with "openai" provider
@@ -809,13 +811,17 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
   - [x 2025-11-02] Completed with 51 comprehensive tests in tests/test_extractor_rank_extractor.py - all passing, 99% coverage
   - [x] Fixed regex syntax bug in bullet pattern during test development
 
-- [ ] **Test extractor/parser.py:**
-  - [ ] Test parse_answer() with sample LLM response
-  - [ ] Test appeared_mine flag
-  - [ ] Test my_mentions populated
-  - [ ] Test competitor_mentions populated
-  - [ ] Test ranked_list extraction
-  - [ ] Use fixtures for sample answers
+- [x] **Test extractor/parser.py:**
+  - [x] Test parse_answer() with sample LLM response
+  - [x] Test appeared_mine flag
+  - [x] Test my_mentions populated
+  - [x] Test competitor_mentions populated
+  - [x] Test ranked_list extraction
+  - [x] Use fixtures for sample answers
+  - [x 2025-11-02] Completed with 32 comprehensive tests in tests/test_extractor_parser.py - all passing, 100% coverage
+  - **BUGS DISCOVERED AND FIXED:**
+    - parser.py: Fixed incorrect detect_mentions() call - was unpacking 4 values instead of 2-tuple
+    - mention_detector.py: Fixed brand normalization logic - our_brands should use all aliases for one brand, competitors are separate brands
 
 - [ ] **Test storage/writer.py:**
   - [ ] Test create_run_directory()

@@ -690,7 +690,7 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 2.10 LLM Runner Module - Runner (llm_runner/runner.py)
 
-- [ ] **Define `RawAnswerRecord` dataclass:**
+- [x] **Define `RawAnswerRecord` dataclass:**
   - Fields:
     - `intent_id: str`
     - `prompt: str`
@@ -701,35 +701,36 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
     - `answer_length: int`
     - `usage_meta: dict`
     - `estimated_cost_usd: float`
+  - [x 2025-11-02 commit 0268841] Completed with all required fields
 
-- [ ] **Implement `run_all(config: RuntimeConfig) -> dict`**
-  - [ ] Generate run_id using utils.time.run_id_from_timestamp()
-  - [ ] Create run directory using storage.writer
-  - [ ] Open SQLite connection
-  - [ ] Insert run record into database
-  - [ ] Initialize cost accumulator
-  - [ ] Initialize results list
-  - [ ] Loop over all (intent, model) combinations:
-    - [ ] Build LLM client using llm_runner.models.build_client()
-    - [ ] Try to generate answer:
-      - [ ] Call client.generate_answer(intent.prompt)
-      - [ ] Get timestamp_utc
-      - [ ] Build RawAnswerRecord
-      - [ ] Estimate cost using utils.cost.estimate_cost()
-      - [ ] Call extractor.parser.parse_answer()
-      - [ ] Write raw answer JSON
-      - [ ] Write parsed answer JSON
-      - [ ] Insert into answers_raw table
-      - [ ] Insert mentions into mentions table
-      - [ ] Accumulate cost
-      - [ ] Log success
-    - [ ] Catch exceptions:
-      - [ ] Log error (no API key in logs)
-      - [ ] Write error JSON
-      - [ ] Continue to next query
-  - [ ] Update run record with total cost
-  - [ ] Close SQLite connection
-  - [ ] Return summary dict:
+- [x] **Implement `run_all(config: RuntimeConfig) -> dict`**
+  - [x] Generate run_id using utils.time.run_id_from_timestamp()
+  - [x] Create run directory using storage.writer
+  - [x] Open SQLite connection
+  - [x] Insert run record into database
+  - [x] Initialize cost accumulator
+  - [x] Initialize results list
+  - [x] Loop over all (intent, model) combinations:
+    - [x] Build LLM client using llm_runner.models.build_client()
+    - [x] Try to generate answer:
+      - [x] Call client.generate_answer(intent.prompt)
+      - [x] Get timestamp_utc
+      - [x] Build RawAnswerRecord
+      - [x] Estimate cost using utils.cost.estimate_cost()
+      - [x] Call extractor.parser.parse_answer()
+      - [x] Write raw answer JSON
+      - [x] Write parsed answer JSON
+      - [x] Insert into answers_raw table
+      - [x] Insert mentions into mentions table
+      - [x] Accumulate cost
+      - [x] Log success
+    - [x] Catch exceptions:
+      - [x] Log error (no API key in logs)
+      - [x] Write error JSON
+      - [x] Continue to next query
+  - [x] Update run record with total cost
+  - [x] Close SQLite connection
+  - [x] Return summary dict:
     ```python
     {
         "run_id": run_id,
@@ -739,6 +740,8 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
         "total_queries": total_count
     }
     ```
+  - [x 2025-11-02 commit 0268841] Completed with full orchestration pipeline, error handling, and database/file writing
+  - **BLOCKER:** Tests for runner.py pending due to import complexity - requires refactoring to decouple dependencies or advanced mocking
 
 ### 2.11 Testing - Milestone 2
 

@@ -568,34 +568,35 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 2.6 Extractor Module - Rank Extractor (extractor/rank_extractor.py)
 
-- [ ] **Define `RankedBrand` dataclass:**
+- [x] **Define `RankedBrand` dataclass:**
   - Fields: `brand_name: str`, `rank_position: int`, `confidence: float`
 
-- [ ] **Implement pattern-based extraction:**
-  - [ ] `extract_ranked_list_pattern(text: str, known_brands: list[str]) -> tuple[list[RankedBrand], float]`
-    - [ ] Look for numbered lists: `1. ToolName`, `2. ToolName`
-    - [ ] Look for bullet lists: `- ToolName`, `• ToolName`
-    - [ ] Look for markdown headers: `## ToolName`
-    - [ ] Extract tool names after markers
-    - [ ] Match against known_brands with fuzzy matching
-    - [ ] Assign rank_position based on order (0 = top)
-    - [ ] Calculate confidence:
+- [x] **Implement pattern-based extraction:**
+  - [x] `extract_ranked_list_pattern(text: str, known_brands: list[str]) -> tuple[list[RankedBrand], float]`
+    - [x] Look for numbered lists: `1. ToolName`, `2. ToolName`
+    - [x] Look for bullet lists: `- ToolName`, `• ToolName`
+    - [x] Look for markdown headers: `## ToolName`
+    - [x] Extract tool names after markers
+    - [x] Match against known_brands with fuzzy matching
+    - [x] Assign rank_position based on order (0 = top)
+    - [x] Calculate confidence:
       - 1.0: clear numbered list
       - 0.8: bullet list with consistent structure
       - 0.5: inferred from mention order
       - 0.3: no clear structure
-    - [ ] Deduplicate in first-seen order
-    - [ ] Return (ranked_list, confidence)
+    - [x] Deduplicate in first-seen order
+    - [x] Return (ranked_list, confidence)
 
-- [ ] **Implement LLM-assisted extraction (stub for v1):**
-  - [ ] `extract_ranked_list_llm(text: str, known_brands: list[str], client: LLMClient) -> tuple[list[RankedBrand], float]`
-    - [ ] Build extraction prompt
-    - [ ] Call LLM with structured extraction request
-    - [ ] Parse JSON response
-    - [ ] Match against known_brands
-    - [ ] Return (ranked_list, 0.95) for high confidence
-    - [ ] Fallback to pattern-based if LLM call fails
-    - [ ] Note: This is optional and disabled by default in v1
+- [x] **Implement LLM-assisted extraction (stub for v1):**
+  - [x] `extract_ranked_list_llm(text: str, known_brands: list[str], client: LLMClient) -> tuple[list[RankedBrand], float]`
+    - [x] Build extraction prompt
+    - [x] Call LLM with structured extraction request
+    - [x] Parse JSON response
+    - [x] Match against known_brands
+    - [x] Return (ranked_list, 0.95) for high confidence
+    - [x] Fallback to pattern-based if LLM call fails
+    - [x] Note: This is optional and disabled by default in v1
+  - [x 2025-11-02 commit b0ef4f3] Completed with stub implementation that falls back to pattern-based extraction
 
 ### 2.7 Extractor Module - Parser (extractor/parser.py)
 

@@ -745,41 +745,57 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 2.11 Testing - Milestone 2
 
-- [ ] **Test llm_runner/models.py:**
-  - [ ] Test build_client() with "openai" provider
-  - [ ] Test build_client() raises for "anthropic" (not implemented)
-  - [ ] Test build_client() raises for unknown provider
+**Progress Update (2025-11-02):**
+- ✅ Completed 4 major test suites today (128 total tests)
+- ✅ All tests passing with 100% coverage on tested modules
+- ✅ Fixed import issues in llm_runner/models.py and llm_runner/openai_client.py
+- ✅ All commits made via git-master subagent
+- 📊 Test breakdown:
+  - llm_runner/models.py: 19 tests
+  - llm_runner/openai_client.py: 31 tests
+  - utils/cost.py: 32 tests
+  - extractor/mention_detector.py: 46 tests
 
-- [ ] **Test llm_runner/openai_client.py:**
-  - [ ] Use pytest-httpx to mock HTTP responses
-  - [ ] Test successful API call
-  - [ ] Test retry on 429 (rate limit)
-  - [ ] Test retry on 500 (server error)
-  - [ ] Test retry on 503 (service unavailable)
-  - [ ] Test no retry on 401 (auth error)
-  - [ ] Test no retry on 400 (bad request)
-  - [ ] Test max retries exceeded
-  - [ ] Test timeout handling
-  - [ ] Test response parsing
-  - [ ] Test usage metadata extraction
-  - [ ] Verify API key never logged
+- [x] **Test llm_runner/models.py:**
+  - [x] Test build_client() with "openai" provider
+  - [x] Test build_client() raises for "anthropic" (not implemented)
+  - [x] Test build_client() raises for unknown provider
+  - [x 2025-11-02] Completed with 19 comprehensive tests in tests/test_llm_runner_models.py - all passing, 100% coverage
 
-- [ ] **Test utils/cost.py:**
-  - [ ] Test estimate_cost() with known pricing
-  - [ ] Test estimate_cost() with unknown model (returns 0.0)
-  - [ ] Test cost calculation accuracy
-  - [ ] Test rounding to 6 decimals
+- [x] **Test llm_runner/openai_client.py:**
+  - [x] Use pytest-httpx to mock HTTP responses
+  - [x] Test successful API call
+  - [x] Test retry on 429 (rate limit)
+  - [x] Test retry on 500 (server error)
+  - [x] Test retry on 503 (service unavailable)
+  - [x] Test no retry on 401 (auth error)
+  - [x] Test no retry on 400 (bad request)
+  - [x] Test max retries exceeded
+  - [x] Test timeout handling
+  - [x] Test response parsing
+  - [x] Test usage metadata extraction
+  - [x] Verify API key never logged
+  - [x 2025-11-02] Completed with 31 comprehensive tests in tests/test_llm_runner_openai_client.py - all passing, 100% coverage
+  - [x 2025-11-02] Fixed import issues to use full package names (llm_answer_watcher.*)
 
-- [ ] **Test extractor/mention_detector.py:**
-  - [ ] Test normalize_brand_name()
-  - [ ] Test create_word_boundary_pattern()
-  - [ ] Test detect_exact_mentions() finds brands
-  - [ ] Test word boundary prevents false positives ("hub" not in "GitHub")
-  - [ ] Test case-insensitive matching
-  - [ ] Test fuzzy matching with rapidfuzz
-  - [ ] Test fuzzy threshold (90%)
-  - [ ] Test deduplication by normalized name
-  - [ ] Test first_position tracking
+- [x] **Test utils/cost.py:**
+  - [x] Test estimate_cost() with known pricing
+  - [x] Test estimate_cost() with unknown model (returns 0.0)
+  - [x] Test cost calculation accuracy
+  - [x] Test rounding to 6 decimals
+  - [x 2025-11-02] Completed with 32 comprehensive tests in tests/test_utils_cost.py - all passing, 100% coverage
+
+- [x] **Test extractor/mention_detector.py:**
+  - [x] Test normalize_brand_name()
+  - [x] Test create_word_boundary_pattern()
+  - [x] Test detect_exact_mentions() finds brands
+  - [x] Test word boundary prevents false positives ("hub" not in "GitHub")
+  - [x] Test case-insensitive matching
+  - [x] Test fuzzy matching with rapidfuzz
+  - [x] Test fuzzy threshold (90%)
+  - [x] Test deduplication by normalized name
+  - [x] Test first_position tracking
+  - [x 2025-11-02] Completed with 46 comprehensive tests in tests/test_extractor_mention_detector.py - all passing, 100% coverage
 
 - [ ] **Test extractor/rank_extractor.py:**
   - [ ] Test pattern extraction with numbered list

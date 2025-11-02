@@ -97,8 +97,9 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 - [x] **Verify LICENSE exists** (MIT, already created)
   - [x 2025-11-02] Completed - LICENSE file confirmed present in project root
 
-- [ ] **Create requirements.txt** (fallback for pip users)
+- [x] **Create requirements.txt** (fallback for pip users)
   - Generate from pyproject.toml
+  - [x 2025-11-02] Completed in commit b891d1a
 
 ### 1.2 Config Module (config/)
 
@@ -189,11 +190,11 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 1.4 Utils Module - Logging (utils/logging.py)
 
-- [ ] **Setup structured JSON logging:**
-  - [ ] Configure Python logging module
-  - [ ] Set default level to INFO
-  - [ ] Add --verbose flag support for DEBUG
-  - [ ] Format logs as JSON with fields:
+- [x] **Setup structured JSON logging:**
+  - [x] Configure Python logging module
+  - [x] Set default level to INFO
+  - [x] Add --verbose flag support for DEBUG
+  - [x] Format logs as JSON with fields:
     - `timestamp`: ISO 8601 UTC
     - `level`: INFO, WARNING, ERROR, DEBUG
     - `component`: module name
@@ -201,14 +202,15 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
     - `context`: dict with additional data
     - `run_id`: current run ID if available
 
-  - [ ] Output to stderr (stdout reserved for user output)
-  - [ ] **Implement redaction for secrets:**
+  - [x] Output to stderr (stdout reserved for user output)
+  - [x] **Implement redaction for secrets:**
     - Never log API keys
     - Only log last 4 chars if needed: `sk-...X7Z9`
 
-  - [ ] Create helper functions:
-    - [ ] `get_logger(component: str) -> Logger`
-    - [ ] `log_with_context(level, message, context)`
+  - [x] Create helper functions:
+    - [x] `get_logger(component: str) -> Logger`
+    - [x] `log_with_context(level, message, context)`
+  - [x 2025-11-02 commit 91d209d] Completed with JSONFormatter, SecretRedactingFilter, setup_logging(), get_logger(), and log_with_context() implementation. All security requirements met (stderr output, UTC timestamps, API key redaction)
 
 ### 1.5 Storage Module - Database (storage/db.py)
 

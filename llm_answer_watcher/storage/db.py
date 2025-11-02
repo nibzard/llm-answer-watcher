@@ -333,3 +333,369 @@ def _migrate_to_v1(conn: sqlite3.Connection) -> None:
     """)
 
     logger.debug("Created schema v1 tables and indexes")
+
+
+# ============================================================================
+# Database Operations (CRUD)
+# ============================================================================
+
+
+def insert_run(
+    conn: sqlite3.Connection,
+    run_id: str,
+    timestamp_utc: str,
+    total_intents: int,
+    total_models: int,
+) -> None:
+    """
+    Insert a new run record into the runs table.
+
+    Records the start of a CLI execution with metadata about the planned work
+    (number of intents and models to query). The total_cost_usd field is
+    initialized to 0.0 and updated later via update_run_cost().
+
+    This function is idempotent - if a run with the same run_id already exists,
+    the insert is skipped (due to PRIMARY KEY constraint).
+
+    Args:
+        conn: Active SQLite database connection
+        run_id: Unique run identifier (usually timestamp-based)
+        timestamp_utc: ISO 8601 timestamp with 'Z' suffix (e.g., "2025-11-02T08:00:00Z")
+        total_intents: Number of buyer-intent queries in this run
+        total_models: Number of LLM models being queried per intent
+
+    Raises:
+        sqlite3.Error: If database operation fails
+
+    Example:
+        >>> with sqlite3.connect("watcher.db") as conn:
+        ...     insert_run(
+        ...         conn,
+        ...         run_id="2025-11-02T08-00-00Z",
+        ...         timestamp_utc="2025-11-02T08:00:00Z",
+        ...         total_intents=3,
+        ...         total_models=2
+        ...     )
+        ...     conn.commit()
+
+    Security:
+        Uses parameterized query to prevent SQL injection.
+
+    Note:
+        Always call conn.commit() after insert to persist changes.
+        Uses INSERT OR IGNORE to make operation idempotent.
+    """
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO runs (
+            run_id,
+            timestamp_utc,
+            total_intents,
+            total_models,
+            total_cost_usd
+        ) VALUES (?, ?, ?, ?, 0.0)
+        """,
+        (run_id, timestamp_utc, total_intents, total_models),
+    )
+    logger.debug(
+        f"Inserted run {run_id} with {total_intents} intents, {total_models} models"
+    )
+
+
+def insert_answer_raw(
+    conn: sqlite3.Connection,
+    run_id: str,
+    intent_id: str,
+    model_provider: str,
+    model_name: str,
+    timestamp_utc: str,
+    prompt: str,
+    answer_text: str,
+    usage_meta_json: str | None = None,
+    estimated_cost_usd: float | None = None,
+) -> None:
+    """
+    Insert a raw LLM answer into the answers_raw table.
+
+    Stores the complete LLM response with metadata for historical tracking.
+    The answer_length is computed automatically from answer_text.
+
+    This function is idempotent - if an answer for the same (run_id, intent_id,
+    model_provider, model_name) already exists, the insert is skipped (due to
+    UNIQUE constraint).
+
+    Args:
+        conn: Active SQLite database connection
+        run_id: Run identifier (foreign key to runs.run_id)
+        intent_id: Intent query identifier from config
+        model_provider: LLM provider (e.g., "openai", "anthropic")
+        model_name: Model identifier (e.g., "gpt-4o-mini")
+        timestamp_utc: ISO 8601 timestamp when answer was generated
+        prompt: Full prompt sent to LLM
+        answer_text: Raw LLM response text
+        usage_meta_json: Optional JSON-encoded usage metadata (tokens, etc.)
+        estimated_cost_usd: Optional estimated cost in USD
+
+    Raises:
+        sqlite3.Error: If database operation fails
+
+    Example:
+        >>> import json
+        >>> usage = {"prompt_tokens": 100, "completion_tokens": 500}
+        >>> insert_answer_raw(
+        ...     conn,
+        ...     run_id="2025-11-02T08-00-00Z",
+        ...     intent_id="email-warmup",
+        ...     model_provider="openai",
+        ...     model_name="gpt-4o-mini",
+        ...     timestamp_utc="2025-11-02T08:00:05Z",
+        ...     prompt="What are the best email warmup tools?",
+        ...     answer_text="Here are top email warmup tools: ...",
+        ...     usage_meta_json=json.dumps(usage),
+        ...     estimated_cost_usd=0.0012
+        ... )
+        >>> conn.commit()
+
+    Security:
+        Uses parameterized query to prevent SQL injection.
+        Does NOT log answer_text (may contain sensitive info).
+
+    Note:
+        Always call conn.commit() after insert to persist changes.
+        Uses INSERT OR IGNORE to make operation idempotent.
+    """
+    answer_length = len(answer_text)
+
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO answers_raw (
+            run_id,
+            intent_id,
+            model_provider,
+            model_name,
+            timestamp_utc,
+            prompt,
+            answer_text,
+            answer_length,
+            usage_meta_json,
+            estimated_cost_usd
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            run_id,
+            intent_id,
+            model_provider,
+            model_name,
+            timestamp_utc,
+            prompt,
+            answer_text,
+            answer_length,
+            usage_meta_json,
+            estimated_cost_usd,
+        ),
+    )
+    logger.debug(
+        f"Inserted answer for intent={intent_id}, model={model_provider}/{model_name}, "
+        f"length={answer_length} chars"
+    )
+
+
+def insert_mention(
+    conn: sqlite3.Connection,
+    run_id: str,
+    timestamp_utc: str,
+    intent_id: str,
+    model_provider: str,
+    model_name: str,
+    brand_name: str,
+    normalized_name: str,
+    is_mine: bool,
+    first_position: int | None = None,
+    rank_position: int | None = None,
+    match_type: str = "exact",
+) -> None:
+    """
+    Insert a brand mention into the mentions table.
+
+    Records a single brand mention found in an LLM answer. This is the "exploded"
+    view of answers - each brand gets its own row for analytics queries.
+
+    This function is idempotent - if a mention for the same (run_id, intent_id,
+    model_provider, model_name, normalized_name) already exists, the insert is
+    skipped (due to UNIQUE constraint).
+
+    Args:
+        conn: Active SQLite database connection
+        run_id: Run identifier (foreign key to runs.run_id)
+        timestamp_utc: ISO 8601 timestamp when mention was extracted
+        intent_id: Intent query identifier from config
+        model_provider: LLM provider (e.g., "openai", "anthropic")
+        model_name: Model identifier (e.g., "gpt-4o-mini")
+        brand_name: Original brand name/alias as found in text
+        normalized_name: Normalized brand name for grouping (lowercase)
+        is_mine: True if this is our brand, False if competitor
+        first_position: Character position of first occurrence in text (0-indexed)
+        rank_position: Rank/position in ordered list (1-indexed, None if not ranked)
+        match_type: Type of match ("exact", "fuzzy", "llm_assisted")
+
+    Raises:
+        sqlite3.Error: If database operation fails
+
+    Example:
+        >>> insert_mention(
+        ...     conn,
+        ...     run_id="2025-11-02T08-00-00Z",
+        ...     timestamp_utc="2025-11-02T08:00:05Z",
+        ...     intent_id="email-warmup",
+        ...     model_provider="openai",
+        ...     model_name="gpt-4o-mini",
+        ...     brand_name="HubSpot",
+        ...     normalized_name="hubspot",
+        ...     is_mine=False,
+        ...     first_position=42,
+        ...     rank_position=1,
+        ...     match_type="exact"
+        ... )
+        >>> conn.commit()
+
+    Security:
+        Uses parameterized query to prevent SQL injection.
+
+    Note:
+        Always call conn.commit() after insert to persist changes.
+        Uses INSERT OR IGNORE to make operation idempotent.
+        is_mine is stored as INTEGER (0/1) per SQLite convention.
+    """
+    is_mine_int = 1 if is_mine else 0
+
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO mentions (
+            run_id,
+            timestamp_utc,
+            intent_id,
+            model_provider,
+            model_name,
+            brand_name,
+            normalized_name,
+            is_mine,
+            first_position,
+            rank_position,
+            match_type
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            run_id,
+            timestamp_utc,
+            intent_id,
+            model_provider,
+            model_name,
+            brand_name,
+            normalized_name,
+            is_mine_int,
+            first_position,
+            rank_position,
+            match_type,
+        ),
+    )
+    logger.debug(
+        f"Inserted mention: {normalized_name} (is_mine={is_mine}, rank={rank_position})"
+    )
+
+
+def update_run_cost(
+    conn: sqlite3.Connection, run_id: str, total_cost_usd: float
+) -> None:
+    """
+    Update the total cost for a run in the runs table.
+
+    Updates the total_cost_usd field after all LLM queries have completed
+    and individual costs have been calculated. This is typically called at
+    the end of a CLI execution.
+
+    Args:
+        conn: Active SQLite database connection
+        run_id: Run identifier to update
+        total_cost_usd: Total estimated cost in USD across all queries
+
+    Raises:
+        sqlite3.Error: If database operation fails
+        ValueError: If run_id does not exist (rowcount == 0)
+
+    Example:
+        >>> update_run_cost(conn, "2025-11-02T08-00-00Z", 0.0234)
+        >>> conn.commit()
+
+    Security:
+        Uses parameterized query to prevent SQL injection.
+
+    Note:
+        Always call conn.commit() after update to persist changes.
+        Raises ValueError if run_id doesn't exist (catches logic errors early).
+    """
+    cursor = conn.execute(
+        "UPDATE runs SET total_cost_usd = ? WHERE run_id = ?",
+        (total_cost_usd, run_id),
+    )
+
+    if cursor.rowcount == 0:
+        raise ValueError(
+            f"Cannot update cost for run_id={run_id}: run does not exist. "
+            f"Call insert_run() first."
+        )
+
+    logger.debug(f"Updated run {run_id} total cost: ${total_cost_usd:.6f}")
+
+
+def get_run_summary(conn: sqlite3.Connection, run_id: str) -> dict | None:
+    """
+    Retrieve summary information for a specific run.
+
+    Fetches the run record with all metadata. Useful for reporting and
+    debugging.
+
+    Args:
+        conn: Active SQLite database connection
+        run_id: Run identifier to retrieve
+
+    Returns:
+        dict with keys: run_id, timestamp_utc, total_intents, total_models, total_cost_usd
+        None if run_id does not exist
+
+    Example:
+        >>> summary = get_run_summary(conn, "2025-11-02T08-00-00Z")
+        >>> print(summary)
+        {
+            "run_id": "2025-11-02T08-00-00Z",
+            "timestamp_utc": "2025-11-02T08:00:00Z",
+            "total_intents": 3,
+            "total_models": 2,
+            "total_cost_usd": 0.0234
+        }
+
+    Security:
+        Uses parameterized query to prevent SQL injection.
+
+    Note:
+        Returns None if run doesn't exist (not an error condition).
+    """
+    cursor = conn.execute(
+        """
+        SELECT run_id, timestamp_utc, total_intents, total_models, total_cost_usd
+        FROM runs
+        WHERE run_id = ?
+        """,
+        (run_id,),
+    )
+
+    row = cursor.fetchone()
+    if row is None:
+        return None
+
+    return {
+        "run_id": row[0],
+        "timestamp_utc": row[1],
+        "total_intents": row[2],
+        "total_models": row[3],
+        "total_cost_usd": row[4],
+    }

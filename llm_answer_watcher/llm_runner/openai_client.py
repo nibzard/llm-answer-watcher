@@ -39,6 +39,42 @@ SYSTEM_MESSAGE = (
     "You are an unbiased market analyst. Provide factual, balanced recommendations."
 )
 
+# Model-specific parameters to handle different model requirements
+MODEL_PARAMS = {
+    # Default parameters for most models
+    "default": {
+        "temperature": 0.7,
+    },
+    # Models that only support temperature 1.0 (default)
+    "temperature_fixed": {
+        # No temperature parameter - use model default
+    },
+    # GPT-5 models that use max_completion_tokens instead of max_tokens
+    "gpt_5_family": {
+        "temperature": 0.7,
+        "use_max_completion_tokens": True,
+    },
+}
+
+# Models that require fixed temperature (don't support custom temperature)
+# GPT-5 models only support temperature=1 (default), not custom values
+TEMPERATURE_FIXED_MODELS = {
+    "gpt-5",
+    "gpt-5-mini", 
+    "gpt-5-nano",
+    "gpt-5-pro",
+    "gpt-5-chat-latest",
+}
+
+# GPT-5 model family that uses different parameter names
+GPT_5_MODELS = {
+    "gpt-5",
+    "gpt-5-mini",
+    "gpt-5-nano",
+    "gpt-5-pro",
+    "gpt-5-chat-latest",
+}
+
 # Suppress HTTPX request logging to prevent test interference
 httpx_logger = logging.getLogger("httpx")
 httpx_logger.setLevel(logging.WARNING)
@@ -173,15 +209,24 @@ class OpenAIClient:
         if not prompt or prompt.isspace():
             raise ValueError("Prompt cannot be empty")
 
-        # Build request payload
+        # Build request payload with model-specific parameters
         payload = {
             "model": self.model_name,
             "messages": [
                 {"role": "system", "content": SYSTEM_MESSAGE},
                 {"role": "user", "content": prompt},
             ],
-            "temperature": 0.7,
         }
+
+        # Add temperature parameter only if model supports it
+        if self.model_name not in TEMPERATURE_FIXED_MODELS:
+            payload["temperature"] = MODEL_PARAMS["default"]["temperature"]
+            logger.debug(f"Using temperature 0.7 for model: {self.model_name}")
+        else:
+            logger.debug(f"Using default temperature for model: {self.model_name}")
+
+        # GPT-5 models don't support max_tokens parameter, but we generally don't use it anyway
+        # This is just for documentation - no changes needed since we don't set max_tokens
 
         # Build headers (NEVER log api_key)
         headers = {

@@ -66,7 +66,8 @@ NO_RETRY_STATUS_CODES = frozenset([401, 400, 404])
 # HTTP request timeout in seconds
 # Applies to each individual request attempt
 # Protects against hung connections
-REQUEST_TIMEOUT = 30.0
+# Increased for GPT-5 models which may take longer to respond
+REQUEST_TIMEOUT = 120.0
 
 # ============================================================================
 # RETRY DECORATOR FACTORY

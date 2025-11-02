@@ -61,6 +61,27 @@ PRICING = {
             "input": 0.50 / 1_000_000,
             "output": 1.50 / 1_000_000,
         },
+        # GPT-5 models (based on public pricing information)
+        "gpt-5": {
+            "input": 1.25 / 1_000_000,  # $1.25 per 1M input tokens
+            "output": 10.00 / 1_000_000,  # $10.00 per 1M output tokens
+        },
+        "gpt-5-mini": {
+            "input": 0.25 / 1_000_000,  # $0.25 per 1M input tokens
+            "output": 2.00 / 1_000_000,  # $2.00 per 1M output tokens
+        },
+        "gpt-5-nano": {
+            "input": 0.05 / 1_000_000,  # $0.05 per 1M input tokens
+            "output": 0.40 / 1_000_000,  # $0.40 per 1M output tokens
+        },
+        "gpt-5-pro": {
+            "input": 5.00 / 1_000_000,  # $5.00 per 1M input tokens
+            "output": 20.00 / 1_000_000,  # $20.00 per 1M output tokens
+        },
+        "gpt-5-chat-latest": {
+            "input": 1.25 / 1_000_000,  # Same as gpt-5
+            "output": 10.00 / 1_000_000,
+        },
     },
     "anthropic": {
         "claude-3-5-haiku-20241022": {

@@ -37,6 +37,7 @@ Security:
 """
 
 import json
+from contextlib import nullcontext
 from pathlib import Path
 
 import typer
@@ -77,7 +78,8 @@ def _check_brands_appeared(
     Check if our brands appeared in the LLM response by reading parsed file.
 
     Reads the parsed JSON file for this intent/model combination and checks
-    if the my_brands_mentioned list is non-empty.
+    if the my_mentions list is non-empty. This function is defensive and
+    returns False on any error condition.
 
     Args:
         output_dir: Directory containing run output files
@@ -86,25 +88,63 @@ def _check_brands_appeared(
         model_name: Model name (e.g., "gpt-4o-mini")
 
     Returns:
-        True if our brands were mentioned, False otherwise
+        True if our brands were mentioned, False otherwise or on error
+
+    Example:
+        >>> appeared = _check_brands_appeared(
+        ...     "./output/2025-11-02T08-00-00Z",
+        ...     "email-warmup", "openai", "gpt-4o-mini"
+        ... )
+        >>> appeared
+        True
+
+    Note:
+        This function handles all errors gracefully by returning False.
+        Missing files, malformed JSON, or unexpected data structures are
+        logged but don't crash the CLI.
     """
-    parsed_filename = get_parsed_answer_filename(intent_id, provider, model_name)
-    parsed_path = Path(output_dir) / parsed_filename
-
-    if not parsed_path.exists():
-        # Parsed file doesn't exist, assume no mentions
-        return False
-
     try:
+        parsed_filename = get_parsed_answer_filename(intent_id, provider, model_name)
+        parsed_path = Path(output_dir) / parsed_filename
+
+        if not parsed_path.exists():
+            # Parsed file doesn't exist, assume no mentions
+            return False
+
         with open(parsed_path, encoding="utf-8") as f:
             parsed_data = json.load(f)
 
-        # Check if my_brands_mentioned list is non-empty
-        my_brands = parsed_data.get("my_brands_mentioned", [])
-        return bool(my_brands)
+        # Check if my_mentions list is non-empty (correct key from ExtractionResult)
+        my_mentions = parsed_data.get("my_mentions", [])
+        return bool(my_mentions)
 
-    except (json.JSONDecodeError, OSError, KeyError):
-        # If we can't read the file or it's malformed, assume no mentions
+    except json.JSONDecodeError as e:
+        # Malformed JSON - log warning and return False
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Failed to parse JSON for {intent_id}/{provider}/{model_name}: {e}"
+        )
+        return False
+
+    except OSError as e:
+        # File read error - log warning and return False
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Failed to read parsed file for {intent_id}/{provider}/{model_name}: {e}"
+        )
+        return False
+
+    except Exception as e:
+        # Unexpected error - log warning and return False
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Unexpected error checking brand appearance for "
+            f"{intent_id}/{provider}/{model_name}: {e}",
+            exc_info=True
+        )
         return False
 
 
@@ -288,7 +328,7 @@ def run(
             with (
                 spinner("Running queries...")
                 if not output_mode.is_human()
-                else _nullcontext()
+                else nullcontext()
             ):
                 results = run_all(runtime_config)
 
@@ -834,16 +874,6 @@ def _read_version() -> str:
 
     # Fallback version
     return "0.1.0"
-
-
-class _nullcontext:
-    """No-op context manager for conditional context usage."""
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        pass
 
 
 if __name__ == "__main__":

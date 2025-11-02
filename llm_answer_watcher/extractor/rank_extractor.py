@@ -39,6 +39,15 @@ from difflib import SequenceMatcher
 
 from .mention_detector import create_brand_pattern
 
+# ============================================================================
+# CONSTANTS
+# ============================================================================
+
+# Fuzzy matching threshold for brand name similarity (0.0 - 1.0)
+# Brands must be at least 80% similar to match using SequenceMatcher
+# Lower values increase false positives, higher values miss valid matches
+FUZZY_THRESHOLD = 0.8
+
 
 @dataclass
 class RankedBrand:
@@ -323,7 +332,7 @@ def _match_brand(candidate: str, known_brands: list[str]) -> str | None:
     """
     Match candidate text against known brands list.
 
-    Uses exact match first, then fuzzy matching (80% similarity threshold).
+    Uses exact match first, then fuzzy matching with FUZZY_THRESHOLD (0.8).
 
     Args:
         candidate: Text extracted from list item
@@ -331,6 +340,10 @@ def _match_brand(candidate: str, known_brands: list[str]) -> str | None:
 
     Returns:
         Matched brand name from known_brands, or None if no match
+
+    Note:
+        Fuzzy matching threshold is defined by FUZZY_THRESHOLD constant (0.8).
+        This can be adjusted if more lenient or strict matching is needed.
     """
     candidate_lower = candidate.lower()
 
@@ -339,8 +352,7 @@ def _match_brand(candidate: str, known_brands: list[str]) -> str | None:
         if brand.lower() in candidate_lower:
             return brand
 
-    # Try fuzzy matching (80% similarity threshold)
-    FUZZY_THRESHOLD = 0.8
+    # Try fuzzy matching using FUZZY_THRESHOLD constant
     best_match = None
     best_ratio = 0.0
 

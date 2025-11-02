@@ -9,8 +9,8 @@ import yaml
 from pathlib import Path
 from typing import Any
 
-from ..extractor.mention_detector import MentionDetector
-from ..extractor.rank_extractor import RankExtractor
+from ..extractor.mention_detector import detect_mentions
+from ..extractor.rank_extractor import extract_ranked_list_pattern
 from .schema import EvalTestCase, EvalResult
 from .metrics import compute_mention_metrics, compute_rank_metrics, compute_completeness_metrics
 
@@ -54,44 +54,36 @@ def load_test_cases(fixtures_path: str | Path) -> list[EvalTestCase]:
 
 def evaluate_single_test_case(
     test_case: EvalTestCase,
-    mention_detector: MentionDetector,
-    rank_extractor: RankExtractor,
 ) -> EvalResult:
     """
-    Evaluate a single test case using the provided extractors.
+    Evaluate a single test case using the extraction functions.
 
     Args:
         test_case: The test case to evaluate
-        mention_detector: Configured mention detector instance
-        rank_extractor: Configured rank extractor instance
 
     Returns:
         EvalResult containing all computed metrics for this test case
     """
     # Detect brand mentions
-    mention_result = mention_detector.extract_mentions(
-        text=test_case.llm_answer_text,
-        my_brands=test_case.brands_mine,
+    mention_result = detect_mentions(
+        answer_text=test_case.llm_answer_text,
+        our_brands=test_case.brands_mine,
         competitor_brands=test_case.brands_competitors,
     )
 
     # Extract ranked list
-    rank_result = rank_extractor.extract_ranked_list(
+    all_brands = test_case.brands_mine + test_case.brands_competitors
+    rank_result, confidence = extract_ranked_list_pattern(
         text=test_case.llm_answer_text,
-        my_brands=test_case.brands_mine,
-        competitor_brands=test_case.brands_competitors,
+        known_brands=all_brands,
     )
 
     # Gather all detected mentions for metrics computation
-    actual_mentions = []
-    if mention_result.my_mentions:
-        actual_mentions.extend(mention_result.my_mentions)
-    if mention_result.competitor_mentions:
-        actual_mentions.extend(mention_result.competitor_mentions)
+    actual_mentions = mention_result
 
     # Compute all metric categories
     mention_metrics = compute_mention_metrics(test_case, actual_mentions)
-    rank_metrics = compute_rank_metrics(test_case, rank_result.ranked_list)
+    rank_metrics = compute_rank_metrics(test_case, rank_result)
     completeness_metrics = compute_completeness_metrics(test_case, actual_mentions)
 
     # Combine all metrics
@@ -111,8 +103,6 @@ def evaluate_single_test_case(
 
 def run_eval_suite(
     fixtures_path: str | Path,
-    mention_detector: MentionDetector | None = None,
-    rank_extractor: RankExtractor | None = None,
 ) -> dict[str, Any]:
     """
     Run the complete evaluation suite on all test cases.
@@ -123,8 +113,6 @@ def run_eval_suite(
 
     Args:
         fixtures_path: Path to YAML file containing test cases
-        mention_detector: Optional pre-configured mention detector
-        rank_extractor: Optional pre-configured rank extractor
 
     Returns:
         Dictionary containing:
@@ -136,17 +124,11 @@ def run_eval_suite(
     # Load test cases
     test_cases = load_test_cases(fixtures_path)
 
-    # Initialize extractors if not provided
-    if mention_detector is None:
-        mention_detector = MentionDetector()
-    if rank_extractor is None:
-        rank_extractor = RankExtractor()
-
     # Evaluate each test case
     results = []
     for test_case in test_cases:
         try:
-            result = evaluate_single_test_case(test_case, mention_detector, rank_extractor)
+            result = evaluate_single_test_case(test_case)
             results.append(result)
         except Exception as e:
             # Create a failure result for test cases that throw exceptions

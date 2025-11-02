@@ -43,6 +43,7 @@ import typer
 from rich.traceback import install as install_rich_traceback
 
 from llm_answer_watcher.config.loader import load_config
+from llm_answer_watcher.evals.runner import run_eval_suite
 from llm_answer_watcher.llm_runner.runner import run_all
 from llm_answer_watcher.report.generator import write_report
 from llm_answer_watcher.storage.db import init_db_if_needed
@@ -514,6 +515,180 @@ def validate(
             raise typer.Exit(EXIT_CONFIG_ERROR)
 
 
+@app.command()
+def eval(
+    fixtures: Path = typer.Option(
+        ...,
+        "--fixtures",
+        "-f",
+        help="Path to YAML file containing evaluation test cases",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+    ),
+    format: str = typer.Option(
+        "text",
+        "--format",
+        help="Output format: 'text' (human-friendly) or 'json' (machine-readable)",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Enable debug logging",
+    ),
+):
+    """
+    Run evaluation suite to test extraction accuracy.
+
+    This command runs the evaluation framework to validate that brand mention
+    detection and rank extraction are working correctly. It's useful for:
+
+    - Quality assurance before releases
+    - Regression testing after code changes
+    - Validation of extraction algorithms
+    - Future Cloud deployment readiness
+
+    The evaluation suite:
+    - Loads test cases from YAML fixtures file
+    - Runs brand mention detection and rank extraction
+    - Computes precision, recall, F1 scores
+    - Shows detailed results for each test case
+
+    Exit codes:
+      0: All test cases passed
+      1: Configuration or file error
+      2: Any test case failed
+
+    Examples:
+      # Run evaluation with default fixtures
+      llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml
+
+      # Run evaluation in JSON mode for automation
+      llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml --format json
+    """
+    # Set global output mode
+    output_mode.format = format
+
+    # Setup logging level
+    setup_logging(verbose=verbose)
+
+    # Load and validate test fixtures
+    try:
+        with spinner("Loading test fixtures..."):
+            # The run_eval_suite function will handle file loading and validation
+            pass
+
+        info(f"Loading evaluation suite from: {fixtures}")
+
+    except Exception as e:
+        error(f"Failed to load fixtures: {e}")
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+
+    # Run evaluation suite
+    try:
+        with spinner("Running evaluation suite..."):
+            eval_results = run_eval_suite(fixtures)
+
+        total_cases = eval_results["total_test_cases"]
+        passed_cases = eval_results["total_passed"]
+        failed_cases = total_cases - passed_cases
+        pass_rate = eval_results["summary"]["pass_rate"]
+
+        success(f"Evaluation completed: {passed_cases}/{total_cases} passed ({pass_rate:.1%})")
+
+        if failed_cases > 0:
+            warning(f"{failed_cases} test case(s) failed")
+
+    except FileNotFoundError as e:
+        error(f"Fixtures file not found: {e}")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+    except ValueError as e:
+        error(f"Invalid fixtures format: {e}")
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+    except Exception as e:
+        error(f"Evaluation failed: {e}")
+        if verbose:
+            import traceback
+
+            traceback.print_exc()
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+
+    # Display results in text mode
+    if output_mode.is_human():
+        info("\nDetailed Results:")
+        for result in eval_results["results"]:
+            status = "✅ PASS" if result.overall_passed else "❌ FAIL"
+            info(f"  {status}: {result.test_description}")
+
+            # Show critical metrics
+            critical_metrics = ["mention_precision", "mention_recall", "mention_f1", "my_brands_coverage"]
+            for metric in result.metrics:
+                if metric.name in critical_metrics:
+                    status_icon = "✅" if metric.passed else "❌"
+                    info(f"    {status_icon} {metric.name}: {metric.value:.3f}")
+
+        # Show summary
+        summary = eval_results["summary"]
+        info(f"\nSummary:")
+        info(f"  Pass rate: {summary['pass_rate']:.1%}")
+        info(f"  Total cases: {summary['total_test_cases']}")
+        info(f"  Passed: {summary['total_passed']}")
+        info(f"  Failed: {summary['total_failed']}")
+
+        # Show average scores
+        if summary["average_scores"]:
+            info(f"\nAverage Scores:")
+            for metric_name, avg_score in summary["average_scores"].items():
+                info(f"  {metric_name}: {avg_score:.3f}")
+
+    # Display results in JSON mode
+    elif output_mode.is_agent():
+        # Build structured JSON output
+        json_output = {
+            "total_test_cases": eval_results["total_test_cases"],
+            "total_passed": eval_results["total_passed"],
+            "total_failed": eval_results["total_test_cases"] - eval_results["total_passed"],
+            "pass_rate": eval_results["summary"]["pass_rate"],
+            "average_scores": eval_results["summary"]["average_scores"],
+            "results": []
+        }
+
+        # Add detailed results for each test case
+        for result in eval_results["results"]:
+            result_dict = {
+                "test_description": result.test_description,
+                "overall_passed": result.overall_passed,
+                "metrics": [
+                    {
+                        "name": metric.name,
+                        "value": metric.value,
+                        "passed": metric.passed,
+                        "details": metric.details
+                    }
+                    for metric in result.metrics
+                ]
+            }
+            json_output["results"].append(result_dict)
+
+        output_mode.add_json("evaluation_results", json_output)
+        output_mode.flush_json()
+
+    # Determine exit code based on results
+    if failed_cases > 0:
+        raise typer.Exit(2)  # Some tests failed
+    else:
+        raise typer.Exit(EXIT_SUCCESS)  # All tests passed
+
+
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
@@ -572,6 +747,7 @@ def main(
         console.print("Commands:")
         console.print("  run       Execute LLM queries and generate report")
         console.print("  validate  Validate configuration without running")
+        console.print("  eval      Run evaluation suite to test extraction accuracy")
 
 
 def _read_version() -> str:

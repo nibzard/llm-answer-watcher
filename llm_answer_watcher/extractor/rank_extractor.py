@@ -193,7 +193,7 @@ def _extract_bullet_list(
         (ranked_brands, 0.8) if bullet list found, else ([], 0.0)
     """
     # Pattern: bullet marker followed by text
-    pattern = r"^\s*[-"*]\s+(.+)$"
+    pattern = r"^\s*[-•*]\s+(.+)$"
 
     ranked_brands = []
     seen_brands = set()

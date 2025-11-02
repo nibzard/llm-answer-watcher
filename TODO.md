@@ -658,34 +658,35 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 2.9 Storage Module - Writer (storage/writer.py)
 
-- [ ] **Implement file writing utilities:**
-  - [ ] `create_run_directory(output_dir: str, run_id: str) -> str`
+- [x] **Implement file writing utilities:**
+  - [x] `create_run_directory(output_dir: str, run_id: str) -> str`
     - Create directory with proper permissions
     - Return full path
     - Handle permission errors gracefully
 
-  - [ ] `write_json(filepath: str, data: dict | list)`
+  - [x] `write_json(filepath: str, data: dict | list)`
     - Serialize to JSON with indent=2, ensure_ascii=False
     - Write UTF-8 encoded file
     - Handle disk full errors
 
-  - [ ] `write_raw_answer(run_dir: str, intent_id: str, provider: str, model: str, data: dict)`
+  - [x] `write_raw_answer(run_dir: str, intent_id: str, provider: str, model: str, data: dict)`
     - Build filename from layout conventions
     - Call write_json()
 
-  - [ ] `write_parsed_answer(run_dir: str, intent_id: str, provider: str, model: str, data: dict)`
+  - [x] `write_parsed_answer(run_dir: str, intent_id: str, provider: str, model: str, data: dict)`
     - Build filename from layout conventions
     - Call write_json()
 
-  - [ ] `write_error(run_dir: str, intent_id: str, provider: str, model: str, error_message: str)`
+  - [x] `write_error(run_dir: str, intent_id: str, provider: str, model: str, error_message: str)`
     - Build filename from layout conventions
     - Write error JSON with timestamp and message
 
-  - [ ] `write_run_meta(run_dir: str, meta: dict)`
+  - [x] `write_run_meta(run_dir: str, meta: dict)`
     - Write run_meta.json
 
-  - [ ] `write_report_html(run_dir: str, html: str)`
+  - [x] `write_report_html(run_dir: str, html: str)`
     - Write report.html
+- [x 2025-11-02 commit e618e8c] Implemented writer module with Path-based utilities, comprehensive error handling, and 27-test suite (commit 361aa9b)
 
 ### 2.10 LLM Runner Module - Runner (llm_runner/runner.py)
 

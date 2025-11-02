@@ -85,12 +85,14 @@ def evaluate_single_test_case(
         known_brands=all_brands,
     )
 
-    # Gather all detected mentions for metrics computation
-    actual_mentions = mention_result
+    # Gather all detected mentions for metrics computation (convert to strings)
+    actual_mentions = [mention.normalized_name for mention in mention_result]
 
     # Compute all metric categories
     mention_metrics = compute_mention_metrics(test_case, actual_mentions)
-    rank_metrics = compute_rank_metrics(test_case, rank_result)
+    # Convert RankedBrand objects to strings for rank_metrics
+    rank_result_strings = [brand.brand_name for brand in rank_result]
+    rank_metrics = compute_rank_metrics(test_case, rank_result_strings)
     completeness_metrics = compute_completeness_metrics(test_case, actual_mentions)
 
     # Combine all metrics

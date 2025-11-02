@@ -47,7 +47,6 @@ from ..storage.writer import (
     write_raw_answer,
     write_run_meta,
 )
-from ..utils.cost import estimate_cost
 from ..utils.time import run_id_from_timestamp, utc_timestamp
 from .models import build_client
 

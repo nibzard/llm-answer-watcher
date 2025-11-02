@@ -163,10 +163,9 @@ class SecretRedactingFilter(logging.Filter):
                     token_part = matched[7:]  # Skip "Bearer "
                     last4 = token_part[-4:]
                     return f"Bearer ***{last4}"
-                else:
-                    # Standard handling for other patterns
-                    last4 = matched[-4:]
-                    return template.format(last4=last4)
+                # Standard handling for other patterns
+                last4 = matched[-4:]
+                return template.format(last4=last4)
 
             text = pattern.sub(redact_match, text)
 

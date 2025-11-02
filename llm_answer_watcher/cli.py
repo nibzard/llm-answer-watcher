@@ -91,7 +91,7 @@ def _check_brands_appeared(
         return False
 
     try:
-        with open(parsed_path, 'r', encoding='utf-8') as f:
+        with open(parsed_path, encoding='utf-8') as f:
             parsed_data = json.load(f)
 
         # Check if my_brands_mentioned list is non-empty

@@ -37,6 +37,8 @@ import re
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 
+from .mention_detector import create_brand_pattern
+
 
 @dataclass
 class RankedBrand:
@@ -284,14 +286,11 @@ def _extract_from_mention_order(
     """
     # Find all brand mentions with positions
     mentions = []
-    text_lower = text.lower()
 
     for brand in known_brands:
-        # Simple word-boundary search (case-insensitive)
-        brand_lower = brand.lower()
-        # Use word boundaries to avoid false positives
-        pattern = r"\b" + re.escape(brand_lower) + r"\b"
-        match = re.search(pattern, text_lower)
+        # Use consistent word-boundary pattern from mention_detector
+        pattern = create_brand_pattern(brand)
+        match = pattern.search(text)
         if match:
             mentions.append((brand, match.start()))
 

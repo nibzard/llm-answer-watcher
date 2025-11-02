@@ -21,6 +21,7 @@ from llm_answer_watcher.config.schema import (
 from llm_answer_watcher.extractor.mention_detector import BrandMention
 from llm_answer_watcher.extractor.parser import ExtractionResult
 from llm_answer_watcher.extractor.rank_extractor import RankedBrand
+from llm_answer_watcher.llm_runner.models import LLMResponse
 from llm_answer_watcher.llm_runner.runner import RawAnswerRecord, run_all
 
 
@@ -160,9 +161,13 @@ class TestRunAll:
 
         # Mock LLM client
         mock_client = MagicMock()
-        mock_client.generate_answer.return_value = (
-            "InstantFlow is the best email warmup tool.",
-            {"prompt_tokens": 100, "completion_tokens": 50},
+        mock_client.generate_answer.return_value = LLMResponse(
+            answer_text="InstantFlow is the best email warmup tool.",
+            tokens_used=150,  # 100 + 50
+            cost_usd=0.000075,  # Estimated cost for 150 tokens
+            provider="openai",
+            model_name="gpt-4o-mini",
+            timestamp_utc="2025-11-02T08:00:00Z",
         )
         mock_build_client.return_value = mock_client
 
@@ -264,9 +269,13 @@ class TestRunAll:
 
         # Mock LLM client
         mock_client = MagicMock()
-        mock_client.generate_answer.return_value = (
-            "Test answer",
-            {"prompt_tokens": 50, "completion_tokens": 25},
+        mock_client.generate_answer.return_value = LLMResponse(
+            answer_text="Test answer",
+            tokens_used=75,  # 50 + 25
+            cost_usd=0.000045,  # Estimated cost for 75 tokens
+            provider="openai",
+            model_name="gpt-4o-mini",
+            timestamp_utc="2025-11-02T08:00:00Z",
         )
         mock_build_client.return_value = mock_client
 
@@ -357,7 +366,14 @@ class TestRunAll:
         # Mock LLM client - first call succeeds, second fails
         mock_client = MagicMock()
         mock_client.generate_answer.side_effect = [
-            ("Success answer", {"prompt_tokens": 50, "completion_tokens": 25}),
+            LLMResponse(
+                answer_text="Success answer",
+                tokens_used=75,  # 50 + 25
+                cost_usd=0.000045,  # Estimated cost for 75 tokens
+                provider="openai",
+                model_name="gpt-4o-mini",
+                timestamp_utc="2025-11-02T08:00:00Z",
+            ),
             Exception("API rate limit exceeded"),
         ]
         mock_build_client.return_value = mock_client
@@ -452,9 +468,13 @@ class TestRunAll:
 
         # Mock LLM client with known token counts
         mock_client = MagicMock()
-        mock_client.generate_answer.return_value = (
-            "Answer",
-            {"prompt_tokens": 1000, "completion_tokens": 500},
+        mock_client.generate_answer.return_value = LLMResponse(
+            answer_text="Answer",
+            tokens_used=1500,  # 1000 + 500
+            cost_usd=0.0009,  # Estimated cost for 1500 tokens
+            provider="openai",
+            model_name="gpt-4o-mini",
+            timestamp_utc="2025-11-02T08:00:00Z",
         )
         mock_build_client.return_value = mock_client
 
@@ -526,9 +546,13 @@ class TestRunAll:
 
         # Mock LLM client
         mock_client = MagicMock()
-        mock_client.generate_answer.return_value = (
-            "Answer",
-            {"prompt_tokens": 50, "completion_tokens": 25},
+        mock_client.generate_answer.return_value = LLMResponse(
+            answer_text="Answer",
+            tokens_used=75,  # 50 + 25
+            cost_usd=0.000045,  # Estimated cost for 75 tokens
+            provider="openai",
+            model_name="gpt-4o-mini",
+            timestamp_utc="2025-11-02T08:00:00Z",
         )
         mock_build_client.return_value = mock_client
 
@@ -606,9 +630,13 @@ class TestRunAll:
 
         # Mock LLM client
         mock_client = MagicMock()
-        mock_client.generate_answer.return_value = (
-            "InstantFlow and Competitor1 are both good.",
-            {"prompt_tokens": 50, "completion_tokens": 25},
+        mock_client.generate_answer.return_value = LLMResponse(
+            answer_text="InstantFlow and Competitor1 are both good.",
+            tokens_used=75,  # 50 + 25
+            cost_usd=0.000045,  # Estimated cost for 75 tokens
+            provider="openai",
+            model_name="gpt-4o-mini",
+            timestamp_utc="2025-11-02T08:00:00Z",
         )
         mock_build_client.return_value = mock_client
 
@@ -693,9 +721,13 @@ class TestRunAll:
 
         # Mock LLM client
         mock_client = MagicMock()
-        mock_client.generate_answer.return_value = (
-            "Answer",
-            {"prompt_tokens": 50, "completion_tokens": 25},
+        mock_client.generate_answer.return_value = LLMResponse(
+            answer_text="Answer",
+            tokens_used=75,  # 50 + 25
+            cost_usd=0.000045,  # Estimated cost for 75 tokens
+            provider="openai",
+            model_name="gpt-4o-mini",
+            timestamp_utc="2025-11-02T08:00:00Z",
         )
         mock_build_client.return_value = mock_client
 

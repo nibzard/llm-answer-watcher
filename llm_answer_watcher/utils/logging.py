@@ -93,17 +93,24 @@ class SecretRedactingFilter(logging.Filter):
     "Bearer abc123xyz789" -> "Bearer ***xyz789"
     """
 
-    # Pattern to match common API key formats
-    # OpenAI: sk-proj-..., sk-...
-    # Anthropic: sk-ant-api03-...
-    # Generic bearer tokens
+    # Pattern to match specific API key formats
+    # OpenAI: sk-proj- (48 chars), sk- (20 chars for legacy keys, 51 for new keys)
+    # Anthropic: sk-ant-api03- (starts with sk-ant-api03-, typically 86+ chars total)
+    # Generic bearer tokens with proper word boundary
     SECRET_PATTERNS = [
-        (re.compile(r"\bsk-[a-zA-Z0-9_-]{20,}\b"), "sk-...{last4}"),
-        (re.compile(r"\bBearer\s+[a-zA-Z0-9_-]{20,}\b"), "Bearer ***{last4}"),
-        (
-            re.compile(r"\b[a-zA-Z0-9_-]{32,}\b"),
-            "***{last4}",
-        ),  # Generic long tokens
+        # OpenAI project keys: sk-proj-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        (re.compile(r"\bsk-proj-[a-zA-Z0-9_-]{48}\b"), "sk-proj-...{last4}"),
+
+        # OpenAI standard keys: sk-XXXXXXXXXXXXXXXXXXXXXXXX (51 chars for new keys) or sk-XXXXXXXXXXXXXXXXXXXX (20 chars for legacy)
+        (re.compile(r"\bsk-[a-zA-Z0-9_-]{20}\b"), "sk-...{last4}"),
+        (re.compile(r"\bsk-[a-zA-Z0-9_-]{51}\b"), "sk-...{last4}"),
+
+        # Anthropic Claude API keys: sk-ant-api03-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+        (re.compile(r"\bsk-ant-api03-[a-zA-Z0-9_-]{64,}\b"), "sk-ant-api03-...{last4}"),
+
+        # Generic bearer tokens (more conservative - require actual "Bearer " prefix)
+        # Match the whole thing but be more specific about the format
+        (re.compile(r"Bearer\s+[a-zA-Z0-9_-]{20,}"), "Bearer ***{last4}"),
     ]
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -150,8 +157,16 @@ class SecretRedactingFilter(logging.Filter):
 
             def redact_match(match: re.Match) -> str:
                 matched = match.group(0)
-                last4 = matched[-4:]
-                return template.format(last4=last4)
+
+                # Special handling for Bearer tokens
+                if matched.startswith("Bearer "):
+                    token_part = matched[7:]  # Skip "Bearer "
+                    last4 = token_part[-4:]
+                    return f"Bearer ***{last4}"
+                else:
+                    # Standard handling for other patterns
+                    last4 = matched[-4:]
+                    return template.format(last4=last4)
 
             text = pattern.sub(redact_match, text)
 

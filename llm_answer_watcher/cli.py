@@ -36,6 +36,7 @@ Security:
     - All exceptions are caught and formatted appropriately
 """
 
+import json
 from pathlib import Path
 
 import typer
@@ -45,6 +46,7 @@ from llm_answer_watcher.config.loader import load_config
 from llm_answer_watcher.llm_runner.runner import run_all
 from llm_answer_watcher.report.generator import write_report
 from llm_answer_watcher.storage.db import init_db_if_needed
+from llm_answer_watcher.storage.layout import get_parsed_answer_filename
 from llm_answer_watcher.utils.console import (
     create_progress_bar,
     error,
@@ -61,6 +63,44 @@ from llm_answer_watcher.utils.logging import setup_logging
 
 # Install Rich tracebacks for better error messages
 install_rich_traceback(show_locals=False)
+
+
+def _check_brands_appeared(
+    output_dir: str, intent_id: str, provider: str, model_name: str
+) -> bool:
+    """
+    Check if our brands appeared in the LLM response by reading parsed file.
+
+    Reads the parsed JSON file for this intent/model combination and checks
+    if the my_brands_mentioned list is non-empty.
+
+    Args:
+        output_dir: Directory containing run output files
+        intent_id: Intent identifier (e.g., "email-warmup")
+        provider: LLM provider name (e.g., "openai")
+        model_name: Model name (e.g., "gpt-4o-mini")
+
+    Returns:
+        True if our brands were mentioned, False otherwise
+    """
+    parsed_filename = get_parsed_answer_filename(intent_id, provider, model_name)
+    parsed_path = Path(output_dir) / parsed_filename
+
+    if not parsed_path.exists():
+        # Parsed file doesn't exist, assume no mentions
+        return False
+
+    try:
+        with open(parsed_path, 'r', encoding='utf-8') as f:
+            parsed_data = json.load(f)
+
+        # Check if my_brands_mentioned list is non-empty
+        my_brands = parsed_data.get("my_brands_mentioned", [])
+        return bool(my_brands)
+
+    except (json.JSONDecodeError, OSError, KeyError):
+        # If we can't read the file or it's malformed, assume no mentions
+        return False
 
 # Exit codes
 EXIT_SUCCESS = 0  # All queries successful
@@ -326,12 +366,15 @@ def run(
                     break
 
             if not found_error:
-                # Must be success - estimate appeared as True (we don't have this data easily)
+                # Must be success - check if our brands actually appeared by reading parsed file
+                appeared = _check_brands_appeared(
+                    results["output_dir"], intent.id, model.provider, model.model_name
+                )
                 summary_results.append(
                     {
                         "intent_id": intent.id,
                         "model": f"{model.provider}/{model.model_name}",
-                        "appeared": True,  # Simplified - would need to read parsed files
+                        "appeared": appeared,
                         "cost": results["total_cost_usd"] / results["success_count"]
                         if results["success_count"] > 0
                         else 0.0,

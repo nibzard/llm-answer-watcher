@@ -32,7 +32,9 @@ Architecture:
     In Cloud version, this becomes the HTTP endpoint handler.
 """
 
+import json
 import logging
+import sqlite3
 from dataclasses import asdict, dataclass
 
 from ..config.schema import RuntimeConfig
@@ -177,12 +179,15 @@ def run_all(config: RuntimeConfig) -> dict:
 
     # Insert run record into database
     try:
-        insert_run(
-            db_path=config.run_settings.sqlite_db_path,
-            run_id=run_id,
-            timestamp_utc=timestamp_utc,
-            output_dir=run_dir,
-        )
+        with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
+            insert_run(
+                conn=conn,
+                run_id=run_id,
+                timestamp_utc=timestamp_utc,
+                total_intents=len(config.intents),
+                total_models=len(config.models),
+            )
+            conn.commit()
         logger.debug(f"Inserted run record: run_id={run_id}")
     except Exception as e:
         logger.error(f"Failed to insert run record into database: {e}", exc_info=True)
@@ -205,14 +210,20 @@ def run_all(config: RuntimeConfig) -> dict:
                 )
 
                 # Generate answer with retry logic
-                answer_text, usage_meta = client.generate_answer(intent.prompt)
+                response = client.generate_answer(intent.prompt)
 
-                # Calculate cost
-                cost_usd = estimate_cost(
-                    provider=model_config.provider,
-                    model=model_config.model_name,
-                    usage_meta=usage_meta,
-                )
+                # Extract response data
+                answer_text = response.answer_text
+                cost_usd = response.cost_usd
+
+                # Create usage metadata for storage
+                # Note: LLMResponse doesn't include detailed usage, so we reconstruct it
+                # for backward compatibility with the existing schema
+                usage_meta = {
+                    "prompt_tokens": 0,  # Not available in LLMResponse structure
+                    "completion_tokens": 0,  # Not available in LLMResponse structure
+                    "total_tokens": response.tokens_used,
+                }
 
                 # Create raw answer record
                 raw_record = RawAnswerRecord(
@@ -238,20 +249,20 @@ def run_all(config: RuntimeConfig) -> dict:
 
                 # Insert raw answer into database
                 try:
-                    insert_answer_raw(
-                        db_path=config.run_settings.sqlite_db_path,
-                        run_id=run_id,
-                        intent_id=intent.id,
-                        intent_prompt=intent.prompt,
-                        model_provider=model_config.provider,
-                        model_name=model_config.model_name,
-                        timestamp_utc=raw_record.timestamp_utc,
-                        answer_text=answer_text,
-                        answer_length=len(answer_text),
-                        prompt_tokens=usage_meta.get("prompt_tokens", 0),
-                        completion_tokens=usage_meta.get("completion_tokens", 0),
-                        estimated_cost_usd=cost_usd,
-                    )
+                    with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
+                        insert_answer_raw(
+                            conn=conn,
+                            run_id=run_id,
+                            intent_id=intent.id,
+                            model_provider=model_config.provider,
+                            model_name=model_config.model_name,
+                            timestamp_utc=raw_record.timestamp_utc,
+                            prompt=intent.prompt,
+                            answer_text=answer_text,
+                            usage_meta_json=json.dumps(usage_meta),
+                            estimated_cost_usd=cost_usd,
+                        )
+                        conn.commit()
                 except Exception as e:
                     logger.error(
                         f"Failed to insert answer into database: {e}", exc_info=True
@@ -325,19 +336,21 @@ def run_all(config: RuntimeConfig) -> dict:
                                 rank_position = ranked.rank_position
                                 break
 
-                        insert_mention(
-                            db_path=config.run_settings.sqlite_db_path,
-                            run_id=run_id,
-                            intent_id=intent.id,
-                            model_provider=model_config.provider,
-                            model_name=model_config.model_name,
-                            timestamp_utc=raw_record.timestamp_utc,
-                            brand_mentioned=mention.original_text,
-                            normalized_name=mention.normalized_name,
-                            is_mine=is_mine,
-                            rank_position=rank_position,
-                            context_snippet="",  # Context not available in BrandMention
-                        )
+                        with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
+                            insert_mention(
+                                conn=conn,
+                                run_id=run_id,
+                                timestamp_utc=raw_record.timestamp_utc,
+                                intent_id=intent.id,
+                                model_provider=model_config.provider,
+                                model_name=model_config.model_name,
+                                brand_name=mention.original_text,
+                                normalized_name=mention.normalized_name,
+                                is_mine=is_mine,
+                                rank_position=rank_position,
+                                match_type="exact",  # Default match type
+                            )
+                            conn.commit()
                     except Exception as e:
                         logger.error(
                             f"Failed to insert mention into database: {e}",

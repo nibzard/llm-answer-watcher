@@ -13,7 +13,7 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 - [x] Milestone 1: Project skeleton & config (COMPLETE)
 - [x] Milestone 2: Provider client + runner core (COMPLETE - 220 tests, 97-100% coverage)
-- [ ] Milestone 3: Report generation + CLI (NEXT)
+- [ ] Milestone 3: Report generation + CLI (IN PROGRESS - 78/376 tests)
 - [ ] Milestone 4: Polish, docs, tests
 
 ---
@@ -889,71 +889,72 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 3.1 Utils Module - Console (utils/console.py)
 
-- [ ] **Setup Rich console infrastructure:**
-  - [ ] Import Rich components (Console, Progress, Table, Panel, Status)
-  - [ ] Create global console instance
+- [x] **Setup Rich console infrastructure:**
+  - [x] Import Rich components (Console, Progress, Table, Panel, Status)
+  - [x] Create global console instance
+  - [x 2025-11-02] Completed in commit [pending] - 543 lines implementation
 
-- [ ] **Implement `OutputMode` class:**
-  - [ ] `__init__(self, format: str = "text", quiet: bool = False)`
-  - [ ] `is_human(self) -> bool`
-  - [ ] `is_agent(self) -> bool`
-  - [ ] `add_json(self, key: str, value: Any)`
-  - [ ] `flush_json(self)`
-  - [ ] Create global output_mode instance
+- [x] **Implement `OutputMode` class:**
+  - [x] `__init__(self, format: str = "text", quiet: bool = False)`
+  - [x] `is_human(self) -> bool`
+  - [x] `is_agent(self) -> bool`
+  - [x] `add_json(self, key: str, value: Any)`
+  - [x] `flush_json(self)`
+  - [x] Create global output_mode instance
 
-- [ ] **Implement context managers and helpers:**
-  - [ ] `@contextmanager spinner(message: str)`
+- [x] **Implement context managers and helpers:**
+  - [x] `@contextmanager spinner(message: str)`
     - Show spinner in human mode
     - Silent in agent mode
 
-  - [ ] `create_progress_bar() -> Progress`
+  - [x] `create_progress_bar() -> Progress`
     - Return Rich Progress in human mode
     - Return NoOpProgress in agent mode
 
-  - [ ] `NoOpProgress` class
+  - [x] `NoOpProgress` class
     - Implement __enter__, __exit__
     - Implement add_task(), advance() as no-ops
 
-- [ ] **Implement output functions:**
-  - [ ] `success(message: str)`
+- [x] **Implement output functions:**
+  - [x] `success(message: str)`
     - Rich green checkmark in human mode
     - Buffer JSON in agent mode
 
-  - [ ] `error(message: str)`
+  - [x] `error(message: str)`
     - Rich red X in human mode
     - Buffer JSON in agent mode
 
-  - [ ] `warning(message: str)`
+  - [x] `warning(message: str)`
     - Rich yellow warning in human mode
     - Buffer JSON in agent mode
 
-  - [ ] `info(message: str)`
+  - [x] `info(message: str)`
     - Rich blue info in human mode
     - Silent in agent/quiet mode
 
-- [ ] **Implement `print_summary_table(results: list[dict])`**
-  - [ ] In human mode:
+- [x] **Implement `print_summary_table(results: list[dict])`**
+  - [x] In human mode:
     - Create Rich Table with rounded borders
     - Columns: Intent, Model, Appeared, Cost, Status
     - Color-code: green for success, red for failure
-  - [ ] In agent mode:
+  - [x] In agent mode:
     - Buffer results as JSON array
-  - [ ] In quiet mode:
+  - [x] In quiet mode:
     - Skip output
 
-- [ ] **Implement `print_banner(version: str)`**
-  - [ ] Show fancy ASCII art banner in human mode
-  - [ ] Silent in agent mode
+- [x] **Implement `print_banner(version: str)`**
+  - [x] Show fancy ASCII art banner in human mode
+  - [x] Silent in agent mode
 
-- [ ] **Implement `print_final_summary(run_id, output_dir, total_cost, successful, total)`**
-  - [ ] In human mode:
+- [x] **Implement `print_final_summary(run_id, output_dir, total_cost, successful, total)`**
+  - [x] In human mode:
     - Create Rich Panel with stats
     - Show run_id, output_dir, cost, query counts
     - Green border if all successful, yellow if partial
-  - [ ] In agent mode:
+  - [x] In agent mode:
     - Buffer all fields as JSON
     - Flush JSON to stdout
-  - [ ] In quiet mode:
+  - [x] In quiet mode:
     - Print tab-separated values
 
 ### 3.2 Report Module - Cost Formatter (report/cost_formatter.py)
@@ -1129,17 +1130,25 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 3.6 Testing - Milestone 3
 
-- [ ] **Test utils/console.py:**
-  - [ ] Test OutputMode class
-  - [ ] Test is_human() and is_agent()
-  - [ ] Test spinner() context manager
-  - [ ] Test progress bar creation
-  - [ ] Test NoOpProgress behavior
-  - [ ] Test success/error/warning/info functions
-  - [ ] Test print_summary_table() in both modes
-  - [ ] Test print_final_summary() in both modes
-  - [ ] Test JSON buffering and flushing
-  - [ ] Capture stdout to verify output
+**Progress Update (2025-11-02):**
+- ✅ Completed console module test suite (78 tests)
+- ✅ All tests passing with 100% coverage
+- ✅ ANSI code validation for all three modes
+- 📊 Current test count: 298 total tests across 9 test suites
+- 📊 Milestone 3 test count: 78/376 tests complete
+
+- [x] **Test utils/console.py:**
+  - [x] Test OutputMode class
+  - [x] Test is_human() and is_agent()
+  - [x] Test spinner() context manager
+  - [x] Test progress bar creation
+  - [x] Test NoOpProgress behavior
+  - [x] Test success/error/warning/info functions
+  - [x] Test print_summary_table() in both modes
+  - [x] Test print_final_summary() in both modes
+  - [x] Test JSON buffering and flushing
+  - [x] Capture stdout to verify output
+  - [x 2025-11-02] Completed with 78 comprehensive tests in tests/test_utils_console.py - all passing, 100% coverage (123/123 statements)
 
 - [ ] **Test report/generator.py:**
   - [ ] Test generate_report() with sample data

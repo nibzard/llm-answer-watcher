@@ -159,7 +159,8 @@ def detect_mentions(
 
     Notes:
         - Empty answer_text returns empty list (not an error)
-        - Duplicate mentions of same brand only recorded once (first occurrence)
+        - Each occurrence tracked separately (even multiple mentions of same brand)
+        - Exact duplicates at same position are deduplicated
         - Word boundaries prevent "hub" from matching in "GitHub"
         - Case-insensitive: "hubspot", "HubSpot", "HUBSPOT" all match
     """
@@ -201,7 +202,7 @@ def detect_mentions(
 
     # Find all matches
     all_matches: list[BrandMention] = []
-    seen_normalized: set[str] = set()  # Track to avoid duplicates
+    seen_positions: set[tuple[int, str]] = set()  # Track (position, text) to avoid exact duplicates
 
     for _alias, primary_name, category, pattern in brand_patterns:
         # Find all occurrences of this alias
@@ -210,13 +211,13 @@ def detect_mentions(
             original_text = match.group(0)
             match_position = match.start()
 
-            # Use normalized name for deduplication
-            # If we already found this brand (via another alias), skip
-            normalized_key = f"{category}:{primary_name.lower()}"
-            if normalized_key in seen_normalized:
+            # Deduplicate only exact same text at same position
+            # This allows multiple occurrences of the same brand at different positions
+            position_key = (match_position, original_text.lower())
+            if position_key in seen_positions:
                 continue
 
-            seen_normalized.add(normalized_key)
+            seen_positions.add(position_key)
 
             all_matches.append(
                 BrandMention(

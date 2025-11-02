@@ -91,9 +91,13 @@ def init_eval_db_if_needed(db_path: str) -> None:
                 f"v{current_version} -> v{EVAL_CURRENT_SCHEMA_VERSION}"
             )
             apply_eval_migrations(conn, current_version, EVAL_CURRENT_SCHEMA_VERSION)
-            logger.info(f"Eval database schema upgraded to v{EVAL_CURRENT_SCHEMA_VERSION}")
+            logger.info(
+                f"Eval database schema upgraded to v{EVAL_CURRENT_SCHEMA_VERSION}"
+            )
         elif current_version == EVAL_CURRENT_SCHEMA_VERSION:
-            logger.debug(f"Eval database schema is current (v{EVAL_CURRENT_SCHEMA_VERSION})")
+            logger.debug(
+                f"Eval database schema is current (v{EVAL_CURRENT_SCHEMA_VERSION})"
+            )
         else:
             # This should never happen unless someone manually edited schema_version
             raise ValueError(
@@ -183,7 +187,9 @@ def apply_eval_migrations(
             # elif target_version == 2:
             #     _migrate_eval_to_v2(conn)
             else:
-                raise ValueError(f"No eval migration defined for version {target_version}")
+                raise ValueError(
+                    f"No eval migration defined for version {target_version}"
+                )
 
             # Record successful migration
             timestamp = utc_timestamp()
@@ -356,7 +362,7 @@ def insert_eval_run(
     import json
 
     timestamp = utc_timestamp()
-    summary_json = json.dumps(summary, separators=(',', ':'))
+    summary_json = json.dumps(summary, separators=(",", ":"))
 
     conn.execute(
         """
@@ -443,7 +449,9 @@ def insert_eval_result(
     timestamp = utc_timestamp()
     overall_passed_int = 1 if overall_passed else 0
     metric_passed_int = 1 if metric_passed else 0
-    metric_details_json = json.dumps(metric_details, separators=(',', ':')) if metric_details else None
+    metric_details_json = (
+        json.dumps(metric_details, separators=(",", ":")) if metric_details else None
+    )
 
     conn.execute(
         """
@@ -540,8 +548,10 @@ def store_eval_results(
                     metric_details=metric.details,
                 )
 
-        logger.info(f"Stored eval results for run {run_id}: "
-                   f"{eval_results['total_passed']}/{eval_results['total_test_cases']} passed")
+        logger.info(
+            f"Stored eval results for run {run_id}: "
+            f"{eval_results['total_passed']}/{eval_results['total_test_cases']} passed"
+        )
 
     except Exception as e:
         conn.rollback()
@@ -571,29 +581,34 @@ def get_recent_eval_runs(
     """
     import json
 
-    cursor = conn.execute("""
+    cursor = conn.execute(
+        """
         SELECT run_id, timestamp_utc, total_test_cases, total_passed, total_failed,
                pass_rate, summary_json, created_at
         FROM eval_runs
         ORDER BY timestamp_utc DESC
         LIMIT ?
-    """, (limit,))
+    """,
+        (limit,),
+    )
 
     runs = []
     for row in cursor.fetchall():
         summary_json = row[6]
         summary = json.loads(summary_json) if summary_json else {}
 
-        runs.append({
-            "run_id": row[0],
-            "timestamp_utc": row[1],
-            "total_test_cases": row[2],
-            "total_passed": row[3],
-            "total_failed": row[4],
-            "pass_rate": row[5],
-            "summary": summary,
-            "created_at": row[7],
-        })
+        runs.append(
+            {
+                "run_id": row[0],
+                "timestamp_utc": row[1],
+                "total_test_cases": row[2],
+                "total_passed": row[3],
+                "total_failed": row[4],
+                "pass_rate": row[5],
+                "summary": summary,
+                "created_at": row[7],
+            }
+        )
 
     return runs
 
@@ -617,7 +632,8 @@ def get_metric_trend(
         >>> for point in trend:
         ...     print(f"{point['date']}: {point['avg_value']:.3f}")
     """
-    cursor = conn.execute(f"""
+    cursor = conn.execute(
+        f"""
         SELECT DATE(timestamp_utc) as date, AVG(metric_value) as avg_value, COUNT(*) as count
         FROM eval_results er
         JOIN eval_runs r ON er.eval_run_id = r.run_id
@@ -625,15 +641,19 @@ def get_metric_trend(
           AND r.timestamp_utc >= datetime('now', '-{days} days')
         GROUP BY DATE(timestamp_utc)
         ORDER BY date
-    """, (metric_name,))
+    """,
+        (metric_name,),
+    )
 
     trend = []
     for row in cursor.fetchall():
-        trend.append({
-            "date": row[0],
-            "avg_value": row[1],
-            "count": row[2],
-        })
+        trend.append(
+            {
+                "date": row[0],
+                "avg_value": row[1],
+                "count": row[2],
+            }
+        )
 
     return trend
 
@@ -668,19 +688,24 @@ def get_failing_tests(
             return []
         run_id = row[0]
 
-    cursor = conn.execute("""
+    cursor = conn.execute(
+        """
         SELECT DISTINCT test_description, COUNT(*) as failed_metrics
         FROM eval_results
         WHERE eval_run_id = ? AND overall_passed = 0
         GROUP BY test_description
         ORDER BY failed_metrics DESC
-    """, (run_id,))
+    """,
+        (run_id,),
+    )
 
     failing = []
     for row in cursor.fetchall():
-        failing.append({
-            "test_description": row[0],
-            "failed_metrics": row[1],
-        })
+        failing.append(
+            {
+                "test_description": row[0],
+                "failed_metrics": row[1],
+            }
+        )
 
     return failing

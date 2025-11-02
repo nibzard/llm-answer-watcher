@@ -38,7 +38,10 @@ class TestLoadTestCases:
         # Check first test case structure
         first_case = test_cases[0]
         assert isinstance(first_case, EvalTestCase)
-        assert first_case.description == "Simple email warmup tools comparison with clear ranking"
+        assert (
+            first_case.description
+            == "Simple email warmup tools comparison with clear ranking"
+        )
         assert first_case.intent_id == "best_email_warmup_tools"
         assert "WarmupInbox" in first_case.llm_answer_text
         assert len(first_case.brands_mine) >= 1
@@ -72,7 +75,7 @@ class TestLoadTestCases:
             # incomplete structure
         """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(malformed_content)
             temp_path = f.name
 
@@ -94,7 +97,7 @@ class TestLoadTestCases:
             # Missing closing bracket - invalid YAML syntax
         """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(invalid_yaml)
             temp_path = f.name
 
@@ -114,7 +117,7 @@ class TestLoadTestCases:
             intent_id: "test"
         """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(invalid_structure)
             temp_path = f.name
 
@@ -132,7 +135,7 @@ class TestLoadTestCases:
         test_cases: []
         """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(empty_cases)
             temp_path = f.name
 
@@ -161,7 +164,7 @@ class TestLoadTestCases:
             # Missing required brands_mine field - should cause validation error
         """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(mixed_content)
             temp_path = f.name
 
@@ -275,9 +278,15 @@ class TestEvaluateSingleTestCase:
         # Should have comprehensive metrics
         metric_names = [m.name for m in result.metrics]
         expected_metrics = [
-            "mention_precision", "mention_recall", "mention_f1",
-            "rank_position_accuracy", "rank_list_overlap", "rank_correlation",
-            "my_brands_coverage", "competitors_coverage", "overall_brand_coverage"
+            "mention_precision",
+            "mention_recall",
+            "mention_f1",
+            "rank_position_accuracy",
+            "rank_list_overlap",
+            "rank_correlation",
+            "my_brands_coverage",
+            "competitors_coverage",
+            "overall_brand_coverage",
         ]
 
         for expected_metric in expected_metrics:
@@ -341,9 +350,9 @@ class TestRunEvalSuite:
 
         # Check that results are EvalResult objects
         for result in results["results"]:
-            assert hasattr(result, 'test_description')
-            assert hasattr(result, 'metrics')
-            assert hasattr(result, 'overall_passed')
+            assert hasattr(result, "test_description")
+            assert hasattr(result, "metrics")
+            assert hasattr(result, "overall_passed")
 
     def test_run_with_empty_fixtures(self):
         """Test running evaluation suite with empty test cases."""
@@ -352,7 +361,7 @@ class TestRunEvalSuite:
         test_cases: []
         """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(empty_fixtures)
             temp_path = f.name
 
@@ -382,7 +391,7 @@ class TestRunEvalSuite:
             expected_ranked_list: ["HubSpot", "Salesforce"]
         """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(single_case_content)
             temp_path = f.name
 
@@ -427,7 +436,7 @@ class TestRunEvalSuite:
             expected_ranked_list: ["HubSpot", "Salesforce"]
         """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(mixed_content)
             temp_path = f.name
 
@@ -475,7 +484,7 @@ class TestRunEvalSuite:
             # This case has no expected mentions but has brands defined, should fail
         """
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(problematic_content)
             temp_path = f.name
 
@@ -568,9 +577,11 @@ class TestWriteEvalResults:
         # Create multiple test cases
         test_cases = [
             EvalTestCase(
-                description=f"Test case {i+1}",
-                intent_id=f"test_{i+1:03d}",
-                llm_answer_text=f"Case {i+1} content with HubSpot mentioned" if i % 2 == 0 else f"Case {i+1} content without brands",
+                description=f"Test case {i + 1}",
+                intent_id=f"test_{i + 1:03d}",
+                llm_answer_text=f"Case {i + 1} content with HubSpot mentioned"
+                if i % 2 == 0
+                else f"Case {i + 1} content without brands",
                 brands_mine=["HubSpot"],
                 brands_competitors=["Salesforce"],
                 expected_my_mentions=["HubSpot"] if i % 2 == 0 else [],
@@ -604,9 +615,7 @@ class TestWriteEvalResults:
 
             # Write complete suite results
             returned_run_id = write_eval_results(
-                test_run_id,
-                suite_results["results"],
-                str(db_path)
+                test_run_id, suite_results["results"], str(db_path)
             )
 
             assert returned_run_id == test_run_id

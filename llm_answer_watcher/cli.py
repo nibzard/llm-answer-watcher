@@ -121,6 +121,7 @@ def _check_brands_appeared(
     except json.JSONDecodeError as e:
         # Malformed JSON - log warning and return False
         import logging
+
         logger = logging.getLogger(__name__)
         logger.warning(
             f"Failed to parse JSON for {intent_id}/{provider}/{model_name}: {e}"
@@ -130,6 +131,7 @@ def _check_brands_appeared(
     except OSError as e:
         # File read error - log warning and return False
         import logging
+
         logger = logging.getLogger(__name__)
         logger.warning(
             f"Failed to read parsed file for {intent_id}/{provider}/{model_name}: {e}"
@@ -139,11 +141,12 @@ def _check_brands_appeared(
     except Exception as e:
         # Unexpected error - log warning and return False
         import logging
+
         logger = logging.getLogger(__name__)
         logger.warning(
             f"Unexpected error checking brand appearance for "
             f"{intent_id}/{provider}/{model_name}: {e}",
-            exc_info=True
+            exc_info=True,
         )
         return False
 
@@ -652,7 +655,9 @@ def eval(
         failed_cases = total_cases - passed_cases
         pass_rate = eval_results["summary"]["pass_rate"]
 
-        success(f"Evaluation completed: {passed_cases}/{total_cases} passed ({pass_rate:.1%})")
+        success(
+            f"Evaluation completed: {passed_cases}/{total_cases} passed ({pass_rate:.1%})"
+        )
 
         if failed_cases > 0:
             warning(f"{failed_cases} test case(s) failed")
@@ -667,6 +672,7 @@ def eval(
 
                     # Store results
                     import sqlite3
+
                     with sqlite3.connect(eval_db_path) as conn:
                         run_id = store_eval_results(conn, eval_results)
                         conn.commit()
@@ -677,6 +683,7 @@ def eval(
                 error(f"Failed to save results to database: {e}")
                 if verbose:
                     import traceback
+
                     traceback.print_exc()
                 # Don't exit on database save failure, just warn
 
@@ -706,7 +713,12 @@ def eval(
             info(f"  {status}: {result.test_description}")
 
             # Show critical metrics
-            critical_metrics = ["mention_precision", "mention_recall", "mention_f1", "my_brands_coverage"]
+            critical_metrics = [
+                "mention_precision",
+                "mention_recall",
+                "mention_f1",
+                "my_brands_coverage",
+            ]
             for metric in result.metrics:
                 if metric.name in critical_metrics:
                     status_icon = "✅" if metric.passed else "❌"
@@ -732,19 +744,31 @@ def eval(
             threshold_summary = threshold_check["summary"]
 
             info("\nQuality Thresholds:")
-            status_icon = "✅" if threshold_summary["overall_status"] == "PASS" else "❌"
-            info(f"  {status_icon} Overall Status: {threshold_summary['overall_status']}")
-            info(f"  Pass Rate: {threshold_check['pass_rate']:.1%} (minimum: {threshold_summary['pass_rate_threshold']:.0%})")
-            info(f"  Violations: {threshold_summary['total_violations']} (critical: {threshold_summary['critical_violations']})")
+            status_icon = (
+                "✅" if threshold_summary["overall_status"] == "PASS" else "❌"
+            )
+            info(
+                f"  {status_icon} Overall Status: {threshold_summary['overall_status']}"
+            )
+            info(
+                f"  Pass Rate: {threshold_check['pass_rate']:.1%} (minimum: {threshold_summary['pass_rate_threshold']:.0%})"
+            )
+            info(
+                f"  Violations: {threshold_summary['total_violations']} (critical: {threshold_summary['critical_violations']})"
+            )
 
             # Show specific violations
             if threshold_check["threshold_violations"]:
                 info("\nThreshold Violations:")
                 for violation in threshold_check["threshold_violations"]:
-                    severity_icon = "🔴" if violation["severity"] == "critical" else "🟡"
-                    info(f"  {severity_icon} {violation['metric']}: {violation['average']:.3f} "
-                         f"(threshold: {violation['threshold']:.1f}, "
-                         f"{violation['gap_percent']:.0f}% below)")
+                    severity_icon = (
+                        "🔴" if violation["severity"] == "critical" else "🟡"
+                    )
+                    info(
+                        f"  {severity_icon} {violation['metric']}: {violation['average']:.3f} "
+                        f"(threshold: {violation['threshold']:.1f}, "
+                        f"{violation['gap_percent']:.0f}% below)"
+                    )
             else:
                 info("  ✅ All quality thresholds met")
 
@@ -754,10 +778,11 @@ def eval(
         json_output = {
             "total_test_cases": eval_results["total_test_cases"],
             "total_passed": eval_results["total_passed"],
-            "total_failed": eval_results["total_test_cases"] - eval_results["total_passed"],
+            "total_failed": eval_results["total_test_cases"]
+            - eval_results["total_passed"],
             "pass_rate": eval_results["summary"]["pass_rate"],
             "average_scores": eval_results["summary"]["average_scores"],
-            "results": []
+            "results": [],
         }
 
         # Add detailed results for each test case
@@ -770,10 +795,10 @@ def eval(
                         "name": metric.name,
                         "value": metric.value,
                         "passed": metric.passed,
-                        "details": metric.details
+                        "details": metric.details,
                     }
                     for metric in result.metrics
-                ]
+                ],
             }
             json_output["results"].append(result_dict)
 

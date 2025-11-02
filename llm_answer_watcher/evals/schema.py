@@ -20,20 +20,32 @@ class EvalTestCase(BaseModel):
     expected outputs for validation.
     """
 
-    description: str = Field(..., description="Human-readable description of the test case")
-    intent_id: str = Field(..., description="Intent identifier this test case belongs to")
+    description: str = Field(
+        ..., description="Human-readable description of the test case"
+    )
+    intent_id: str = Field(
+        ..., description="Intent identifier this test case belongs to"
+    )
     llm_answer_text: str = Field(..., description="Raw LLM answer text to evaluate")
 
     # Brand definitions
     brands_mine: list[str] = Field(..., description="List of my brand names/aliases")
-    brands_competitors: list[str] = Field(..., description="List of competitor brand names/aliases")
+    brands_competitors: list[str] = Field(
+        ..., description="List of competitor brand names/aliases"
+    )
 
     # Ground truth expected outputs
-    expected_my_mentions: list[str] = Field(..., description="Expected mentions of my brands")
-    expected_competitor_mentions: list[str] = Field(..., description="Expected mentions of competitor brands")
-    expected_ranked_list: list[str] = Field(..., description="Expected ranked list of all mentioned brands")
+    expected_my_mentions: list[str] = Field(
+        ..., description="Expected mentions of my brands"
+    )
+    expected_competitor_mentions: list[str] = Field(
+        ..., description="Expected mentions of competitor brands"
+    )
+    expected_ranked_list: list[str] = Field(
+        ..., description="Expected ranked list of all mentioned brands"
+    )
 
-    @field_validator('description')
+    @field_validator("description")
     @classmethod
     def validate_description(cls, v: str) -> str:
         """Ensure description is not empty."""
@@ -41,7 +53,7 @@ class EvalTestCase(BaseModel):
             raise ValueError("Test case description cannot be empty")
         return v.strip()
 
-    @field_validator('brands_mine', 'brands_competitors')
+    @field_validator("brands_mine", "brands_competitors")
     @classmethod
     def validate_brand_lists(cls, v: list[str]) -> list[str]:
         """Ensure brand lists are not empty and contain valid entries."""
@@ -55,7 +67,7 @@ class EvalTestCase(BaseModel):
 
         return cleaned
 
-    @field_validator('llm_answer_text')
+    @field_validator("llm_answer_text")
     @classmethod
     def validate_answer_text(cls, v: str) -> str:
         """Ensure answer text is not empty."""
@@ -63,7 +75,9 @@ class EvalTestCase(BaseModel):
             raise ValueError("LLM answer text cannot be empty")
         return v
 
-    @field_validator('expected_my_mentions', 'expected_competitor_mentions', 'expected_ranked_list')
+    @field_validator(
+        "expected_my_mentions", "expected_competitor_mentions", "expected_ranked_list"
+    )
     @classmethod
     def validate_expected_lists(cls, v: list[str]) -> list[str]:
         """Normalize expected mention lists."""
@@ -79,11 +93,15 @@ class EvalMetricScore(BaseModel):
     """
 
     name: str = Field(..., description="Name of the metric (e.g., 'mention_precision')")
-    value: float = Field(..., ge=0.0, le=1.0, description="Metric value between 0.0 and 1.0")
+    value: float = Field(
+        ..., ge=0.0, le=1.0, description="Metric value between 0.0 and 1.0"
+    )
     passed: bool = Field(..., description="Whether the metric meets passing criteria")
-    details: dict[str, Any] | None = Field(None, description="Additional details about the metric computation")
+    details: dict[str, Any] | None = Field(
+        None, description="Additional details about the metric computation"
+    )
 
-    @field_validator('name')
+    @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
         """Ensure metric name is not empty."""
@@ -100,11 +118,17 @@ class EvalResult(BaseModel):
     determination based on whether all critical metrics pass.
     """
 
-    test_description: str = Field(..., description="Description of the test case evaluated")
-    metrics: list[EvalMetricScore] = Field(..., description="All computed metrics for this test")
-    overall_passed: bool = Field(..., description="Whether the test case passed overall")
+    test_description: str = Field(
+        ..., description="Description of the test case evaluated"
+    )
+    metrics: list[EvalMetricScore] = Field(
+        ..., description="All computed metrics for this test"
+    )
+    overall_passed: bool = Field(
+        ..., description="Whether the test case passed overall"
+    )
 
-    @field_validator('test_description')
+    @field_validator("test_description")
     @classmethod
     def validate_description(cls, v: str) -> str:
         """Ensure test description is not empty."""

@@ -37,13 +37,19 @@ class TestEvalIntegration:
         # Verify basic structure
         assert "results" in results, "Evaluation results should contain 'results' key"
         assert "summary" in results, "Evaluation results should contain 'summary' key"
-        assert "total_test_cases" in results, "Evaluation results should contain 'total_test_cases' key"
-        assert "total_passed" in results, "Evaluation results should contain 'total_passed' key"
+        assert "total_test_cases" in results, (
+            "Evaluation results should contain 'total_test_cases' key"
+        )
+        assert "total_passed" in results, (
+            "Evaluation results should contain 'total_passed' key"
+        )
 
         # Should have processed all test cases from fixtures
         total_cases = results["total_test_cases"]
         assert total_cases > 0, "Should have processed at least one test case"
-        assert total_cases == len(results["results"]), "Total cases should match results length"
+        assert total_cases == len(results["results"]), (
+            "Total cases should match results length"
+        )
 
         # Quality gate: Check pass rate
         pass_rate = results["summary"]["pass_rate"]
@@ -61,15 +67,24 @@ class TestEvalIntegration:
             # Show sample issues for improvement guidance
             for i, failed_test in enumerate(failed_tests[:3], 1):
                 critical_metrics = [
-                    m for m in failed_test.metrics
-                    if m.name in {"mention_precision", "mention_recall", "mention_f1", "my_brands_coverage"}
+                    m
+                    for m in failed_test.metrics
+                    if m.name
+                    in {
+                        "mention_precision",
+                        "mention_recall",
+                        "mention_f1",
+                        "my_brands_coverage",
+                    }
                     and not m.passed
                 ]
 
                 if critical_metrics:
                     worst_metric = min(critical_metrics, key=lambda m: m.value)
                     print(f"   {i}. {failed_test.test_description[:50]}...")
-                    print(f"      Main issue: {worst_metric.name} = {worst_metric.value:.3f}")
+                    print(
+                        f"      Main issue: {worst_metric.name} = {worst_metric.value:.3f}"
+                    )
 
             print("   Use this feedback to prioritize improvements.")
             return  # Skip remaining checks for now
@@ -81,19 +96,28 @@ class TestEvalIntegration:
         if pass_rate < min_acceptable_pass_rate:
             # Build detailed failure message for quality regression
             failure_details = []
-            for i, failed_test in enumerate(failed_tests[:5], 1):  # Show first 5 failures
-                failure_details.append(
-                    f"\n{i}. {failed_test.test_description}"
-                )
+            for i, failed_test in enumerate(
+                failed_tests[:5], 1
+            ):  # Show first 5 failures
+                failure_details.append(f"\n{i}. {failed_test.test_description}")
 
                 # Find critical metrics that failed
                 critical_metrics = [
-                    m for m in failed_test.metrics
-                    if m.name in {"mention_precision", "mention_recall", "mention_f1", "my_brands_coverage"}
+                    m
+                    for m in failed_test.metrics
+                    if m.name
+                    in {
+                        "mention_precision",
+                        "mention_recall",
+                        "mention_f1",
+                        "my_brands_coverage",
+                    }
                     and not m.passed
                 ]
 
-                for metric in critical_metrics[:2]:  # Show first 2 failed metrics per test
+                for metric in critical_metrics[
+                    :2
+                ]:  # Show first 2 failed metrics per test
                     failure_details.append(
                         f"   - {metric.name}: {metric.value:.3f} (threshold failed)"
                     )
@@ -116,8 +140,12 @@ class TestEvalIntegration:
             print("\n⚠️  WARNING: Evaluation quality needs improvement")
             print(f"   Current pass rate: {pass_rate:.1%}")
             print(f"   Failed tests: {total_failed}/{total_cases}")
-            print("   This is acceptable for development but should be improved before production")
-            print("   Review the failing test cases to identify improvement opportunities")
+            print(
+                "   This is acceptable for development but should be improved before production"
+            )
+            print(
+                "   Review the failing test cases to identify improvement opportunities"
+            )
 
         # Additional quality checks for healthy evaluation
         summary = results["summary"]
@@ -167,23 +195,39 @@ class TestEvalIntegration:
 
         # Validate each result object
         for result in results["results"]:
-            assert hasattr(result, "test_description"), "Each result should have test_description"
+            assert hasattr(result, "test_description"), (
+                "Each result should have test_description"
+            )
             assert hasattr(result, "metrics"), "Each result should have metrics list"
-            assert hasattr(result, "overall_passed"), "Each result should have overall_passed flag"
+            assert hasattr(result, "overall_passed"), (
+                "Each result should have overall_passed flag"
+            )
             assert isinstance(result.metrics, list), "Metrics should be a list"
-            assert isinstance(result.overall_passed, bool), "overall_passed should be boolean"
+            assert isinstance(result.overall_passed, bool), (
+                "overall_passed should be boolean"
+            )
 
             # Each result should have all expected metric types
             metric_names = {m.name for m in result.metrics}
             expected_metrics = {
-                "mention_precision", "mention_recall", "mention_f1",
-                "rank_position_accuracy", "rank_list_overlap", "rank_correlation",
-                "my_brands_coverage", "competitors_coverage", "overall_brand_coverage"
+                "mention_precision",
+                "mention_recall",
+                "mention_f1",
+                "rank_position_accuracy",
+                "rank_list_overlap",
+                "rank_correlation",
+                "my_brands_coverage",
+                "competitors_coverage",
+                "overall_brand_coverage",
             }
 
             # Allow some metrics to be missing (e.g., rank metrics when no ranking found)
             # but should have at least mention and coverage metrics
-            essential_metrics = {"mention_precision", "mention_recall", "my_brands_coverage"}
+            essential_metrics = {
+                "mention_precision",
+                "mention_recall",
+                "my_brands_coverage",
+            }
             assert essential_metrics.issubset(metric_names), (
                 f"Missing essential metrics. Got: {metric_names}, "
                 f"Essential: {essential_metrics}"
@@ -192,8 +236,11 @@ class TestEvalIntegration:
         # Validate summary structure
         summary = results["summary"]
         required_summary_keys = {
-            "pass_rate", "average_scores", "total_test_cases",
-            "total_passed", "total_failed"
+            "pass_rate",
+            "average_scores",
+            "total_test_cases",
+            "total_passed",
+            "total_failed",
         }
         assert required_summary_keys.issubset(summary.keys()), (
             f"Summary missing required keys. Got: {set(summary.keys())}, "
@@ -205,6 +252,7 @@ class TestEvalIntegration:
         assert summary["total_test_cases"] == len(results["results"]), (
             "Total test cases should match results length"
         )
-        assert summary["total_passed"] + summary["total_failed"] == summary["total_test_cases"], (
-            "Passed + failed should equal total"
-        )
+        assert (
+            summary["total_passed"] + summary["total_failed"]
+            == summary["total_test_cases"]
+        ), "Passed + failed should equal total"

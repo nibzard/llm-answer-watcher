@@ -55,8 +55,14 @@ class TestComputeMentionMetrics:
         precision_metric = next(m for m in metrics if m.name == "mention_precision")
         assert precision_metric.details["true_positives"] == 2
         assert precision_metric.details["false_positives"] == 0
-        assert set(precision_metric.details["expected_mentions"]) == {"HubSpot", "Salesforce"}
-        assert set(precision_metric.details["actual_mentions"]) == {"HubSpot", "Salesforce"}
+        assert set(precision_metric.details["expected_mentions"]) == {
+            "HubSpot",
+            "Salesforce",
+        }
+        assert set(precision_metric.details["actual_mentions"]) == {
+            "HubSpot",
+            "Salesforce",
+        }
 
     def test_false_positives(self):
         """Test with false positives (lower precision, high recall)."""
@@ -385,7 +391,9 @@ class TestComputeCompletenessMetrics:
         metrics = compute_completeness_metrics(test_case, actual_mentions)
 
         my_brands_metric = next(m for m in metrics if m.name == "my_brands_coverage")
-        competitors_metric = next(m for m in metrics if m.name == "competitors_coverage")
+        competitors_metric = next(
+            m for m in metrics if m.name == "competitors_coverage"
+        )
         overall_metric = next(m for m in metrics if m.name == "overall_brand_coverage")
 
         # My brands coverage should be 1/3 ≈ 0.333 (failed 90% threshold)
@@ -419,7 +427,9 @@ class TestComputeCompletenessMetrics:
         metrics = compute_completeness_metrics(test_case, actual_mentions)
 
         my_brands_metric = next(m for m in metrics if m.name == "my_brands_coverage")
-        competitors_metric = next(m for m in metrics if m.name == "competitors_coverage")
+        competitors_metric = next(
+            m for m in metrics if m.name == "competitors_coverage"
+        )
 
         # My brands coverage should be 0.0 (critical failure)
         assert my_brands_metric.value == 0.0
@@ -448,7 +458,9 @@ class TestComputeCompletenessMetrics:
         metrics = compute_completeness_metrics(test_case, actual_mentions)
 
         my_brands_metric = next(m for m in metrics if m.name == "my_brands_coverage")
-        competitors_metric = next(m for m in metrics if m.name == "competitors_coverage")
+        competitors_metric = next(
+            m for m in metrics if m.name == "competitors_coverage"
+        )
         overall_metric = next(m for m in metrics if m.name == "overall_brand_coverage")
 
         # My brands: 1/1 = 1.0 (HubSpot mentioned, even though not expected)
@@ -476,11 +488,16 @@ class TestComputeCompletenessMetrics:
             expected_ranked_list=["HubSpot", "Salesforce"],
         )
 
-        actual_mentions = ["HubSpot", "CompetitorA"]  # Good my brands, partial competitors
+        actual_mentions = [
+            "HubSpot",
+            "CompetitorA",
+        ]  # Good my brands, partial competitors
         metrics = compute_completeness_metrics(test_case, actual_mentions)
 
         my_brands_metric = next(m for m in metrics if m.name == "my_brands_coverage")
-        competitors_metric = next(m for m in metrics if m.name == "competitors_coverage")
+        competitors_metric = next(
+            m for m in metrics if m.name == "competitors_coverage"
+        )
         overall_metric = next(m for m in metrics if m.name == "overall_brand_coverage")
 
         # My brands: 1/2 = 0.5 (failed 90% threshold)

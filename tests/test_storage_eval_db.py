@@ -145,7 +145,7 @@ class TestEvalDatabaseInsertOperations:
             cursor = conn.execute(
                 "SELECT run_id, total_test_cases, total_passed, total_failed, pass_rate "
                 "FROM eval_runs WHERE run_id = ?",
-                (run_id,)
+                (run_id,),
             )
             row = cursor.fetchone()
 
@@ -153,7 +153,7 @@ class TestEvalDatabaseInsertOperations:
         assert row[0] == run_id
         assert row[1] == 20  # total_test_cases
         assert row[2] == 17  # total_passed
-        assert row[3] == 3   # total_failed
+        assert row[3] == 3  # total_failed
         assert row[4] == 0.85  # pass_rate
 
     def test_insert_eval_run_with_json_summary(self, tmp_path):
@@ -170,12 +170,12 @@ class TestEvalDatabaseInsertOperations:
             "average_scores": {
                 "mention_precision": 0.95,
                 "mention_recall": 0.85,
-                "rank_accuracy": 0.90
+                "rank_accuracy": 0.90,
             },
             "test_categories": {
                 "brand_detection": {"passed": 5, "total": 5},
-                "rank_extraction": {"passed": 4, "total": 5}
-            }
+                "rank_extraction": {"passed": 4, "total": 5},
+            },
         }
 
         with sqlite3.connect(str(db_path)) as conn:
@@ -185,8 +185,7 @@ class TestEvalDatabaseInsertOperations:
         # Verify JSON summary was stored correctly
         with sqlite3.connect(str(db_path)) as conn:
             cursor = conn.execute(
-                "SELECT summary_json FROM eval_runs WHERE run_id = ?",
-                (run_id,)
+                "SELECT summary_json FROM eval_runs WHERE run_id = ?", (run_id,)
             )
             row = cursor.fetchone()
 
@@ -202,14 +201,24 @@ class TestEvalDatabaseInsertOperations:
         run_id = "2025-11-02T10-00-00Z"
 
         # Insert first run
-        summary1 = {"pass_rate": 0.80, "total_test_cases": 10, "total_passed": 8, "total_failed": 2}
+        summary1 = {
+            "pass_rate": 0.80,
+            "total_test_cases": 10,
+            "total_passed": 8,
+            "total_failed": 2,
+        }
 
         with sqlite3.connect(str(db_path)) as conn:
             insert_eval_run(conn, run_id, summary1)
             conn.commit()
 
         # Insert second run with same ID
-        summary2 = {"pass_rate": 0.90, "total_test_cases": 10, "total_passed": 9, "total_failed": 1}
+        summary2 = {
+            "pass_rate": 0.90,
+            "total_test_cases": 10,
+            "total_passed": 9,
+            "total_failed": 1,
+        }
 
         with sqlite3.connect(str(db_path)) as conn:
             insert_eval_run(conn, run_id, summary2)
@@ -217,10 +226,14 @@ class TestEvalDatabaseInsertOperations:
 
         # Should have replaced the first run
         with sqlite3.connect(str(db_path)) as conn:
-            cursor = conn.execute("SELECT COUNT(*) FROM eval_runs WHERE run_id = ?", (run_id,))
+            cursor = conn.execute(
+                "SELECT COUNT(*) FROM eval_runs WHERE run_id = ?", (run_id,)
+            )
             count = cursor.fetchone()[0]
 
-            cursor = conn.execute("SELECT pass_rate FROM eval_runs WHERE run_id = ?", (run_id,))
+            cursor = conn.execute(
+                "SELECT pass_rate FROM eval_runs WHERE run_id = ?", (run_id,)
+            )
             pass_rate = cursor.fetchone()[0]
 
         assert count == 1  # Only one record
@@ -248,18 +261,21 @@ class TestEvalDatabaseInsertOperations:
                 metric_name,
                 metric_value,
                 metric_passed,
-                metric_details
+                metric_details,
             )
             conn.commit()
 
         # Verify data was inserted correctly
         with sqlite3.connect(str(db_path)) as conn:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 SELECT eval_run_id, test_description, overall_passed,
                        metric_name, metric_value, metric_passed, metric_details_json
                 FROM eval_results
                 WHERE eval_run_id = ? AND metric_name = ?
-            """, (eval_run_id, metric_name))
+            """,
+                (eval_run_id, metric_name),
+            )
             row = cursor.fetchone()
 
         assert row is not None
@@ -286,7 +302,7 @@ class TestEvalDatabaseInsertOperations:
                 True,
                 "simple_metric",
                 1.0,
-                True
+                True,
                 # No metric_details
             )
             conn.commit()
@@ -295,7 +311,7 @@ class TestEvalDatabaseInsertOperations:
         with sqlite3.connect(str(db_path)) as conn:
             cursor = conn.execute(
                 "SELECT metric_details_json FROM eval_results WHERE eval_run_id = ?",
-                ("run-123",)
+                ("run-123",),
             )
             row = cursor.fetchone()
 
@@ -321,7 +337,7 @@ class TestEvalDatabaseInsertOperations:
                 metric_name,
                 0.80,
                 False,
-                {"version": 1}
+                {"version": 1},
             )
             conn.commit()
 
@@ -335,17 +351,20 @@ class TestEvalDatabaseInsertOperations:
                 metric_name,
                 0.90,
                 True,
-                {"version": 2}
+                {"version": 2},
             )
             conn.commit()
 
         # Should have replaced the first result
         with sqlite3.connect(str(db_path)) as conn:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 SELECT COUNT(*), metric_value, metric_passed, metric_details_json
                 FROM eval_results
                 WHERE eval_run_id = ? AND test_description = ? AND metric_name = ?
-            """, (eval_run_id, test_description, metric_name))
+            """,
+                (eval_run_id, test_description, metric_name),
+            )
             row = cursor.fetchone()
 
         assert row[0] == 1  # Only one record
@@ -374,7 +393,12 @@ class TestEvalDatabaseQueryOperations:
         init_eval_db_if_needed(str(db_path))
 
         run_id = "2025-11-02T10-00-00Z"
-        summary = {"pass_rate": 0.85, "total_test_cases": 10, "total_passed": 8, "total_failed": 2}
+        summary = {
+            "pass_rate": 0.85,
+            "total_test_cases": 10,
+            "total_passed": 8,
+            "total_failed": 2,
+        }
 
         with sqlite3.connect(str(db_path)) as conn:
             insert_eval_run(conn, run_id, summary)
@@ -406,7 +430,12 @@ class TestEvalDatabaseQueryOperations:
 
         with sqlite3.connect(str(db_path)) as conn:
             for run_id, pass_rate in runs_data:
-                summary = {"pass_rate": pass_rate, "total_test_cases": 10, "total_passed": int(pass_rate * 10), "total_failed": int((1-pass_rate) * 10)}
+                summary = {
+                    "pass_rate": pass_rate,
+                    "total_test_cases": 10,
+                    "total_passed": int(pass_rate * 10),
+                    "total_failed": int((1 - pass_rate) * 10),
+                }
                 insert_eval_run(conn, run_id, summary)
             conn.commit()
             runs = get_recent_eval_runs(conn, limit=10)
@@ -425,8 +454,13 @@ class TestEvalDatabaseQueryOperations:
         # Insert 5 runs
         with sqlite3.connect(str(db_path)) as conn:
             for i in range(5):
-                run_id = f"2025-11-{i+1:02d}T10-00-00Z"
-                summary = {"pass_rate": 0.8 + i * 0.05, "total_test_cases": 10, "total_passed": 8, "total_failed": 2}
+                run_id = f"2025-11-{i + 1:02d}T10-00-00Z"
+                summary = {
+                    "pass_rate": 0.8 + i * 0.05,
+                    "total_test_cases": 10,
+                    "total_passed": 8,
+                    "total_failed": 2,
+                }
                 insert_eval_run(conn, run_id, summary)
             conn.commit()
             runs = get_recent_eval_runs(conn, limit=3)
@@ -456,7 +490,12 @@ class TestEvalDatabaseQueryOperations:
 
         with sqlite3.connect(str(db_path)) as conn:
             # Insert run and result
-            summary = {"pass_rate": 0.85, "total_test_cases": 1, "total_passed": 1, "total_failed": 0}
+            summary = {
+                "pass_rate": 0.85,
+                "total_test_cases": 1,
+                "total_passed": 1,
+                "total_failed": 0,
+            }
             insert_eval_run(conn, run_id, summary)
 
             insert_eval_result(
@@ -483,7 +522,12 @@ class TestEvalDatabaseQueryOperations:
             for i in range(4):
                 run_id = f"test-run-{i}"
                 run_ids.append(run_id)
-                summary = {"pass_rate": 1.0, "total_test_cases": 1, "total_passed": 1, "total_failed": 0}
+                summary = {
+                    "pass_rate": 1.0,
+                    "total_test_cases": 1,
+                    "total_passed": 1,
+                    "total_failed": 0,
+                }
                 insert_eval_run(conn, run_id, summary)
 
             # Insert metric results with different values
@@ -512,7 +556,12 @@ class TestEvalDatabaseQueryOperations:
 
         with sqlite3.connect(str(db_path)) as conn:
             # Insert current data
-            summary = {"pass_rate": 1.0, "total_test_cases": 1, "total_passed": 1, "total_failed": 0}
+            summary = {
+                "pass_rate": 1.0,
+                "total_test_cases": 1,
+                "total_passed": 1,
+                "total_failed": 0,
+            }
             insert_eval_run(conn, "current-run", summary)
             insert_eval_result(
                 conn, "current-run", "Test", True, "mention_precision", 0.90, True
@@ -544,7 +593,12 @@ class TestEvalDatabaseQueryOperations:
         run_id = "2025-11-02T10-00-00Z"
 
         with sqlite3.connect(str(db_path)) as conn:
-            summary = {"pass_rate": 0.5, "total_test_cases": 4, "total_passed": 2, "total_failed": 2}
+            summary = {
+                "pass_rate": 0.5,
+                "total_test_cases": 4,
+                "total_passed": 2,
+                "total_failed": 2,
+            }
             insert_eval_run(conn, run_id, summary)
 
             # Insert results: 2 passing, 2 failing tests
@@ -556,9 +610,21 @@ class TestEvalDatabaseQueryOperations:
                 ("Failing test 2", False, "rank_accuracy", 0.40, False),
             ]
 
-            for test_desc, overall_passed, metric_name, metric_value, metric_passed in tests_data:
+            for (
+                test_desc,
+                overall_passed,
+                metric_name,
+                metric_value,
+                metric_passed,
+            ) in tests_data:
                 insert_eval_result(
-                    conn, run_id, test_desc, overall_passed, metric_name, metric_value, metric_passed
+                    conn,
+                    run_id,
+                    test_desc,
+                    overall_passed,
+                    metric_name,
+                    metric_value,
+                    metric_passed,
                 )
             conn.commit()
 
@@ -584,7 +650,12 @@ class TestEvalDatabaseQueryOperations:
 
         with sqlite3.connect(str(db_path)) as conn:
             for run_id, test_desc, overall_passed in runs_data:
-                summary = {"pass_rate": 0.0, "total_test_cases": 1, "total_passed": 0, "total_failed": 1}
+                summary = {
+                    "pass_rate": 0.0,
+                    "total_test_cases": 1,
+                    "total_passed": 0,
+                    "total_failed": 1,
+                }
                 insert_eval_run(conn, run_id, summary)
                 insert_eval_result(
                     conn, run_id, test_desc, overall_passed, "precision", 0.5, False
@@ -613,7 +684,7 @@ class TestEvalDatabaseIntegration:
                 "pass_rate": 0.75,
                 "average_scores": {
                     "precision": 0.78,  # (0.95 + 0.80 + 0.60) / 3
-                    "recall": 0.70,     # (0.90 + 0.50) / 2
+                    "recall": 0.70,  # (0.90 + 0.50) / 2
                 },
                 "total_test_cases": 3,
                 "total_passed": 2,
@@ -623,8 +694,18 @@ class TestEvalDatabaseIntegration:
                 EvalResult(
                     test_description="Test 1",
                     metrics=[
-                        EvalMetricScore(name="precision", value=0.95, passed=True, details={"tp": 5, "fp": 0}),
-                        EvalMetricScore(name="recall", value=0.90, passed=True, details={"tp": 5, "fn": 1}),
+                        EvalMetricScore(
+                            name="precision",
+                            value=0.95,
+                            passed=True,
+                            details={"tp": 5, "fp": 0},
+                        ),
+                        EvalMetricScore(
+                            name="recall",
+                            value=0.90,
+                            passed=True,
+                            details={"tp": 5, "fn": 1},
+                        ),
                     ],
                     overall_passed=True,
                 ),
@@ -665,8 +746,7 @@ class TestEvalDatabaseIntegration:
         # Verify detailed results were stored
         with sqlite3.connect(str(db_path)) as conn:
             cursor = conn.execute(
-                "SELECT COUNT(*) FROM eval_results WHERE eval_run_id = ?",
-                (run_id,)
+                "SELECT COUNT(*) FROM eval_results WHERE eval_run_id = ?", (run_id,)
             )
             result_count = cursor.fetchone()[0]
 
@@ -683,15 +763,11 @@ class TestEvalDatabaseIntegration:
             # Enable foreign keys explicitly
             conn.execute("PRAGMA foreign_keys = ON")
 
-            with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY constraint failed"):
+            with pytest.raises(
+                sqlite3.IntegrityError, match="FOREIGN KEY constraint failed"
+            ):
                 insert_eval_result(
-                    conn,
-                    "nonexistent_run_id",
-                    "Test",
-                    True,
-                    "precision",
-                    0.95,
-                    True
+                    conn, "nonexistent_run_id", "Test", True, "precision", 0.95, True
                 )
                 conn.commit()  # This should raise the error
 
@@ -702,7 +778,12 @@ class TestEvalDatabaseIntegration:
 
         # Start with some data
         with sqlite3.connect(str(db_path)) as conn:
-            summary = {"pass_rate": 1.0, "total_test_cases": 1, "total_passed": 1, "total_failed": 0}
+            summary = {
+                "pass_rate": 1.0,
+                "total_test_cases": 1,
+                "total_passed": 1,
+                "total_failed": 0,
+            }
             insert_eval_run(conn, "initial-run", summary)
             conn.commit()
 
@@ -721,7 +802,7 @@ class TestEvalDatabaseIntegration:
                 "total_passed": 1,
                 "total_failed": 0,
             },
-            "results": []  # Empty results but summary says 1 test case
+            "results": [],  # Empty results but summary says 1 test case
         }
 
         with sqlite3.connect(str(db_path)) as conn:
@@ -753,7 +834,12 @@ class TestEvalDatabasePerformance:
         with sqlite3.connect(str(db_path)) as conn:
             for i in range(num_runs):
                 run_id = f"run-{i:04d}"
-                summary = {"pass_rate": 0.8 + (i % 20) * 0.01, "total_test_cases": num_results_per_run, "total_passed": 40, "total_failed": 10}
+                summary = {
+                    "pass_rate": 0.8 + (i % 20) * 0.01,
+                    "total_test_cases": num_results_per_run,
+                    "total_passed": 40,
+                    "total_failed": 10,
+                }
                 insert_eval_run(conn, run_id, summary)
 
                 for j in range(num_results_per_run):
@@ -764,7 +850,7 @@ class TestEvalDatabasePerformance:
                         j % 2 == 0,  # Half pass, half fail
                         "precision",
                         0.7 + (j % 30) * 0.01,
-                        j % 10 != 0  # Most pass, some fail
+                        j % 10 != 0,  # Most pass, some fail
                     )
             conn.commit()
 
@@ -772,6 +858,7 @@ class TestEvalDatabasePerformance:
         with sqlite3.connect(str(db_path)) as conn:
             # This query should use idx_eval_results_metric_name and idx_eval_results_passed
             import time
+
             start_time = time.time()
 
             cursor = conn.execute("""
@@ -793,7 +880,12 @@ class TestEvalDatabasePerformance:
 
         # Insert some test data
         with sqlite3.connect(str(db_path)) as conn:
-            summary = {"pass_rate": 1.0, "total_test_cases": 10, "total_passed": 10, "total_failed": 0}
+            summary = {
+                "pass_rate": 1.0,
+                "total_test_cases": 10,
+                "total_passed": 10,
+                "total_failed": 0,
+            }
             insert_eval_run(conn, "test-run", summary)
 
             for i in range(10):

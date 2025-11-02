@@ -26,22 +26,30 @@ from .schema import EvalResult, EvalTestCase
 # If evaluation results fall below these thresholds, the evaluation is considered failed
 
 # Mention detection thresholds (how well we detect brand mentions)
-MENTION_PRECISION_THRESHOLD = 0.9  # 90% - When we detect a mention, it's correct 90% of the time
-MENTION_RECALL_THRESHOLD = 0.8     # 80% - We detect 80% of actual brand mentions
-MENTION_F1_THRESHOLD = 0.85         # 85% - Combined precision/recall minimum
+MENTION_PRECISION_THRESHOLD = (
+    0.9  # 90% - When we detect a mention, it's correct 90% of the time
+)
+MENTION_RECALL_THRESHOLD = 0.8  # 80% - We detect 80% of actual brand mentions
+MENTION_F1_THRESHOLD = 0.85  # 85% - Combined precision/recall minimum
 
 # Ranking accuracy thresholds (how well we extract ranked lists)
 RANK_TOP1_ACCURACY_THRESHOLD = 0.85  # 85% - Top-ranked brand is correct 85% of the time
-RANK_OVERLAP_THRESHOLD = 0.8         # 80% - Ranked lists have 80% overlap with expected
-RANK_CORRELATION_THRESHOLD = 0.75    # 75% - Rank order correlation is at least 75%
+RANK_OVERLAP_THRESHOLD = 0.8  # 80% - Ranked lists have 80% overlap with expected
+RANK_CORRELATION_THRESHOLD = 0.75  # 75% - Rank order correlation is at least 75%
 
 # Brand coverage thresholds (how well we cover expected brands)
-MY_BRANDS_COVERAGE_THRESHOLD = 0.9  # 90% - Our brands are detected 90% of the time (critical)
-COMPETITORS_COVERAGE_THRESHOLD = 0.7 # 70% - Competitor brands are detected 70% of the time
-OVERALL_BRAND_COVERAGE_THRESHOLD = 0.8 # 80% - Overall brand coverage is 80%
+MY_BRANDS_COVERAGE_THRESHOLD = (
+    0.9  # 90% - Our brands are detected 90% of the time (critical)
+)
+COMPETITORS_COVERAGE_THRESHOLD = (
+    0.7  # 70% - Competitor brands are detected 70% of the time
+)
+OVERALL_BRAND_COVERAGE_THRESHOLD = 0.8  # 80% - Overall brand coverage is 80%
 
 # Special threshold for false positive prevention (zero tolerance)
-FALSE_IS_MINE_VIOLATIONS_THRESHOLD = 0.0  # 0% - Zero tolerance for false positive "my brand" mentions
+FALSE_IS_MINE_VIOLATIONS_THRESHOLD = (
+    0.0  # 0% - Zero tolerance for false positive "my brand" mentions
+)
 
 # Overall evaluation thresholds
 MINIMUM_PASS_RATE = 0.75  # 75% - At least 75% of test cases must pass overall
@@ -67,14 +75,14 @@ def load_test_cases(fixtures_path: str | Path) -> list[EvalTestCase]:
     if not fixtures_path.exists():
         raise FileNotFoundError(f"Test fixtures file not found: {fixtures_path}")
 
-    with open(fixtures_path, encoding='utf-8') as f:
+    with open(fixtures_path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
-    if not data or 'test_cases' not in data:
+    if not data or "test_cases" not in data:
         raise ValueError("Invalid fixtures file: must contain 'test_cases' key")
 
     test_cases = []
-    for i, case_data in enumerate(data['test_cases']):
+    for i, case_data in enumerate(data["test_cases"]):
         try:
             test_case = EvalTestCase(**case_data)
             test_cases.append(test_case)
@@ -110,8 +118,8 @@ def evaluate_single_test_case(
         known_brands=all_brands,
     )
 
-    # Gather all detected mentions for metrics computation (convert to strings)
-    actual_mentions = [mention.normalized_name for mention in mention_result]
+    # Gather all detected mentions for metrics computation (use original text as it appeared)
+    actual_mentions = [mention.original_text for mention in mention_result]
 
     # Compute all metric categories
     mention_metrics = compute_mention_metrics(test_case, actual_mentions)
@@ -124,7 +132,12 @@ def evaluate_single_test_case(
     all_metrics = mention_metrics + rank_metrics + completeness_metrics
 
     # Determine overall pass status (all critical metrics must pass)
-    critical_metric_names = {"mention_precision", "mention_recall", "mention_f1", "my_brands_coverage"}
+    critical_metric_names = {
+        "mention_precision",
+        "mention_recall",
+        "mention_f1",
+        "my_brands_coverage",
+    }
     critical_metrics = [m for m in all_metrics if m.name in critical_metric_names]
     overall_passed = all(m.passed for m in critical_metrics)
 
@@ -177,8 +190,7 @@ def check_evaluation_thresholds(results: list[EvalResult]) -> dict[str, Any]:
 
     # Calculate average scores for each metric
     average_scores = {
-        name: sum(values) / len(values)
-        for name, values in all_metrics.items()
+        name: sum(values) / len(values) for name, values in all_metrics.items()
     }
 
     # Define threshold mapping
@@ -205,21 +217,29 @@ def check_evaluation_thresholds(results: list[EvalResult]) -> dict[str, Any]:
                 "threshold": threshold,
                 "passes": passes,
                 "gap": threshold - avg_value if not passes else 0.0,
-                "gap_percent": ((threshold - avg_value) / threshold * 100) if not passes else 0.0
+                "gap_percent": ((threshold - avg_value) / threshold * 100)
+                if not passes
+                else 0.0,
             }
 
             if not passes:
-                threshold_violations.append({
-                    "metric": metric_name,
-                    "average": avg_value,
-                    "threshold": threshold,
-                    "gap": threshold - avg_value,
-                    "gap_percent": ((threshold - avg_value) / threshold * 100),
-                    "severity": "critical" if metric_name.startswith("my_brands") else "warning"
-                })
+                threshold_violations.append(
+                    {
+                        "metric": metric_name,
+                        "average": avg_value,
+                        "threshold": threshold,
+                        "gap": threshold - avg_value,
+                        "gap_percent": ((threshold - avg_value) / threshold * 100),
+                        "severity": "critical"
+                        if metric_name.startswith("my_brands")
+                        else "warning",
+                    }
+                )
 
     # Check for critical failures (any critical metric below threshold)
-    critical_violations = [v for v in threshold_violations if v.get("severity") == "critical"]
+    critical_violations = [
+        v for v in threshold_violations if v.get("severity") == "critical"
+    ]
     if critical_violations:
         passes_thresholds = False  # Critical failures override pass rate
 
@@ -237,8 +257,12 @@ def check_evaluation_thresholds(results: list[EvalResult]) -> dict[str, Any]:
             "pass_rate_threshold": MINIMUM_PASS_RATE,
             "total_violations": len(threshold_violations),
             "critical_violations": len(critical_violations),
-            "most_critical_metric": min(threshold_violations, key=lambda x: x["gap_percent"]) if threshold_violations else None
-        }
+            "most_critical_metric": min(
+                threshold_violations, key=lambda x: x["gap_percent"]
+            )
+            if threshold_violations
+            else None,
+        },
     }
 
 
@@ -300,8 +324,7 @@ def run_eval_suite(
             metric_counts[metric.name] += 1
 
     average_scores = {
-        name: metric_scores[name] / metric_counts[name]
-        for name in metric_scores
+        name: metric_scores[name] / metric_counts[name] for name in metric_scores
     }
 
     summary = {
@@ -394,8 +417,7 @@ def write_eval_results(
             metric_counts[metric.name] += 1
 
     average_scores = {
-        name: metric_scores[name] / metric_counts[name]
-        for name in metric_scores
+        name: metric_scores[name] / metric_counts[name] for name in metric_scores
     }
 
     # Create summary dictionary

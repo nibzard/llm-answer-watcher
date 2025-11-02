@@ -47,6 +47,7 @@ from llm_answer_watcher.evals.runner import run_eval_suite
 from llm_answer_watcher.llm_runner.runner import run_all
 from llm_answer_watcher.report.generator import write_report
 from llm_answer_watcher.storage.db import init_db_if_needed
+from llm_answer_watcher.storage.eval_db import init_eval_db_if_needed, store_eval_results
 from llm_answer_watcher.storage.layout import get_parsed_answer_filename
 from llm_answer_watcher.utils.console import (
     create_progress_bar,
@@ -537,6 +538,11 @@ def eval(
         "-v",
         help="Enable debug logging",
     ),
+    save_results: bool = typer.Option(
+        False,
+        "--save-results",
+        help="Save evaluation results to database for historical tracking",
+    ),
 ):
     """
     Run evaluation suite to test extraction accuracy.
@@ -554,6 +560,7 @@ def eval(
     - Runs brand mention detection and rank extraction
     - Computes precision, recall, F1 scores
     - Shows detailed results for each test case
+    - Optionally saves results to database for historical tracking
 
     Exit codes:
       0: All test cases passed
@@ -566,6 +573,9 @@ def eval(
 
       # Run evaluation in JSON mode for automation
       llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml --format json
+
+      # Run evaluation and save results to database
+      llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml --save-results
     """
     # Set global output mode
     output_mode.format = format
@@ -603,6 +613,29 @@ def eval(
 
         if failed_cases > 0:
             warning(f"{failed_cases} test case(s) failed")
+
+        # Save results to database if requested
+        if save_results:
+            try:
+                with spinner("Saving results to database..."):
+                    # Initialize eval database
+                    eval_db_path = "./output/evals/eval_results.db"
+                    init_eval_db_if_needed(eval_db_path)
+
+                    # Store results
+                    import sqlite3
+                    with sqlite3.connect(eval_db_path) as conn:
+                        run_id = store_eval_results(conn, eval_results)
+                        conn.commit()
+
+                success(f"Results saved to database (run_id: {run_id})")
+                info(f"Database: {eval_db_path}")
+            except Exception as e:
+                error(f"Failed to save results to database: {e}")
+                if verbose:
+                    import traceback
+                    traceback.print_exc()
+                # Don't exit on database save failure, just warn
 
     except FileNotFoundError as e:
         error(f"Fixtures file not found: {e}")

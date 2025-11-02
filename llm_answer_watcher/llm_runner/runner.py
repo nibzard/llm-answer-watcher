@@ -204,7 +204,7 @@ def run_all(config: RuntimeConfig) -> dict:
                 # Build LLM client for this model
                 client = build_client(
                     provider=model_config.provider,
-                    model=model_config.model_name,
+                    model_name=model_config.model_name,
                     api_key=model_config.api_key,
                 )
 

@@ -5,8 +5,6 @@ This module provides functions to compute various metrics that measure the
 accuracy and quality of brand mention detection and rank extraction.
 """
 
-from typing import Any
-from collections import Counter
 
 from .schema import EvalMetricScore, EvalTestCase
 
@@ -91,7 +89,7 @@ def compute_rank_metrics(test_case: EvalTestCase, actual_ranked_list: list[str])
 
     # Compute position accuracy (how many items are in correct position)
     correct_positions = sum(
-        1 for i, (exp, act) in enumerate(zip(expected_ranked, actual_ranked_trimmed))
+        1 for i, (exp, act) in enumerate(zip(expected_ranked, actual_ranked_trimmed, strict=False))
         if exp == act
     )
     position_accuracy = correct_positions / len(expected_ranked) if expected_ranked else 1.0

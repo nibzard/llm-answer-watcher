@@ -617,15 +617,15 @@ def get_metric_trend(
         >>> for point in trend:
         ...     print(f"{point['date']}: {point['avg_value']:.3f}")
     """
-    cursor = conn.execute("""
+    cursor = conn.execute(f"""
         SELECT DATE(timestamp_utc) as date, AVG(metric_value) as avg_value, COUNT(*) as count
         FROM eval_results er
         JOIN eval_runs r ON er.eval_run_id = r.run_id
         WHERE er.metric_name = ?
-          AND r.timestamp_utc >= datetime('now', '-{} days')
+          AND r.timestamp_utc >= datetime('now', '-{days} days')
         GROUP BY DATE(timestamp_utc)
         ORDER BY date
-    """.format(days), (metric_name,))
+    """, (metric_name,))
 
     trend = []
     for row in cursor.fetchall():

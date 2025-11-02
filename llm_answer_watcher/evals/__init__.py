@@ -5,15 +5,15 @@ This module provides comprehensive evaluation capabilities to test pipeline corr
 catch extraction regressions, and future-proof the product for Cloud deployment.
 """
 
-from .schema import EvalTestCase, EvalMetricScore, EvalResult
-from .runner import run_eval_suite
 from .metrics import compute_mention_metrics, compute_rank_metrics
+from .runner import run_eval_suite
+from .schema import EvalMetricScore, EvalResult, EvalTestCase
 
 __all__ = [
-    "EvalTestCase",
     "EvalMetricScore",
     "EvalResult",
-    "run_eval_suite",
+    "EvalTestCase",
     "compute_mention_metrics",
     "compute_rank_metrics",
+    "run_eval_suite",
 ]

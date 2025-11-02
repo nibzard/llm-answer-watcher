@@ -2131,22 +2131,29 @@ These tasks are NOT required for v1 but are documented for future reference:
 
 #### CI/CD Integration
 
-- [ ] **Create .github/workflows/evals.yml:**
-  - [ ] Trigger on: push, pull_request
-  - [ ] Steps:
-    - [ ] Checkout code
-    - [ ] Setup Python 3.13
-    - [ ] Install uv
-    - [ ] Install dependencies (uv sync)
-    - [ ] Run eval suite CLI: `llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml`
-    - [ ] Run pytest evals: `pytest tests/test_evals.py -v`
-    - [ ] Fail build if exit code != 0
+- [x] **Create .github/workflows/evals.yml:** ✅ **COMPLETED** - Comprehensive CI/CD workflow implemented
+  - [x] Trigger on: push, pull_request
+  - [x] Steps:
+    - [x] Checkout code
+    - [x] Setup Python 3.13
+    - [x] Install uv
+    - [x] Install dependencies (uv sync)
+    - [x] Run eval suite CLI: `llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml`
+    - [x] Run pytest evals: `pytest tests/test_evals.py -v`
+    - [x] Fail build if exit code != 0
+    - [x 2025-11-02] Completed with comprehensive GitHub Actions workflow that runs evaluation suite, integration tests, and database validation on every push/PR
 
-- [ ] **Define eval thresholds:**
-  - [ ] Mention precision: ≥ 0.9 (90%)
-  - [ ] Mention recall: ≥ 0.8 (80%)
-  - [ ] Rank top-1 accuracy: ≥ 0.85 (85%)
-  - [ ] No false is_mine: 1.0 (100%, zero tolerance)
+- [x **Define eval thresholds:**  ✅ **COMPLETED 2025-11-02**
+  - [x] Mention precision: ≥ 0.9 (90%)
+  - [x] Mention recall: ≥ 0.8 (80%)
+  - [x] Rank top-1 accuracy: ≥ 0.85 (85%)
+  - [x] No false is_mine: 1.0 (100%, zero tolerance)
+  - [x] Additional comprehensive thresholds implemented:
+    - F1-score ≥ 0.85 (85%)
+    - Brand coverage ≥ 0.9 (90%)
+    - Overall pass rate ≥ 0.75 (75%)
+    - CLI integration with rich threshold display
+    - Proper exit codes (0 for pass, 1 for threshold failure)
 
 - [ ] **Document in CONTRIBUTING.md:**
   - [ ] How to add new eval test cases

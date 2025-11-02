@@ -388,11 +388,12 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
   - [x] Use temp database for tests (tmp_path fixture)
   - [x 2025-11-02 commit fcfdc2e] Completed with 100% coverage for storage/db.py
 
-- [ ] **Test storage/migrations.py:**
-  - [ ] Test get_current_version() on empty DB
-  - [ ] Test get_current_version() on initialized DB
-  - [ ] Test apply_migrations() from version 0 to 1
-  - [ ] Test schema_version table populated after migration
+- [x] **Test storage/migrations.py:**
+  - [x] Test get_current_version() on empty DB
+  - [x] Test get_current_version() on initialized DB
+  - [x] Test apply_migrations() from version 0 to 1
+  - [x] Test schema_version table populated after migration
+  - [x 2025-11-02 commit fcfdc2e] Completed with comprehensive migration tests in test_storage_db.py (9 total migration tests including edge cases)
 
 ### 1.8 Milestone 1 Deliverable Checklist
 

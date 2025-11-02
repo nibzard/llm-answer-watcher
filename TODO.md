@@ -374,18 +374,19 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
   - [x] Use freezegun to mock time
   - [x 2025-11-02 commit bcb3a9c] Completed with 100% coverage for utils/time.py
 
-- [ ] **Test storage/db.py:**
-  - [ ] Test init_db_if_needed() creates tables
-  - [ ] Test schema_version table created
-  - [ ] Test insert_run() with new run_id
-  - [ ] Test insert_run() idempotent (duplicate run_id)
-  - [ ] Test insert_answer_raw() with all fields
-  - [ ] Test UNIQUE constraint on answers_raw
-  - [ ] Test insert_mention() with all fields
-  - [ ] Test UNIQUE constraint on mentions
-  - [ ] Test update_run_cost() updates correctly
-  - [ ] Test indexes exist
-  - [ ] Use temp database for tests (tmp_path fixture)
+- [x] **Test storage/db.py:**
+  - [x] Test init_db_if_needed() creates tables
+  - [x] Test schema_version table created
+  - [x] Test insert_run() with new run_id
+  - [x] Test insert_run() idempotent (duplicate run_id)
+  - [x] Test insert_answer_raw() with all fields
+  - [x] Test UNIQUE constraint on answers_raw
+  - [x] Test insert_mention() with all fields
+  - [x] Test UNIQUE constraint on mentions
+  - [x] Test update_run_cost() updates correctly
+  - [x] Test indexes exist
+  - [x] Use temp database for tests (tmp_path fixture)
+  - [x 2025-11-02 commit fcfdc2e] Completed with 100% coverage for storage/db.py
 
 - [ ] **Test storage/migrations.py:**
   - [ ] Test get_current_version() on empty DB

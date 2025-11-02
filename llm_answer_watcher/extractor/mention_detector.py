@@ -174,30 +174,29 @@ def detect_mentions(
     # Build mapping of alias -> (primary_name, category, pattern)
     brand_patterns: list[tuple[str, str, str, re.Pattern]] = []
 
-    # Add our brands
+    # Add our brands (all aliases for ONE brand - normalize to first alias)
+    our_brand_primary = our_brands[0] if our_brands else ""
     for alias in our_brands:
         if not alias or alias.isspace():
             continue
         try:
             pattern = create_brand_pattern(alias)
-            # First occurrence of our brand becomes the normalized name
-            primary_name = our_brands[0] if our_brands else alias
-            brand_patterns.append((alias, primary_name, "mine", pattern))
+            # All "our_brands" are aliases for the same brand (normalize to first)
+            brand_patterns.append((alias, our_brand_primary, "mine", pattern))
         except ValueError:
             # Skip invalid aliases
             continue
 
-    # Add competitor brands
-    for alias in competitor_brands:
-        if not alias or alias.isspace():
+    # Add competitor brands (each is a SEPARATE brand - normalize to itself)
+    for brand_name in competitor_brands:
+        if not brand_name or brand_name.isspace():
             continue
         try:
-            pattern = create_brand_pattern(alias)
-            # First occurrence of competitor brand becomes normalized name
-            primary_name = competitor_brands[0] if competitor_brands else alias
-            brand_patterns.append((alias, primary_name, "competitor", pattern))
+            pattern = create_brand_pattern(brand_name)
+            # Each competitor is a separate brand (normalized name = itself)
+            brand_patterns.append((brand_name, brand_name, "competitor", pattern))
         except ValueError:
-            # Skip invalid aliases
+            # Skip invalid brand names
             continue
 
     # Find all matches

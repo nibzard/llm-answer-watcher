@@ -147,17 +147,20 @@ def parse_answer(
         raise ValueError("llm_client required when use_llm_extraction=True")
 
     # Step 1: Detect brand mentions
-    my_mentions, competitor_mentions = detect_mentions(
-        text=answer_text,
-        my_brands=brands.mine,
+    all_mentions = detect_mentions(
+        answer_text=answer_text,
+        our_brands=brands.mine,
         competitor_brands=brands.competitors,
-        fuzzy=False,  # Exact matching only in v1
     )
 
-    # Step 2: Determine if our brand appeared
+    # Step 2: Separate mentions into mine vs competitors
+    my_mentions = [m for m in all_mentions if m.brand_category == "mine"]
+    competitor_mentions = [m for m in all_mentions if m.brand_category == "competitor"]
+
+    # Step 3: Determine if our brand appeared
     appeared_mine = len(my_mentions) > 0
 
-    # Step 3: Extract ranked list
+    # Step 4: Extract ranked list
     # Combine all brands for ranking (both mine and competitors)
     all_brands = brands.mine + brands.competitors
 
@@ -177,7 +180,7 @@ def parse_answer(
         )
         rank_method = "pattern"
 
-    # Step 4: Build ExtractionResult
+    # Step 5: Build ExtractionResult
     return ExtractionResult(
         intent_id=intent_id,
         model_provider=provider,

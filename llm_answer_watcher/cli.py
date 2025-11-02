@@ -47,7 +47,10 @@ from llm_answer_watcher.evals.runner import run_eval_suite
 from llm_answer_watcher.llm_runner.runner import run_all
 from llm_answer_watcher.report.generator import write_report
 from llm_answer_watcher.storage.db import init_db_if_needed
-from llm_answer_watcher.storage.eval_db import init_eval_db_if_needed, store_eval_results
+from llm_answer_watcher.storage.eval_db import (
+    init_eval_db_if_needed,
+    store_eval_results,
+)
 from llm_answer_watcher.storage.layout import get_parsed_answer_filename
 from llm_answer_watcher.utils.console import (
     create_progress_bar,
@@ -671,7 +674,7 @@ def eval(
 
         # Show summary
         summary = eval_results["summary"]
-        info(f"\nSummary:")
+        info("\nSummary:")
         info(f"  Pass rate: {summary['pass_rate']:.1%}")
         info(f"  Total cases: {summary['total_test_cases']}")
         info(f"  Passed: {summary['total_passed']}")
@@ -679,9 +682,31 @@ def eval(
 
         # Show average scores
         if summary["average_scores"]:
-            info(f"\nAverage Scores:")
+            info("\nAverage Scores:")
             for metric_name, avg_score in summary["average_scores"].items():
                 info(f"  {metric_name}: {avg_score:.3f}")
+
+        # Show threshold check results
+        if "threshold_check" in eval_results:
+            threshold_check = eval_results["threshold_check"]
+            threshold_summary = threshold_check["summary"]
+
+            info("\nQuality Thresholds:")
+            status_icon = "✅" if threshold_summary["overall_status"] == "PASS" else "❌"
+            info(f"  {status_icon} Overall Status: {threshold_summary['overall_status']}")
+            info(f"  Pass Rate: {threshold_check['pass_rate']:.1%} (minimum: {threshold_summary['pass_rate_threshold']:.0%})")
+            info(f"  Violations: {threshold_summary['total_violations']} (critical: {threshold_summary['critical_violations']})")
+
+            # Show specific violations
+            if threshold_check["threshold_violations"]:
+                info("\nThreshold Violations:")
+                for violation in threshold_check["threshold_violations"]:
+                    severity_icon = "🔴" if violation["severity"] == "critical" else "🟡"
+                    info(f"  {severity_icon} {violation['metric']}: {violation['average']:.3f} "
+                         f"(threshold: {violation['threshold']:.1f}, "
+                         f"{violation['gap_percent']:.0f}% below)")
+            else:
+                info("  ✅ All quality thresholds met")
 
     # Display results in JSON mode
     elif output_mode.is_agent():
@@ -715,11 +740,21 @@ def eval(
         output_mode.add_json("evaluation_results", json_output)
         output_mode.flush_json()
 
-    # Determine exit code based on results
+    # Determine exit code based on threshold checking
+    threshold_check = eval_results.get("threshold_check", {})
+
+    if threshold_check.get("summary", {}).get("overall_status") == "FAIL":
+        # Check if there are critical violations (my_brands_coverage below threshold)
+        critical_violations = threshold_check.get("critical_violations", 0)
+        if critical_violations > 0:
+            # Critical quality failures - fail with code 2
+            raise typer.Exit(2)  # Critical thresholds failed
+        # Non-critical violations - fail with code 2 but could be warning in future
+        raise typer.Exit(2)  # Quality thresholds not met
     if failed_cases > 0:
+        # Some individual test cases failed but overall thresholds passed
         raise typer.Exit(2)  # Some tests failed
-    else:
-        raise typer.Exit(EXIT_SUCCESS)  # All tests passed
+    raise typer.Exit(EXIT_SUCCESS)  # All tests passed and thresholds met
 
 
 @app.callback(invoke_without_command=True)

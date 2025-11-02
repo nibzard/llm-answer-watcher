@@ -429,6 +429,136 @@ GROUP BY week
 ORDER BY week DESC;
 ```
 
+## 🧪 Evaluation Framework
+
+LLM Answer Watcher includes a comprehensive evaluation framework to ensure extraction accuracy and quality control.
+
+### Running Evaluations
+
+```bash
+# Run evaluation suite against test fixtures
+llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml
+
+# Run with custom database path
+llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml --db eval_results.db
+
+# JSON output for CI/CD
+llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml --format json
+```
+
+### What Evaluations Test
+
+The evaluation framework validates **extraction accuracy**, not LLM quality:
+
+- **Mention Detection**: Does the system correctly identify brand mentions?
+- **Precision/Recall**: Are false positives and false negatives minimized?
+- **Rank Extraction**: Are ranking positions accurately extracted?
+- **Edge Cases**: Word boundaries, case sensitivity, special characters
+
+### Evaluation Metrics
+
+The framework computes these metrics for each test case:
+
+| Metric | Description | Target Threshold |
+|--------|-------------|------------------|
+| **Mention Precision** | Ratio of correct mentions to total mentions found | ≥ 90% |
+| **Mention Recall** | Ratio of correct mentions to expected mentions | ≥ 80% |
+| **Mention F1** | Harmonic mean of precision and recall | ≥ 85% |
+| **Rank Accuracy** | Percentage of correctly ranked brands | ≥ 85% |
+| **Brand Coverage** | Ratio of expected brands found | ≥ 90% |
+| **False is_mine** | Zero tolerance for incorrectly flagged brands | 100% |
+
+### Exit Codes for CI/CD
+
+```bash
+0: All tests passed (above thresholds)
+1: Tests failed (below thresholds)
+2: Configuration error
+```
+
+### Evaluation Database
+
+All evaluation results are stored in `eval_results.db` for historical tracking:
+
+```sql
+-- View recent evaluation runs
+SELECT run_id, timestamp_utc, pass_rate, total_test_cases, total_passed
+FROM eval_runs
+ORDER BY timestamp_utc DESC
+LIMIT 10;
+
+-- Track metric trends over time
+SELECT DATE(timestamp_utc) as date,
+       AVG(metric_value) as avg_value,
+       COUNT(*) as count
+FROM eval_results er
+JOIN eval_runs r ON er.eval_run_id = r.run_id
+WHERE er.metric_name = 'mention_precision'
+  AND r.timestamp_utc >= datetime('now', '-30 days')
+GROUP BY DATE(timestamp_utc)
+ORDER BY date DESC;
+
+-- Find failing tests
+SELECT test_description,
+       COUNT(*) as failed_metrics,
+       GROUP_CONCAT(metric_name) as failing_metrics
+FROM eval_results
+WHERE overall_passed = 0
+GROUP BY test_description
+ORDER BY failed_metrics DESC;
+```
+
+### Adding Custom Test Cases
+
+Create test fixtures in YAML format:
+
+```yaml
+test_cases:
+  - description: "HubSpot mention detection"
+    intent_id: "best-crm-tools"
+    llm_answer_text: |
+      The best CRM tools are:
+      1. HubSpot - Great for small businesses
+      2. Salesforce - Enterprise solution
+      3. Pipedrive - Sales-focused CRM
+
+    brands_mine:
+      - "HubSpot"
+
+    brands_competitors:
+      - "Salesforce"
+      - "Pipedrive"
+
+    expected_my_mentions:
+      - "HubSpot"
+
+    expected_competitor_mentions:
+      - "Salesforce"
+      - "Pipedrive"
+
+    expected_ranked_list:
+      - "HubSpot"
+      - "Salesforce"
+      - "Pipedrive"
+```
+
+See [evals/README.md](evals/README.md) for complete fixture format documentation.
+
+### Continuous Integration
+
+The evaluation suite runs automatically on every push via GitHub Actions:
+
+```yaml
+# .github/workflows/evals.yml
+- name: Run Evaluation Suite
+  run: |
+    uv run llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml
+
+- name: Check Coverage
+  run: |
+    uv run pytest tests/test_evals.py -v
+```
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

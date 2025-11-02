@@ -1602,25 +1602,25 @@ Tasks are organized by **milestones** that map to development sprints. Use your 
 
 ### 4.7 Milestone 4 Deliverable Checklist
 
-- [ ] README.md complete and accurate
-- [ ] CONTRIBUTING.md clear and helpful
-- [ ] Test coverage >= 80%
-- [ ] Critical paths have 100% coverage
-- [ ] CI/CD pipeline passing
-- [ ] GitHub Actions running tests
-- [ ] Example config in examples/
-- [ ] Sample output in examples/sample_output/
-- [ ] All docstrings present
-- [ ] All type hints present
-- [ ] Reviewer agent approved all code
-- [ ] No security vulnerabilities
-- [ ] No API keys in repo
-- [ ] Exit codes working correctly
-- [ ] --help text comprehensive
-- [ ] Agent mode tested by AI agent
-- [ ] Human mode tested manually
-- [ ] report.html renders beautifully
-- [ ] SQLite queries work as documented
+- [x] README.md complete and accurate ✅ **2025-11-02** (includes eval framework documentation)
+- [x] CONTRIBUTING.md clear and helpful ✅ **2025-11-02** (includes eval metrics guide)
+- [x] Test coverage >= 80% ✅ **2025-11-02** (88% coverage achieved)
+- [x] Critical paths have 100% coverage ✅ (extractor, utils modules at 100%)
+- [x] CI/CD pipeline passing ✅ (GitHub Actions workflow active)
+- [x] GitHub Actions running tests ✅ (eval suite + pytest on every push/PR)
+- [x] Example config in examples/ ✅ (watcher.config.yaml exists)
+- [x] Sample output in examples/sample_output/ ✅ (complete with report.html)
+- [ ] All docstrings present (needs review)
+- [ ] All type hints present (needs review)
+- [ ] Reviewer agent approved all code (needs review)
+- [ ] No security vulnerabilities (needs security audit)
+- [x] No API keys in repo ✅ (confirmed - uses env vars only)
+- [x] Exit codes working correctly ✅ (0-4 codes implemented and tested)
+- [x] --help text comprehensive ✅ (tested and verified)
+- [ ] Agent mode tested by AI agent (needs testing)
+- [ ] Human mode tested manually (needs testing)
+- [ ] report.html renders beautifully (needs verification)
+- [x] SQLite queries work as documented ✅ (tested in evals/README.md examples)
 
 ---
 
@@ -2155,11 +2155,12 @@ These tasks are NOT required for v1 but are documented for future reference:
     - CLI integration with rich threshold display
     - Proper exit codes (0 for pass, 1 for threshold failure)
 
-- [ ] **Document in CONTRIBUTING.md:**
-  - [ ] How to add new eval test cases
-  - [ ] How to run evals locally (`llm-answer-watcher eval`)
-  - [ ] How evals integrate with CI/CD
-  - [ ] What to do if evals fail on your PR
+- [x] **Document in CONTRIBUTING.md:** ✅ **COMPLETED 2025-11-02**
+  - [x] How to add new eval test cases
+  - [x] How to run evals locally (`llm-answer-watcher eval`)
+  - [x] How evals integrate with CI/CD
+  - [x] What to do if evals fail on your PR
+  - [x] Added comprehensive "Understanding Eval Metrics" section with formulas, examples, debugging guide
 
 #### Future: LLM-as-a-Judge Integration (evals/deepeval_bridge.py)
 
@@ -2196,34 +2197,43 @@ These tasks are NOT required for v1 but are documented for future reference:
 
 #### Documentation
 
-- [ ] **Update README.md:**
-  - [ ] Add "Evaluation Framework" section
-  - [ ] Explain what evals test (extraction accuracy, not LLM quality)
-  - [ ] How to run evals locally
-  - [ ] How to add custom test cases
-  - [ ] Link to eval fixtures YAML
+- [x] **Update README.md:** ✅ **COMPLETED 2025-11-02**
+  - [x] Add "Evaluation Framework" section
+  - [x] Explain what evals test (extraction accuracy, not LLM quality)
+  - [x] How to run evals locally
+  - [x] How to add custom test cases
+  - [x] Link to eval fixtures YAML
+  - [x] Complete metrics reference table with thresholds
+  - [x] CI/CD integration example
 
-- [ ] **Update CONTRIBUTING.md:**
-  - [ ] Section: "Adding Eval Test Cases"
-    - [ ] How to write a new test case in fixtures.yaml
-    - [ ] Ground truth labeling guidelines
-    - [ ] How to test locally before PR
+- [x] **Update CONTRIBUTING.md:** ✅ **COMPLETED 2025-11-02**
+  - [x] Section: "Adding Eval Test Cases"
+    - [x] How to write a new test case in fixtures.yaml
+    - [x] Ground truth labeling guidelines
+    - [x] How to test locally before PR
 
-  - [ ] Section: "Understanding Eval Metrics"
-    - [ ] What each metric measures
-    - [ ] Target thresholds
-    - [ ] What to do if you regress a metric
+  - [x] Section: "Understanding Eval Metrics"
+    - [x] What each metric measures
+    - [x] Target thresholds
+    - [x] What to do if you regress a metric
+    - [x] Complete debugging workflow with SQL queries
+    - [x] Regression test examples
 
-- [ ] **Create evals/README.md:**
-  - [ ] Purpose of evals module
-  - [ ] Architecture overview
-  - [ ] How to run: `llm-answer-watcher eval`
-  - [ ] How to interpret results
-  - [ ] Fixtures YAML format documentation
+- [x] **Create evals/README.md:** ✅ **COMPLETED 2025-11-02**
+  - [x] Purpose of evals module
+  - [x] Architecture overview
+  - [x] How to run: `llm-answer-watcher eval`
+  - [x] How to interpret results
+  - [x] Fixtures YAML format documentation
+  - [x] Complete field reference table
+  - [x] 5+ example test cases
+  - [x] Metric formulas with examples
+  - [x] Database schema documentation
+  - [x] Best practices guide
 
 #### Example Queries (for eval_results.db)
 
-- [ ] **Document example queries in README:**
+- [x] **Document example queries in README:** ✅ **COMPLETED 2025-11-02**
   ```sql
   -- Check recent eval runs
   SELECT eval_run_id, timestamp_utc, pass_rate

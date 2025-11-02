@@ -633,6 +633,175 @@ uv pip list
 ruff check . --fix
 ```
 
+## Understanding Eval Metrics
+
+The evaluation framework is critical for ensuring extraction quality. Here's what you need to know:
+
+### What Evals Test
+
+Evaluations test **extraction accuracy**, NOT LLM quality. They validate:
+
+- Brand mention detection (word boundaries, case sensitivity)
+- Mention precision (no false positives)
+- Mention recall (no false negatives)
+- Rank extraction accuracy
+- Edge case handling
+
+### Running Evals Locally
+
+```bash
+# Run the full evaluation suite
+llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml
+
+# Run with verbose output
+llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml --verbose
+
+# Run specific test via pytest
+pytest tests/test_evals.py::TestEvalIntegration::test_specific_case -v
+
+# Run with coverage
+pytest tests/test_evals.py --cov=llm_answer_watcher.evals
+```
+
+### Metric Definitions
+
+| Metric | Formula | What It Measures | Target |
+|--------|---------|------------------|--------|
+| **Mention Precision** | TP / (TP + FP) | How many detected mentions are correct | ≥ 0.90 |
+| **Mention Recall** | TP / (TP + FN) | How many expected mentions were found | ≥ 0.80 |
+| **Mention F1** | 2 × (P × R) / (P + R) | Harmonic mean of precision and recall | ≥ 0.85 |
+| **Rank Accuracy** | Correct positions / Total positions | Are brands ranked correctly | ≥ 0.85 |
+| **Brand Coverage** | Brands found / Expected brands | Percentage of expected brands detected | ≥ 0.90 |
+| **False is_mine** | False positives for is_mine flag | Zero tolerance for wrong brand classification | 1.00 |
+
+**Legend:**
+- TP = True Positives (correct mentions found)
+- FP = False Positives (incorrect mentions found)
+- FN = False Negatives (expected mentions missed)
+
+### What To Do If You Regress a Metric
+
+#### 1. Understand the Failure
+
+```bash
+# Run evals to see which tests failed
+llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml
+
+# Check the eval database for details
+sqlite3 eval_results.db
+```
+
+```sql
+-- Find failing tests
+SELECT test_description, metric_name, metric_value, metric_passed
+FROM eval_results
+WHERE eval_run_id = (SELECT run_id FROM eval_runs ORDER BY timestamp_utc DESC LIMIT 1)
+  AND metric_passed = 0
+ORDER BY test_description, metric_name;
+
+-- See historical trend
+SELECT DATE(timestamp_utc) as date, AVG(metric_value) as avg_value
+FROM eval_results er
+JOIN eval_runs r ON er.eval_run_id = r.run_id
+WHERE metric_name = 'mention_precision'
+GROUP BY DATE(timestamp_utc)
+ORDER BY date DESC
+LIMIT 7;
+```
+
+#### 2. Identify the Root Cause
+
+Common causes of regressions:
+
+- **Precision drop**: Added overly broad matching logic (false positives)
+- **Recall drop**: Made matching too strict (false negatives)
+- **Rank accuracy drop**: Changed ranking extraction logic
+- **Brand coverage drop**: Word boundary issue or case sensitivity bug
+
+#### 3. Fix the Issue
+
+```python
+# Example: Precision regression due to missing word boundary
+# ❌ BAD - Matches "hub" in "GitHub"
+if "hub" in text.lower():
+    found_hubspot = True
+
+# ✅ GOOD - Only matches full word "HubSpot"
+import re
+pattern = r'\b' + re.escape("HubSpot") + r'\b'
+if re.search(pattern, text, re.IGNORECASE):
+    found_hubspot = True
+```
+
+#### 4. Add Test Coverage
+
+If a regression happened, it means test coverage was insufficient:
+
+```python
+# Add a test case to prevent future regressions
+def test_word_boundary_prevents_false_match():
+    """Regression test: 'hub' should not match in 'GitHub'"""
+    text = "I use GitHub for version control"
+    brands = ["HubSpot"]
+    mentions = extract_mentions(text, brands)
+    assert len(mentions) == 0  # Should NOT find HubSpot in GitHub
+```
+
+#### 5. Verify Fix
+
+```bash
+# Run full eval suite
+llm-answer-watcher eval --fixtures evals/testcases/fixtures.yaml
+
+# Run specific regression test
+pytest tests/test_extractor_mention_detector.py::test_word_boundary -v
+
+# Check coverage
+pytest --cov=llm_answer_watcher.extractor --cov-report=term-missing
+```
+
+### Adding Custom Test Cases
+
+When you add new features, add corresponding eval test cases:
+
+```yaml
+# evals/testcases/fixtures.yaml
+test_cases:
+  - description: "Test your new feature"
+    intent_id: "test_intent"
+    llm_answer_text: "Your test LLM response here"
+    brands_mine: ["YourBrand"]
+    brands_competitors: ["Competitor"]
+    expected_my_mentions: ["YourBrand"]
+    expected_competitor_mentions: ["Competitor"]
+    expected_ranked_list: ["YourBrand", "Competitor"]
+```
+
+### CI/CD Integration
+
+The eval suite runs automatically on:
+- Every push to main
+- Every pull request
+- Nightly builds
+
+**Pull requests will be blocked if:**
+- Any eval metric falls below threshold
+- New code decreases overall pass rate
+- Coverage drops below 80%
+
+### Debugging Failed Evals
+
+```bash
+# Run with maximum verbosity
+pytest tests/test_evals.py -vvs
+
+# Run single test case
+pytest tests/test_evals.py::test_specific_case -vvs
+
+# Check detailed metric computation
+pytest tests/test_eval_metrics.py::TestComputeMentionMetrics -v
+```
+
 ## Project Philosophy
 
 When contributing, keep these principles in mind:

@@ -31,7 +31,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from ..config.schema import RuntimeConfig
-from ..storage.layout import get_parsed_answer_filename
+from ..storage.layout import get_parsed_answer_filename, get_raw_answer_filename
 from ..storage.writer import write_report_html
 from .cost_formatter import format_cost_usd
 
@@ -336,6 +336,21 @@ def _load_model_result(
     cost_usd = result.get("cost_usd", 0.0)
     cost_formatted = format_cost_usd(cost_usd)
 
+    # Load raw answer text (for expandable section)
+    raw_filename = get_raw_answer_filename(intent_id, provider, model_name)
+    raw_path = run_dir / raw_filename
+    answer_text = None
+    answer_length = 0
+
+    if raw_path.exists():
+        try:
+            with raw_path.open(encoding="utf-8") as f:
+                raw_data = json.load(f)
+                answer_text = raw_data.get("answer_text", "")
+                answer_length = raw_data.get("answer_length", len(answer_text))
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"Failed to load raw answer text from {raw_path}: {e}")
+
     return {
         "provider": provider,
         "model_name": model_name,
@@ -346,4 +361,6 @@ def _load_model_result(
         "rank_extraction_method": rank_extraction_method,
         "rank_confidence": rank_confidence,
         "cost_formatted": cost_formatted,
+        "answer_text": answer_text,
+        "answer_length": answer_length,
     }

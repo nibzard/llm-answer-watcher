@@ -25,14 +25,14 @@ from typing import Any
 
 import httpx
 
-from llm_runner.models import LLMResponse
-from llm_runner.retry_config import (
+from llm_answer_watcher.llm_runner.models import LLMResponse
+from llm_answer_watcher.llm_runner.retry_config import (
     NO_RETRY_STATUS_CODES,
     REQUEST_TIMEOUT,
     create_retry_decorator,
 )
-from utils.cost import estimate_cost
-from utils.time import utc_timestamp
+from llm_answer_watcher.utils.cost import estimate_cost
+from llm_answer_watcher.utils.time import utc_timestamp
 
 # System message to ensure unbiased, factual responses
 SYSTEM_MESSAGE = "You are an unbiased market analyst. Provide factual, balanced recommendations."

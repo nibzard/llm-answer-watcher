@@ -177,7 +177,7 @@ def build_client(provider: str, model_name: str, api_key: str) -> LLMClient:
     """
     if provider == "openai":
         # Import here to avoid circular dependencies and keep imports lazy
-        from llm_runner.openai_client import OpenAIClient  # noqa: PLC0415
+        from llm_answer_watcher.llm_runner.openai_client import OpenAIClient  # noqa: PLC0415
 
         return OpenAIClient(model_name=model_name, api_key=api_key)
 

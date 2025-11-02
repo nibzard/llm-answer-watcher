@@ -5,14 +5,21 @@ This module provides the main orchestrator function `run_eval_suite()` that
 loads test cases, executes the evaluation pipeline, and returns results.
 """
 
-import yaml
+import sqlite3
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from ..extractor.mention_detector import detect_mentions
 from ..extractor.rank_extractor import extract_ranked_list_pattern
-from .schema import EvalTestCase, EvalResult
-from .metrics import compute_mention_metrics, compute_rank_metrics, compute_completeness_metrics
+from ..storage.eval_db import init_eval_db_if_needed, store_eval_results
+from .metrics import (
+    compute_completeness_metrics,
+    compute_mention_metrics,
+    compute_rank_metrics,
+)
+from .schema import EvalResult, EvalTestCase
 
 
 def load_test_cases(fixtures_path: str | Path) -> list[EvalTestCase]:
@@ -35,7 +42,7 @@ def load_test_cases(fixtures_path: str | Path) -> list[EvalTestCase]:
     if not fixtures_path.exists():
         raise FileNotFoundError(f"Test fixtures file not found: {fixtures_path}")
 
-    with open(fixtures_path, 'r', encoding='utf-8') as f:
+    with open(fixtures_path, encoding='utf-8') as f:
         data = yaml.safe_load(f)
 
     if not data or 'test_cases' not in data:
@@ -177,3 +184,102 @@ def run_eval_suite(
         "total_test_cases": total_test_cases,
         "total_passed": total_passed,
     }
+
+
+def write_eval_results(
+    eval_run_id: str,
+    results: list[EvalResult],
+    db_path: str,
+) -> str:
+    """
+    Write evaluation results to the SQLite database for persistent storage.
+
+    This function bridges the eval runner results with the database storage
+    system, inserting both the run summary and detailed metric results.
+
+    Args:
+        eval_run_id: Unique identifier for this evaluation run
+        results: List of EvalResult objects from run_eval_suite()
+        db_path: Path to the SQLite database file for storage
+
+    Returns:
+        str: The run_id that was used for storage (same as input eval_run_id)
+
+    Raises:
+        sqlite3.Error: If database operation fails
+        ValueError: If results are invalid or missing
+        OSError: If database file cannot be created/accessed
+
+    Example:
+        >>> results = run_eval_suite("fixtures.yaml")
+        >>> write_eval_results("2025-11-02T08-00-00Z", results["results"], "./eval_results.db")
+        '2025-11-02T08-00-00Z'
+
+    Security:
+        - Uses parameterized queries via storage.eval_db functions
+        - No SQL injection vulnerabilities
+        - Database operations are wrapped in transactions
+
+    Note:
+        This function:
+        1. Initializes the database if needed (creates tables, applies migrations)
+        2. Creates the eval_results dictionary in the format expected by store_eval_results()
+        3. Stores results atomically in a single transaction
+        4. Returns the run_id for reference
+    """
+    if not eval_run_id:
+        raise ValueError("eval_run_id cannot be empty")
+
+    if not results:
+        raise ValueError("results list cannot be empty")
+
+    # Initialize database if needed (creates tables, applies migrations)
+    init_eval_db_if_needed(db_path)
+
+    # Convert EvalResult objects to the format expected by store_eval_results()
+    # First, compute summary statistics from the results
+    total_test_cases = len(results)
+    total_passed = sum(1 for r in results if r.overall_passed)
+    total_failed = total_test_cases - total_passed
+    pass_rate = total_passed / total_test_cases if total_test_cases > 0 else 0.0
+
+    # Compute average scores for each metric type
+    metric_scores = {}
+    metric_counts = {}
+
+    for result in results:
+        for metric in result.metrics:
+            if metric.name not in metric_scores:
+                metric_scores[metric.name] = 0.0
+                metric_counts[metric.name] = 0
+            metric_scores[metric.name] += metric.value
+            metric_counts[metric.name] += 1
+
+    average_scores = {
+        name: metric_scores[name] / metric_counts[name]
+        for name in metric_scores
+    }
+
+    # Create summary dictionary
+    summary = {
+        "pass_rate": pass_rate,
+        "average_scores": average_scores,
+        "total_test_cases": total_test_cases,
+        "total_passed": total_passed,
+        "total_failed": total_failed,
+    }
+
+    # Create eval_results dictionary in the expected format
+    eval_results_dict = {
+        "results": results,
+        "summary": summary,
+        "total_test_cases": total_test_cases,
+        "total_passed": total_passed,
+    }
+
+    # Store results in database
+    with sqlite3.connect(db_path) as conn:
+        run_id = store_eval_results(conn, eval_results_dict, eval_run_id)
+        conn.commit()
+
+    return run_id

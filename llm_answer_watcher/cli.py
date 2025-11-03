@@ -240,7 +240,9 @@ def run(
     output_mode.quiet = quiet
 
     # Setup logging level
-    setup_logging(verbose=verbose)
+    # Suppress JSON logs in human mode (unless verbose=True)
+    quiet_logs = output_mode.is_human()
+    setup_logging(verbose=verbose, quiet_logs=quiet_logs)
 
     # Print banner (human mode only)
     version = _read_version()
@@ -627,7 +629,9 @@ def eval(
     output_mode.format = format
 
     # Setup logging level
-    setup_logging(verbose=verbose)
+    # Suppress JSON logs in human mode (unless verbose=True)
+    quiet_logs = output_mode.is_human()
+    setup_logging(verbose=verbose, quiet_logs=quiet_logs)
 
     # Load and validate test fixtures
     try:

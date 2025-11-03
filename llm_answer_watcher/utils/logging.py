@@ -193,7 +193,7 @@ class SecretRedactingFilter(logging.Filter):
         return result
 
 
-def setup_logging(verbose: bool = False) -> None:
+def setup_logging(verbose: bool = False, quiet_logs: bool = False) -> None:
     """
     Configure structured JSON logging for the application.
 
@@ -202,23 +202,40 @@ def setup_logging(verbose: bool = False) -> None:
     - Secret redaction filter
     - stderr output (stdout reserved for user-facing content)
     - Log level: DEBUG if verbose=True, INFO otherwise
+    - Completely suppress logs if quiet_logs=True (unless verbose=True)
 
     Args:
-        verbose: If True, set log level to DEBUG. Otherwise, use INFO.
+        verbose: If True, set log level to DEBUG and always show logs.
+        quiet_logs: If True, suppress all logs (for clean human UI).
+                    Overridden by verbose=True.
 
     Example:
-        >>> setup_logging(verbose=True)
+        >>> setup_logging(verbose=True)  # Show all logs
         >>> logger = get_logger("my.component")
         >>> logger.debug("Debug message")  # Will appear in logs
+
+        >>> setup_logging(quiet_logs=True)  # Suppress all logs (clean UI)
+        >>> logger = get_logger("my.component")
+        >>> logger.info("Info message")  # Will NOT appear
+
+        >>> setup_logging(verbose=True, quiet_logs=True)  # verbose wins
+        >>> logger = get_logger("my.component")
+        >>> logger.debug("Debug message")  # Will appear (verbose overrides)
     """
     # Get root logger
     root_logger = logging.getLogger()
 
-    # Set level based on verbose flag
-    root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
-
     # Remove any existing handlers (prevents duplicate logs)
     root_logger.handlers.clear()
+
+    # If quiet_logs is True and verbose is False, suppress all logging
+    if quiet_logs and not verbose:
+        # Set level above CRITICAL to suppress all logs
+        root_logger.setLevel(logging.CRITICAL + 1)
+        return
+
+    # Set level based on verbose flag
+    root_logger.setLevel(logging.DEBUG if verbose else logging.INFO)
 
     # Create stderr handler
     handler = logging.StreamHandler(sys.stderr)

@@ -56,7 +56,7 @@ MODEL_PARAMS = {
 # GPT-5 models only support temperature=1 (default), not custom values
 TEMPERATURE_FIXED_MODELS = {
     "gpt-5",
-    "gpt-5-mini", 
+    "gpt-5-mini",
     "gpt-5-nano",
     "gpt-5-pro",
     "gpt-5-chat-latest",

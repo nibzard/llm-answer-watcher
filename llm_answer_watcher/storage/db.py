@@ -32,7 +32,7 @@ from ..utils.time import utc_timestamp
 logger = logging.getLogger(__name__)
 
 # Current schema version - increment when migrations are added
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 
 def init_db_if_needed(db_path: str) -> None:
@@ -186,9 +186,11 @@ def apply_migrations(
 
             if target_version == 1:
                 _migrate_to_v1(conn)
+            elif target_version == 2:
+                _migrate_to_v2(conn)
             # Future migrations go here:
-            # elif target_version == 2:
-            #     _migrate_to_v2(conn)
+            # elif target_version == 3:
+            #     _migrate_to_v3(conn)
             else:
                 raise ValueError(f"No migration defined for version {target_version}")
 
@@ -335,6 +337,44 @@ def _migrate_to_v1(conn: sqlite3.Connection) -> None:
     logger.debug("Created schema v1 tables and indexes")
 
 
+def _migrate_to_v2(conn: sqlite3.Connection) -> None:
+    """
+    Migrate database schema to version 2.
+
+    Adds web search support to the answers_raw table:
+    - web_search_count: Number of web searches performed for this answer
+    - web_search_results_json: JSON array of web search results (if any)
+
+    This migration uses ALTER TABLE to add columns to existing tables,
+    which is safe for existing data (new columns are nullable).
+
+    Args:
+        conn: Active SQLite database connection in transaction
+
+    Raises:
+        sqlite3.Error: If table alteration fails
+
+    Note:
+        This migration is called automatically by apply_migrations().
+        Do NOT call directly - use apply_migrations() instead.
+
+        Existing rows will have NULL values for these columns, which
+        will be treated as 0 and NULL respectively in queries.
+    """
+    # Add web search columns to answers_raw table
+    conn.execute("""
+        ALTER TABLE answers_raw
+        ADD COLUMN web_search_count INTEGER DEFAULT 0
+    """)
+
+    conn.execute("""
+        ALTER TABLE answers_raw
+        ADD COLUMN web_search_results_json TEXT
+    """)
+
+    logger.debug("Added web search columns to answers_raw table (schema v2)")
+
+
 # ============================================================================
 # Database Operations (CRUD)
 # ============================================================================
@@ -413,6 +453,8 @@ def insert_answer_raw(
     answer_text: str,
     usage_meta_json: str | None = None,
     estimated_cost_usd: float | None = None,
+    web_search_count: int = 0,
+    web_search_results_json: str | None = None,
 ) -> None:
     """
     Insert a raw LLM answer into the answers_raw table.
@@ -435,6 +477,8 @@ def insert_answer_raw(
         answer_text: Raw LLM response text
         usage_meta_json: Optional JSON-encoded usage metadata (tokens, etc.)
         estimated_cost_usd: Optional estimated cost in USD
+        web_search_count: Number of web searches performed (default 0)
+        web_search_results_json: Optional JSON-encoded web search results
 
     Raises:
         sqlite3.Error: If database operation fails
@@ -478,8 +522,10 @@ def insert_answer_raw(
             answer_text,
             answer_length,
             usage_meta_json,
-            estimated_cost_usd
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            estimated_cost_usd,
+            web_search_count,
+            web_search_results_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             run_id,
@@ -492,12 +538,22 @@ def insert_answer_raw(
             answer_length,
             usage_meta_json,
             estimated_cost_usd,
+            web_search_count,
+            web_search_results_json,
         ),
     )
-    logger.debug(
-        f"Inserted answer for intent={intent_id}, model={model_provider}/{model_name}, "
-        f"length={answer_length} chars"
-    )
+
+    # Log with web search info if applicable
+    if web_search_count > 0:
+        logger.debug(
+            f"Inserted answer for intent={intent_id}, model={model_provider}/{model_name}, "
+            f"length={answer_length} chars, web_searches={web_search_count}"
+        )
+    else:
+        logger.debug(
+            f"Inserted answer for intent={intent_id}, model={model_provider}/{model_name}, "
+            f"length={answer_length} chars"
+        )
 
 
 def insert_mention(

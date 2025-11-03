@@ -13,6 +13,9 @@ import pytest
 from llm_answer_watcher.llm_runner.models import LLMClient, LLMResponse, build_client
 from llm_answer_watcher.llm_runner.openai_client import OpenAIClient
 
+# Test system prompt for all tests
+TEST_SYSTEM_PROMPT = "You are a test assistant."
+
 
 class TestLLMResponse:
     """Test suite for LLMResponse dataclass."""
@@ -95,7 +98,11 @@ class TestLLMClientProtocol:
 
     def test_openai_client_implements_protocol(self):
         """Test that OpenAIClient satisfies LLMClient Protocol."""
-        client = OpenAIClient(model_name="gpt-4o-mini", api_key="sk-test123")
+        client = OpenAIClient(
+            model_name="gpt-4o-mini",
+            api_key="sk-test123",
+            system_prompt=TEST_SYSTEM_PROMPT,
+        )
 
         # Protocol check - OpenAIClient should have generate_answer method
         assert hasattr(client, "generate_answer")
@@ -121,7 +128,7 @@ class TestBuildClient:
 
     def test_build_client_openai_success(self):
         """Test building OpenAI client successfully."""
-        client = build_client("openai", "gpt-4o-mini", "sk-test123")
+        client = build_client("openai", "gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         assert isinstance(client, OpenAIClient)
         assert client.model_name == "gpt-4o-mini"
@@ -129,7 +136,7 @@ class TestBuildClient:
 
     def test_build_client_openai_different_model(self):
         """Test building OpenAI client with different model."""
-        client = build_client("openai", "gpt-4o", "sk-prod456")
+        client = build_client("openai", "gpt-4o", "sk-prod456", TEST_SYSTEM_PROMPT)
 
         assert isinstance(client, OpenAIClient)
         assert client.model_name == "gpt-4o"
@@ -141,13 +148,13 @@ class TestBuildClient:
             NotImplementedError,
             match="Provider 'anthropic' support is planned but not yet implemented",
         ):
-            build_client("anthropic", "claude-3-5-haiku-20241022", "sk-ant-test")
+            build_client("anthropic", "claude-3-5-haiku-20241022", "sk-ant-test", TEST_SYSTEM_PROMPT)
 
         # Verify error message mentions supported providers
         with pytest.raises(
             NotImplementedError, match="Currently supported providers: openai"
         ):
-            build_client("anthropic", "claude-3-5-haiku-20241022", "sk-ant-test")
+            build_client("anthropic", "claude-3-5-haiku-20241022", "sk-ant-test", TEST_SYSTEM_PROMPT)
 
     def test_build_client_mistral_not_implemented(self):
         """Test that Mistral provider raises NotImplementedError."""
@@ -155,38 +162,38 @@ class TestBuildClient:
             NotImplementedError,
             match="Provider 'mistral' support is planned but not yet implemented",
         ):
-            build_client("mistral", "mistral-large-latest", "mistral-key")
+            build_client("mistral", "mistral-large-latest", "mistral-key", TEST_SYSTEM_PROMPT)
 
     def test_build_client_unsupported_provider(self):
         """Test that unknown provider raises ValueError."""
         with pytest.raises(ValueError, match="Unsupported provider: 'gemini'"):
-            build_client("gemini", "gemini-pro", "gemini-key")
+            build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
         # Verify error message lists supported and planned providers
         with pytest.raises(ValueError, match="Supported providers: openai"):
-            build_client("gemini", "gemini-pro", "gemini-key")
+            build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(ValueError, match="Planned providers: anthropic, mistral"):
-            build_client("gemini", "gemini-pro", "gemini-key")
+            build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
     def test_build_client_empty_provider(self):
         """Test that empty provider string raises ValueError."""
         with pytest.raises(ValueError, match="Unsupported provider: ''"):
-            build_client("", "gpt-4o-mini", "sk-test123")
+            build_client("", "gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
     def test_build_client_case_sensitive(self):
         """Test that provider name is case-sensitive."""
         # Uppercase should fail
         with pytest.raises(ValueError, match="Unsupported provider: 'OpenAI'"):
-            build_client("OpenAI", "gpt-4o-mini", "sk-test123")
+            build_client("OpenAI", "gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         # Mixed case should fail
         with pytest.raises(ValueError, match="Unsupported provider: 'OPENAI'"):
-            build_client("OPENAI", "gpt-4o-mini", "sk-test123")
+            build_client("OPENAI", "gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
     def test_build_client_returns_protocol_compliant_object(self):
         """Test that build_client returns object satisfying LLMClient Protocol."""
-        client = build_client("openai", "gpt-4o-mini", "sk-test123")
+        client = build_client("openai", "gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         # Verify protocol compliance
         assert hasattr(client, "generate_answer")
@@ -203,7 +210,7 @@ class TestBuildClient:
     def test_build_client_with_special_characters_in_key(self):
         """Test building client with special characters in API key."""
         special_key = "sk-proj_ABC123!@#$%^&*()_+-=[]{}|;:',.<>?/~`"
-        client = build_client("openai", "gpt-4o-mini", special_key)
+        client = build_client("openai", "gpt-4o-mini", special_key, TEST_SYSTEM_PROMPT)
 
         assert isinstance(client, OpenAIClient)
         assert client.api_key == special_key
@@ -221,7 +228,7 @@ class TestBuildClient:
             pass
 
         # Calling build_client should work regardless
-        client = build_client("openai", "gpt-4o-mini", "sk-test")
+        client = build_client("openai", "gpt-4o-mini", "sk-test", TEST_SYSTEM_PROMPT)
         assert isinstance(client, OpenAIClient)
 
 
@@ -231,7 +238,7 @@ class TestIntegration:
     def test_factory_to_protocol_workflow(self):
         """Test complete workflow: factory -> protocol -> method call preparation."""
         # Step 1: Use factory to create client
-        client = build_client("openai", "gpt-4o-mini", "sk-test123")
+        client = build_client("openai", "gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         # Step 2: Verify it satisfies protocol
         assert hasattr(client, "generate_answer")
@@ -247,8 +254,8 @@ class TestIntegration:
 
     def test_multiple_clients_independent(self):
         """Test that multiple client instances are independent."""
-        client1 = build_client("openai", "gpt-4o-mini", "sk-key1")
-        client2 = build_client("openai", "gpt-4o", "sk-key2")
+        client1 = build_client("openai", "gpt-4o-mini", "sk-key1", TEST_SYSTEM_PROMPT)
+        client2 = build_client("openai", "gpt-4o", "sk-key2", TEST_SYSTEM_PROMPT)
 
         assert client1.api_key == "sk-key1"
         assert client2.api_key == "sk-key2"

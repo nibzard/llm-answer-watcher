@@ -20,9 +20,11 @@ from freezegun import freeze_time
 from llm_answer_watcher.llm_runner.models import LLMResponse
 from llm_answer_watcher.llm_runner.openai_client import (
     OPENAI_API_URL,
-    SYSTEM_MESSAGE,
     OpenAIClient,
 )
+
+# Test system prompt for all tests
+TEST_SYSTEM_PROMPT = "You are a test assistant."
 
 
 class TestOpenAIClientInit:
@@ -30,14 +32,14 @@ class TestOpenAIClientInit:
 
     def test_init_success(self):
         """Test successful client initialization."""
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         assert client.model_name == "gpt-4o-mini"
         assert client.api_key == "sk-test123"
 
     def test_init_different_model(self):
         """Test initialization with different model."""
-        client = OpenAIClient("gpt-4o", "sk-prod456")
+        client = OpenAIClient("gpt-4o", "sk-prod456", TEST_SYSTEM_PROMPT)
 
         assert client.model_name == "gpt-4o"
         assert client.api_key == "sk-prod456"
@@ -45,28 +47,38 @@ class TestOpenAIClientInit:
     def test_init_empty_model_name(self):
         """Test that empty model_name raises ValueError."""
         with pytest.raises(ValueError, match="model_name cannot be empty"):
-            OpenAIClient("", "sk-test123")
+            OpenAIClient("", "sk-test123", TEST_SYSTEM_PROMPT)
 
     def test_init_whitespace_model_name(self):
         """Test that whitespace-only model_name raises ValueError."""
         with pytest.raises(ValueError, match="model_name cannot be empty"):
-            OpenAIClient("   ", "sk-test123")
+            OpenAIClient("   ", "sk-test123", TEST_SYSTEM_PROMPT)
 
     def test_init_empty_api_key(self):
         """Test that empty api_key raises ValueError."""
         with pytest.raises(ValueError, match="api_key cannot be empty"):
-            OpenAIClient("gpt-4o-mini", "")
+            OpenAIClient("gpt-4o-mini", "", TEST_SYSTEM_PROMPT)
 
     def test_init_whitespace_api_key(self):
         """Test that whitespace-only api_key raises ValueError."""
         with pytest.raises(ValueError, match="api_key cannot be empty"):
-            OpenAIClient("gpt-4o-mini", "   ")
+            OpenAIClient("gpt-4o-mini", "   ", TEST_SYSTEM_PROMPT)
+
+    def test_init_empty_system_prompt(self):
+        """Test that empty system_prompt raises ValueError."""
+        with pytest.raises(ValueError, match="system_prompt cannot be empty"):
+            OpenAIClient("gpt-4o-mini", "sk-test123", "")
+
+    def test_init_whitespace_system_prompt(self):
+        """Test that whitespace-only system_prompt raises ValueError."""
+        with pytest.raises(ValueError, match="system_prompt cannot be empty"):
+            OpenAIClient("gpt-4o-mini", "sk-test123", "   ")
 
     def test_init_logs_model_not_api_key(self, caplog):
         """Test that initialization logs model name but NEVER logs API key."""
         caplog.set_level(logging.INFO)
 
-        OpenAIClient("gpt-4o-mini", "sk-secret123")
+        OpenAIClient("gpt-4o-mini", "sk-secret123", TEST_SYSTEM_PROMPT)
 
         # Should log model name
         assert "gpt-4o-mini" in caplog.text
@@ -82,17 +94,20 @@ class TestGenerateAnswerSuccess:
     @freeze_time("2025-11-02T08:30:45Z")
     def test_generate_answer_success(self, httpx_mock):
         """Test successful API call with complete response."""
-        # Mock successful OpenAI API response
+        # Mock successful OpenAI Responses API response
         httpx_mock.add_response(
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "choices": [
+                "output": [
                     {
-                        "message": {
-                            "role": "assistant",
-                            "content": "Based on market research, the top CRM tools are Salesforce, HubSpot, and Zoho.",
-                        }
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": "Based on market research, the top CRM tools are Salesforce, HubSpot, and Zoho.",
+                            }
+                        ],
                     }
                 ],
                 "usage": {
@@ -104,7 +119,7 @@ class TestGenerateAnswerSuccess:
             },
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
         response = client.generate_answer("What are the best CRM tools?")
 
         # Verify response structure
@@ -120,35 +135,37 @@ class TestGenerateAnswerSuccess:
         assert response.timestamp_utc == "2025-11-02T08:30:45Z"
 
     def test_generate_answer_sends_correct_payload(self, httpx_mock):
-        """Test that API request includes system message and correct structure."""
+        """Test that API request includes developer message and correct structure."""
         httpx_mock.add_response(
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "choices": [{"message": {"content": "Test response"}}],
+                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test response"}]}],
                 "usage": {"total_tokens": 100},
             },
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
         client.generate_answer("Test prompt")
 
         # Verify request was made
         request = httpx_mock.get_request()
         assert request is not None
 
-        # Verify request structure
+        # Verify request structure for Responses API
         payload = request.read()
         import json
 
         data = json.loads(payload)
 
         assert data["model"] == "gpt-4o-mini"
-        assert len(data["messages"]) == 2
-        assert data["messages"][0]["role"] == "system"
-        assert data["messages"][0]["content"] == SYSTEM_MESSAGE
-        assert data["messages"][1]["role"] == "user"
-        assert data["messages"][1]["content"] == "Test prompt"
+        assert len(data["input"]) == 2
+        assert data["input"][0]["role"] == "developer"
+        assert data["input"][0]["content"][0]["type"] == "input_text"
+        assert data["input"][0]["content"][0]["text"] == TEST_SYSTEM_PROMPT
+        assert data["input"][1]["role"] == "user"
+        assert data["input"][1]["content"][0]["type"] == "input_text"
+        assert data["input"][1]["content"][0]["text"] == "Test prompt"
         assert data["temperature"] == 0.7
 
     def test_generate_answer_sends_auth_header(self, httpx_mock):
@@ -157,12 +174,12 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "choices": [{"message": {"content": "Test"}}],
+                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test"}]}],
                 "usage": {"total_tokens": 10},
             },
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
         client.generate_answer("Test")
 
         # Verify Authorization header
@@ -176,12 +193,12 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "choices": [{"message": {"content": ""}}],
+                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": ""}]}],
                 "usage": {"total_tokens": 10},
             },
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
         response = client.generate_answer("Test")
 
         assert response.answer_text == ""
@@ -194,12 +211,12 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "choices": [{"message": {"content": large_content}}],
+                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": large_content}]}],
                 "usage": {"total_tokens": 50000},
             },
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
         response = client.generate_answer("Generate large text")
 
         assert response.answer_text == large_content
@@ -211,14 +228,14 @@ class TestGenerateAnswerValidation:
 
     def test_generate_answer_empty_prompt(self, httpx_mock):
         """Test that empty prompt raises ValueError."""
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
             client.generate_answer("")
 
     def test_generate_answer_whitespace_prompt(self, httpx_mock):
         """Test that whitespace-only prompt raises ValueError."""
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
             client.generate_answer("   \n\t  ")
@@ -236,7 +253,7 @@ class TestGenerateAnswerNonRetryableErrors:
             json={"error": {"message": "Invalid API key"}},
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-invalid")
+        client = OpenAIClient("gpt-4o-mini", "sk-invalid", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="non-retryable"):
             client.generate_answer("Test")
@@ -253,7 +270,7 @@ class TestGenerateAnswerNonRetryableErrors:
             json={"error": {"message": "Invalid request format"}},
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="non-retryable"):
             client.generate_answer("Test")
@@ -267,7 +284,7 @@ class TestGenerateAnswerNonRetryableErrors:
             json={"error": {"message": "Endpoint not found"}},
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="non-retryable"):
             client.generate_answer("Test")
@@ -292,12 +309,12 @@ class TestGenerateAnswerRetryableErrors:
             url=OPENAI_API_URL,
             status_code=200,
             json={
-                "choices": [{"message": {"content": "Success after retry"}}],
+                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Success after retry"}]}],
                 "usage": {"total_tokens": 50},
             },
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
         response = client.generate_answer("Test")
 
         assert response.answer_text == "Success after retry"
@@ -319,12 +336,12 @@ class TestGenerateAnswerRetryableErrors:
             url=OPENAI_API_URL,
             status_code=200,
             json={
-                "choices": [{"message": {"content": "Recovered"}}],
+                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Recovered"}]}],
                 "usage": {"total_tokens": 30},
             },
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
         response = client.generate_answer("Test")
 
         assert response.answer_text == "Recovered"
@@ -351,7 +368,7 @@ class TestGenerateAnswerRetryableErrors:
             json={"error": {"message": "Bad gateway"}},
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(httpx.HTTPStatusError):
             client.generate_answer("Test")
@@ -360,43 +377,43 @@ class TestGenerateAnswerRetryableErrors:
 class TestGenerateAnswerResponseParsing:
     """Test suite for response parsing edge cases."""
 
-    def test_generate_answer_missing_choices(self, httpx_mock):
-        """Test that missing 'choices' raises RuntimeError."""
+    def test_generate_answer_missing_output(self, httpx_mock):
+        """Test that missing 'output' raises RuntimeError."""
         httpx_mock.add_response(
             method="POST",
             url=OPENAI_API_URL,
-            json={"usage": {"total_tokens": 10}},  # Missing 'choices'
+            json={"usage": {"total_tokens": 10}},  # Missing 'output'
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
-        with pytest.raises(RuntimeError, match="missing 'choices' array"):
+        with pytest.raises(RuntimeError, match="missing 'output' array"):
             client.generate_answer("Test")
 
-    def test_generate_answer_empty_choices(self, httpx_mock):
-        """Test that empty choices array raises RuntimeError."""
+    def test_generate_answer_empty_output(self, httpx_mock):
+        """Test that empty output array raises RuntimeError."""
         httpx_mock.add_response(
             method="POST",
             url=OPENAI_API_URL,
-            json={"choices": [], "usage": {"total_tokens": 10}},
+            json={"output": [], "usage": {"total_tokens": 10}},
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
-        with pytest.raises(RuntimeError, match="missing 'choices' array"):
+        with pytest.raises(RuntimeError, match="missing 'output' array"):
             client.generate_answer("Test")
 
-    def test_generate_answer_missing_message(self, httpx_mock):
-        """Test that missing 'message' raises RuntimeError."""
+    def test_generate_answer_invalid_output_structure(self, httpx_mock):
+        """Test that invalid output structure raises RuntimeError."""
         httpx_mock.add_response(
             method="POST",
             url=OPENAI_API_URL,
-            json={"choices": [{}], "usage": {"total_tokens": 10}},
+            json={"output": [{}], "usage": {"total_tokens": 10}},
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
-        with pytest.raises(RuntimeError, match="missing 'message' object"):
+        with pytest.raises(RuntimeError, match="invalid 'output' structure"):
             client.generate_answer("Test")
 
     def test_generate_answer_missing_content(self, httpx_mock):
@@ -405,12 +422,12 @@ class TestGenerateAnswerResponseParsing:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant"}}],  # No 'content'
+                "output": [{"role": "assistant"}],  # No 'content'
                 "usage": {"total_tokens": 10},
             },
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="missing 'content' field"):
             client.generate_answer("Test")
@@ -422,10 +439,10 @@ class TestGenerateAnswerResponseParsing:
         httpx_mock.add_response(
             method="POST",
             url=OPENAI_API_URL,
-            json={"choices": [{"message": {"content": "Test"}}]},  # No 'usage'
+            json={"output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test"}]}]},  # No 'usage'
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
         response = client.generate_answer("Test")
 
         assert response.tokens_used == 0
@@ -440,7 +457,7 @@ class TestGenerateAnswerResponseParsing:
             content=b"Not valid JSON",
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-test123")
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="Failed to parse OpenAI response JSON"):
             client.generate_answer("Test")
@@ -457,12 +474,12 @@ class TestGenerateAnswerLogging:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "choices": [{"message": {"content": "Test"}}],
+                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test"}]}],
                 "usage": {"total_tokens": 10},
             },
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-secret123")
+        client = OpenAIClient("gpt-4o-mini", "sk-secret123", TEST_SYSTEM_PROMPT)
         client.generate_answer("Test prompt")
 
         # Should log model name
@@ -496,7 +513,7 @@ class TestGenerateAnswerLogging:
             json={"error": {"message": "Internal server error"}},
         )
 
-        client = OpenAIClient("gpt-4o-mini", "sk-secret123")
+        client = OpenAIClient("gpt-4o-mini", "sk-secret123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(httpx.HTTPStatusError):
             client.generate_answer("Test")
@@ -514,7 +531,7 @@ class TestExtractErrorDetail:
 
     def test_extract_error_detail_valid_json(self):
         """Test extracting error message from valid error response."""
-        client = OpenAIClient("gpt-4o-mini", "sk-test")
+        client = OpenAIClient("gpt-4o-mini", "sk-test", TEST_SYSTEM_PROMPT)
 
         response = httpx.Response(
             status_code=401,
@@ -526,7 +543,7 @@ class TestExtractErrorDetail:
 
     def test_extract_error_detail_missing_message(self):
         """Test fallback when error message is missing."""
-        client = OpenAIClient("gpt-4o-mini", "sk-test")
+        client = OpenAIClient("gpt-4o-mini", "sk-test", TEST_SYSTEM_PROMPT)
 
         response = httpx.Response(
             status_code=500,
@@ -538,7 +555,7 @@ class TestExtractErrorDetail:
 
     def test_extract_error_detail_invalid_json(self):
         """Test fallback when JSON parsing fails."""
-        client = OpenAIClient("gpt-4o-mini", "sk-test")
+        client = OpenAIClient("gpt-4o-mini", "sk-test", TEST_SYSTEM_PROMPT)
 
         response = httpx.Response(
             status_code=500,

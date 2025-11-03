@@ -16,7 +16,8 @@ a stable internal contract for the Cloud product.
 
 Example:
     >>> from llm_runner.models import build_client
-    >>> client = build_client("openai", "gpt-4o-mini", api_key)
+    >>> client = build_client("openai", "gpt-4o-mini", api_key,
+    ...     system_prompt="You are a helpful assistant.")
     >>> response = client.generate_answer("What are the best email warmup tools?")
     >>> print(response.answer_text)
     >>> print(f"Cost: ${response.cost_usd:.4f}")
@@ -42,6 +43,8 @@ class LLMResponse:
         provider: Provider name (e.g., "openai", "anthropic")
         model_name: Specific model identifier (e.g., "gpt-4o-mini")
         timestamp_utc: ISO 8601 timestamp with 'Z' suffix when response was received
+        web_search_results: Optional list of web search results if tools were used
+        web_search_count: Number of web searches performed (0 if no web search)
 
     Example:
         >>> response = LLMResponse(
@@ -50,7 +53,9 @@ class LLMResponse:
         ...     cost_usd=0.000135,
         ...     provider="openai",
         ...     model_name="gpt-4o-mini",
-        ...     timestamp_utc="2025-11-02T08:30:45Z"
+        ...     timestamp_utc="2025-11-02T08:30:45Z",
+        ...     web_search_results=None,
+        ...     web_search_count=0
         ... )
         >>> response.cost_usd
         0.000135
@@ -62,6 +67,8 @@ class LLMResponse:
     provider: str
     model_name: str
     timestamp_utc: str
+    web_search_results: list[dict] | None = None
+    web_search_count: int = 0
 
 
 class LLMClient(Protocol):
@@ -134,7 +141,14 @@ class LLMClient(Protocol):
         ...
 
 
-def build_client(provider: str, model_name: str, api_key: str) -> LLMClient:
+def build_client(
+    provider: str,
+    model_name: str,
+    api_key: str,
+    system_prompt: str,
+    tools: list[dict] | None = None,
+    tool_choice: str = "auto",
+) -> LLMClient:
     """
     Factory function to create appropriate LLM client based on provider.
 
@@ -151,6 +165,9 @@ def build_client(provider: str, model_name: str, api_key: str) -> LLMClient:
         provider: Provider identifier (lowercase string)
         model_name: Model identifier (e.g., "gpt-4o-mini", "claude-3-5-haiku-20241022")
         api_key: API key for authentication (NEVER logged or persisted)
+        system_prompt: System message for context/instructions sent with requests
+        tools: Optional list of tool configurations (e.g., [{"type": "web_search"}])
+        tool_choice: Tool selection mode ("auto", "required", "none"). Default: "auto"
 
     Returns:
         LLMClient: Provider-specific client implementing LLMClient protocol
@@ -160,10 +177,14 @@ def build_client(provider: str, model_name: str, api_key: str) -> LLMClient:
         NotImplementedError: If provider support is planned but not yet implemented
 
     Example:
-        >>> client = build_client("openai", "gpt-4o-mini", "sk-...")
+        >>> client = build_client("openai", "gpt-4o-mini", "sk-...",
+        ...     system_prompt="You are a helpful assistant.")
         >>> isinstance(client, LLMClient)  # Satisfies protocol
         True
         >>> response = client.generate_answer("What are the best email tools?")
+        >>> # With tools enabled
+        >>> client = build_client("openai", "gpt-4o-mini", "sk-...", "...",
+        ...     tools=[{"type": "web_search"}], tool_choice="auto")
 
     Security:
         - NEVER log the api_key parameter in any form
@@ -181,7 +202,13 @@ def build_client(provider: str, model_name: str, api_key: str) -> LLMClient:
             OpenAIClient,
         )
 
-        return OpenAIClient(model_name=model_name, api_key=api_key)
+        return OpenAIClient(
+            model_name=model_name,
+            api_key=api_key,
+            system_prompt=system_prompt,
+            tools=tools,
+            tool_choice=tool_choice,
+        )
 
     if provider in ("anthropic", "mistral"):
         # Planned for future implementation

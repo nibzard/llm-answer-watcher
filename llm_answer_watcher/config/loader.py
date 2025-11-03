@@ -19,6 +19,8 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
+from llm_answer_watcher.system_prompts import get_provider_default, load_prompt
+
 from .schema import RuntimeConfig, RuntimeModel, WatcherConfig
 
 
@@ -110,19 +112,21 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
 
 def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
     """
-    Resolve API key environment variables to actual secrets.
+    Resolve API key environment variables and system prompts for runtime use.
 
-    Takes the list of ModelConfig from WatcherConfig and resolves each
-    env_api_key reference to the actual API key from the environment.
+    Takes the list of ModelConfig from WatcherConfig and resolves:
+    1. env_api_key references to actual API keys from environment
+    2. system_prompt references to actual prompt text from JSON files
 
     Args:
         config: Validated WatcherConfig with model configurations
 
     Returns:
-        List of RuntimeModel instances with resolved API keys
+        List of RuntimeModel instances with resolved API keys and system prompts
 
     Raises:
-        ValueError: If any required environment variable is not set
+        ValueError: If any required environment variable is not set or
+                   if system prompt files cannot be loaded
 
     Example:
         >>> # Assuming OPENAI_API_KEY is set in environment
@@ -130,6 +134,8 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
         >>> models = resolve_api_keys(config)
         >>> models[0].api_key  # Contains actual key from environment
         'sk-proj-...'
+        >>> models[0].system_prompt  # Contains prompt text from JSON
+        'You are ChatGPT...'
 
     Security:
         - NEVER logs API keys (not even partial values)
@@ -160,11 +166,30 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
                 f"(required for {model_config.provider}/{model_config.model_name})"
             )
 
-        # Build RuntimeModel with resolved API key
+        # Resolve system prompt from JSON file
+        try:
+            if model_config.system_prompt:
+                # Use specified system prompt
+                prompt_obj = load_prompt(model_config.system_prompt)
+            else:
+                # Fall back to provider default
+                prompt_obj = get_provider_default(model_config.provider)
+
+            system_prompt_text = prompt_obj.prompt
+
+        except Exception as e:
+            raise ValueError(
+                f"Failed to load system prompt for {model_config.provider}/{model_config.model_name}: {e}"
+            ) from e
+
+        # Build RuntimeModel with resolved API key, system prompt, and tools
         runtime_model = RuntimeModel(
             provider=model_config.provider,
             model_name=model_config.model_name,
             api_key=api_key,
+            system_prompt=system_prompt_text,
+            tools=model_config.tools,
+            tool_choice=model_config.tool_choice,
         )
 
         resolved_models.append(runtime_model)

@@ -71,6 +71,8 @@ class RawAnswerRecord:
         answer_length: Character count of answer_text
         usage_meta: Token usage dict from LLM API (prompt_tokens, completion_tokens)
         estimated_cost_usd: Estimated API cost in USD based on token usage
+        web_search_results: Optional list of web search results if tools were used
+        web_search_count: Number of web searches performed (0 if no web search)
 
     Example:
         >>> record = RawAnswerRecord(
@@ -82,7 +84,9 @@ class RawAnswerRecord:
         ...     answer_text="Here are the best tools...",
         ...     answer_length=500,
         ...     usage_meta={"prompt_tokens": 100, "completion_tokens": 400},
-        ...     estimated_cost_usd=0.001
+        ...     estimated_cost_usd=0.001,
+        ...     web_search_results=None,
+        ...     web_search_count=0
         ... )
     """
 
@@ -95,6 +99,8 @@ class RawAnswerRecord:
     answer_length: int
     usage_meta: dict
     estimated_cost_usd: float
+    web_search_results: list[dict] | None = None
+    web_search_count: int = 0
 
 
 def run_all(config: RuntimeConfig) -> dict:
@@ -206,6 +212,9 @@ def run_all(config: RuntimeConfig) -> dict:
                     provider=model_config.provider,
                     model_name=model_config.model_name,
                     api_key=model_config.api_key,
+                    system_prompt=model_config.system_prompt,
+                    tools=model_config.tools,
+                    tool_choice=model_config.tool_choice,
                 )
 
                 # Generate answer with retry logic
@@ -235,6 +244,8 @@ def run_all(config: RuntimeConfig) -> dict:
                     answer_length=len(answer_text),
                     usage_meta=usage_meta,
                     estimated_cost_usd=cost_usd,
+                    web_search_results=response.web_search_results,
+                    web_search_count=response.web_search_count,
                 )
 
                 # Write raw answer JSON
@@ -248,6 +259,11 @@ def run_all(config: RuntimeConfig) -> dict:
 
                 # Insert raw answer into database
                 try:
+                    # Serialize web search results to JSON if present
+                    web_search_json = None
+                    if response.web_search_results:
+                        web_search_json = json.dumps(response.web_search_results)
+
                     with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
                         insert_answer_raw(
                             conn=conn,
@@ -260,6 +276,8 @@ def run_all(config: RuntimeConfig) -> dict:
                             answer_text=answer_text,
                             usage_meta_json=json.dumps(usage_meta),
                             estimated_cost_usd=cost_usd,
+                            web_search_count=response.web_search_count,
+                            web_search_results_json=web_search_json,
                         )
                         conn.commit()
                 except Exception as e:

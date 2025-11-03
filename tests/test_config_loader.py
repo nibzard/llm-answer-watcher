@@ -346,14 +346,16 @@ class TestRuntimeModel:
     """Test RuntimeModel Pydantic model."""
 
     def test_valid_runtime_model(self):
-        """RuntimeModel should accept valid input with API key."""
+        """RuntimeModel should accept valid input with API key and system prompt."""
         model = RuntimeModel(
             provider="openai",
             model_name="gpt-4o-mini",
             api_key="sk-test-key-12345",
+            system_prompt="You are a helpful assistant.",
         )
         assert model.provider == "openai"
         assert model.api_key == "sk-test-key-12345"
+        assert model.system_prompt == "You are a helpful assistant."
 
     def test_rejects_empty_api_key(self):
         """RuntimeModel should reject empty API key."""
@@ -362,6 +364,7 @@ class TestRuntimeModel:
                 provider="openai",
                 model_name="gpt-4o-mini",
                 api_key="",
+                system_prompt="You are a helpful assistant.",
             )
         assert "API key cannot be empty" in str(exc_info.value)
 

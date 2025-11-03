@@ -30,11 +30,18 @@ class ModelConfig(BaseModel):
         provider: LLM provider name (openai, anthropic, mistral)
         model_name: Specific model identifier (e.g., "gpt-4o-mini")
         env_api_key: Environment variable name containing the API key
+        system_prompt: Optional relative path to system prompt JSON (e.g., "openai/gpt-4-default")
+                      If not specified, uses provider default (e.g., "openai/default")
+        tools: Optional list of tool configurations (e.g., [{"type": "web_search"}])
+        tool_choice: Tool selection mode ("auto", "required", "none"). Default: "auto"
     """
 
     provider: Literal["openai", "anthropic", "mistral"]
     model_name: str
     env_api_key: str
+    system_prompt: str | None = None
+    tools: list[dict] | None = None
+    tool_choice: str = "auto"
 
     @field_validator("model_name")
     @classmethod
@@ -50,6 +57,17 @@ class ModelConfig(BaseModel):
         """Validate env_api_key is non-empty."""
         if not v or v.isspace():
             raise ValueError("env_api_key cannot be empty")
+        return v
+
+    @field_validator("tool_choice")
+    @classmethod
+    def validate_tool_choice(cls, v: str) -> str:
+        """Validate tool_choice is one of allowed values."""
+        allowed = {"auto", "required", "none"}
+        if v not in allowed:
+            raise ValueError(
+                f"tool_choice must be one of {allowed}, got: {v}"
+            )
         return v
 
 
@@ -221,20 +239,27 @@ class WatcherConfig(BaseModel):
 
 class RuntimeModel(BaseModel):
     """
-    Resolved model configuration with API key.
+    Resolved model configuration with API key and system prompt.
 
-    Created at runtime after loading API keys from environment variables.
+    Created at runtime after loading API keys from environment variables
+    and resolving system prompts from JSON files.
     This is what the LLM runner uses to make API calls.
 
     Attributes:
         provider: LLM provider name (openai, anthropic, mistral)
         model_name: Specific model identifier
         api_key: Resolved API key from environment (NEVER log this)
+        system_prompt: Resolved system prompt text (loaded from JSON file)
+        tools: Optional list of tool configurations (e.g., [{"type": "web_search"}])
+        tool_choice: Tool selection mode ("auto", "required", "none")
     """
 
     provider: str
     model_name: str
     api_key: str
+    system_prompt: str
+    tools: list[dict] | None = None
+    tool_choice: str = "auto"
 
     @field_validator("provider")
     @classmethod
@@ -258,6 +283,14 @@ class RuntimeModel(BaseModel):
         """Validate API key is non-empty."""
         if not v or v.isspace():
             raise ValueError("API key cannot be empty")
+        return v
+
+    @field_validator("system_prompt")
+    @classmethod
+    def validate_system_prompt(cls, v: str) -> str:
+        """Validate system prompt is non-empty."""
+        if not v or v.isspace():
+            raise ValueError("System prompt cannot be empty")
         return v
 
 

@@ -6,6 +6,7 @@ run_settings:
     - provider: "openai"
       model_name: "gpt-4o-mini"
       env_api_key: "OPENAI_API_KEY"
+      # system_prompt: "openai/gpt-4-default"  # Optional: specify custom prompt
 
   use_llm_rank_extraction: true
 

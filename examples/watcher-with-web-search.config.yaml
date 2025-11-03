@@ -3,15 +3,22 @@ run_settings:
   sqlite_db_path: "./output/watcher.db"
 
   models:
+    # OpenAI with web search enabled (Responses API)
     - provider: "openai"
       model_name: "gpt-4o-mini"
       env_api_key: "OPENAI_API_KEY"
-      system_prompt: "openai/gpt-4-default"  # Optional: Uses provider default if not specified
+      system_prompt: "openai/gpt-4-default"
+      # Enable web search tool for real-time information
+      tools:
+        - type: "web_search"
+      tool_choice: "auto"  # Let the model decide when to use web search
 
-    - provider: "anthropic"
-      model_name: "claude-3-5-haiku-20241022"
-      env_api_key: "ANTHROPIC_API_KEY"
-      # No system_prompt specified - will use anthropic/default.json
+    # OpenAI without web search for comparison
+    - provider: "openai"
+      model_name: "gpt-4o-mini"
+      env_api_key: "OPENAI_API_KEY"
+      system_prompt: "openai/gpt-4-default"
+      # No tools - uses model's training data only
 
   use_llm_rank_extraction: false
 

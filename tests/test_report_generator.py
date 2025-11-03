@@ -67,6 +67,7 @@ def sample_model() -> RuntimeModel:
         provider="openai",
         model_name="gpt-4o-mini",
         api_key="sk-test123",
+        system_prompt="You are a helpful assistant.",
     )
 
 
@@ -124,9 +125,17 @@ def multi_intent_config(brands_config) -> RuntimeConfig:
         ],
         models=[
             RuntimeModel(
-                provider="openai", model_name="gpt-4o-mini", api_key="sk-test1"
+                provider="openai",
+                model_name="gpt-4o-mini",
+                api_key="sk-test1",
+                system_prompt="You are a helpful assistant.",
             ),
-            RuntimeModel(provider="openai", model_name="gpt-4o", api_key="sk-test2"),
+            RuntimeModel(
+                provider="openai",
+                model_name="gpt-4o",
+                api_key="sk-test2",
+                system_prompt="You are a helpful assistant.",
+            ),
         ],
     )
 
@@ -1086,7 +1095,10 @@ class TestXssPrevention:
             ],
             models=[
                 RuntimeModel(
-                    provider="openai", model_name="gpt-4o-mini", api_key="sk-test"
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="sk-test",
+                    system_prompt="You are a helpful assistant.",
                 )
             ],
         )
@@ -1188,6 +1200,11 @@ class TestErrorHandling:
         self, tmp_path, runtime_config, sample_results, caplog
     ):
         """Test that missing parsed file logs warning but doesn't crash."""
+        import logging
+
+        # Set log level to capture warnings (caplog handles the rest)
+        caplog.set_level(logging.WARNING)
+
         run_dir = tmp_path / "run"
         run_dir.mkdir()
 
@@ -1206,6 +1223,11 @@ class TestErrorHandling:
         self, tmp_path, runtime_config, sample_results, caplog
     ):
         """Test that invalid JSON logs error and continues."""
+        import logging
+
+        # Set log level to capture errors (caplog handles the rest)
+        caplog.set_level(logging.ERROR)
+
         run_dir = tmp_path / "run"
         run_dir.mkdir()
 
@@ -1226,6 +1248,11 @@ class TestErrorHandling:
 
     def test_failed_result_skipped_gracefully(self, tmp_path, runtime_config, caplog):
         """Test that failed results are skipped gracefully."""
+        import logging
+
+        # Set log level to capture warnings (caplog handles the rest)
+        caplog.set_level(logging.WARNING)
+
         run_dir = tmp_path / "run"
         run_dir.mkdir()
 
@@ -1452,6 +1479,11 @@ class TestLoadModelResult:
 
     def test_returns_none_for_failed_result(self, tmp_path, caplog):
         """Test that failed results return None."""
+        import logging
+
+        # Set log level to capture warnings (caplog handles the rest)
+        caplog.set_level(logging.WARNING)
+
         run_dir = tmp_path / "run"
         run_dir.mkdir()
 
@@ -1469,6 +1501,11 @@ class TestLoadModelResult:
 
     def test_returns_none_for_missing_file(self, tmp_path, caplog):
         """Test that missing parsed file returns None."""
+        import logging
+
+        # Set log level to capture warnings (caplog handles the rest)
+        caplog.set_level(logging.WARNING)
+
         run_dir = tmp_path / "run"
         run_dir.mkdir()
 
@@ -1488,6 +1525,11 @@ class TestLoadModelResult:
 
     def test_returns_none_for_invalid_json(self, tmp_path, caplog):
         """Test that invalid JSON returns None."""
+        import logging
+
+        # Set log level to capture errors (caplog handles the rest)
+        caplog.set_level(logging.ERROR)
+
         run_dir = tmp_path / "run"
         run_dir.mkdir()
 
@@ -1748,7 +1790,10 @@ class TestEmptyAndPartialData:
             intents=[],  # No intents
             models=[
                 RuntimeModel(
-                    provider="openai", model_name="gpt-4o-mini", api_key="sk-test"
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="sk-test",
+                    system_prompt="You are a helpful assistant.",
                 )
             ],
         )

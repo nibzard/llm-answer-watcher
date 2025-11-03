@@ -180,7 +180,7 @@ def test_get_schema_version_after_migration(tmp_path):
         version = get_schema_version(conn)
 
     assert version == CURRENT_SCHEMA_VERSION
-    assert version == 1
+    assert version == 2  # Updated for eval_db schema addition
 
 
 def test_get_schema_version_with_multiple_versions(tmp_path):
@@ -283,13 +283,17 @@ def test_migration_is_atomic_on_failure(tmp_path):
         apply_migrations(conn, 0, 1)
         assert get_schema_version(conn) == 1
 
+        # Apply v2 migration (current schema)
+        apply_migrations(conn, 1, 2)
+        assert get_schema_version(conn) == 2
+
         # Try to apply invalid migration (version 99 doesn't exist)
         # This should fail and not change the schema version
         with pytest.raises(sqlite3.Error, match="Failed to migrate"):
-            apply_migrations(conn, 1, 99)
+            apply_migrations(conn, 2, 99)
 
-        # Should still be at version 1 (migration failed before v2)
-        assert get_schema_version(conn) == 1
+        # Should still be at version 2 (migration failed before v99)
+        assert get_schema_version(conn) == 2
 
 
 def test_cannot_downgrade_schema(tmp_path):

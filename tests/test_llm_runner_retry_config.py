@@ -50,8 +50,12 @@ def test_max_wait_seconds_value():
 
 
 def test_request_timeout_value():
-    """REQUEST_TIMEOUT should be 30.0 seconds."""
-    assert REQUEST_TIMEOUT == 30.0
+    """REQUEST_TIMEOUT should be 120.0 seconds.
+
+    Note: Increased to 120.0 for GPT-5 models which may take longer to respond.
+    TODO: Review timeout value per PLAN_POLISHING.md task #10.
+    """
+    assert REQUEST_TIMEOUT == 120.0
 
 
 def test_retry_status_codes_values():

@@ -19,6 +19,7 @@ from freezegun import freeze_time
 
 from llm_answer_watcher.llm_runner.models import LLMResponse
 from llm_answer_watcher.llm_runner.openai_client import (
+    MAX_PROMPT_LENGTH,
     OPENAI_API_URL,
     OpenAIClient,
 )
@@ -188,7 +189,7 @@ class TestGenerateAnswerSuccess:
         assert request.headers["Content-Type"] == "application/json"
 
     def test_generate_answer_empty_content(self, httpx_mock):
-        """Test handling of empty content in response (valid but unusual)."""
+        """Test handling of empty content in response (treated as no content)."""
         httpx_mock.add_response(
             method="POST",
             url=OPENAI_API_URL,
@@ -199,10 +200,10 @@ class TestGenerateAnswerSuccess:
         )
 
         client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
-        response = client.generate_answer("Test")
 
-        assert response.answer_text == ""
-        assert response.tokens_used == 10
+        # Empty text is skipped, so this raises RuntimeError for no text content
+        with pytest.raises(RuntimeError, match="OpenAI response contains no text content"):
+            client.generate_answer("Test")
 
     def test_generate_answer_large_response(self, httpx_mock):
         """Test handling of large response with high token count."""
@@ -239,6 +240,78 @@ class TestGenerateAnswerValidation:
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
             client.generate_answer("   \n\t  ")
+
+
+class TestPromptLengthValidation:
+    """Test suite for prompt length validation in OpenAI client."""
+
+    def test_generate_answer_accepts_normal_prompt(self, httpx_mock):
+        """Normal-length prompts should be accepted."""
+        # Mock successful response
+        httpx_mock.add_response(
+            method="POST",
+            url=OPENAI_API_URL,
+            json={
+                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test response"}]}],
+                "usage": {"total_tokens": 100},
+            },
+        )
+
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
+        # Test with a reasonable prompt (< 100k chars)
+        prompt = "What are the best email warmup tools?" * 100  # ~4000 chars
+        response = client.generate_answer(prompt)
+
+        assert response.answer_text == "Test response"
+        assert len(httpx_mock.get_requests()) == 1
+
+    def test_generate_answer_accepts_max_length_prompt(self, httpx_mock):
+        """Prompts exactly at max length should be accepted."""
+        # Mock successful response
+        httpx_mock.add_response(
+            method="POST",
+            url=OPENAI_API_URL,
+            json={
+                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test response"}]}],
+                "usage": {"total_tokens": 100},
+            },
+        )
+
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
+        prompt = "a" * MAX_PROMPT_LENGTH
+        response = client.generate_answer(prompt)
+
+        # Should not raise ValueError for length
+        assert response.answer_text == "Test response"
+
+    def test_generate_answer_rejects_over_limit_prompt(self):
+        """Prompts over max length should raise ValueError."""
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
+        prompt = "a" * (MAX_PROMPT_LENGTH + 1)
+
+        with pytest.raises(ValueError, match=r"Prompt exceeds maximum length"):
+            client.generate_answer(prompt)
+
+    def test_generate_answer_rejects_very_long_prompt(self):
+        """Very long prompts should raise ValueError with correct count."""
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
+        prompt = "a" * (MAX_PROMPT_LENGTH * 2)
+
+        with pytest.raises(ValueError, match=r"200,000 characters"):
+            client.generate_answer(prompt)
+
+    def test_generate_answer_error_message_shows_actual_length(self):
+        """Error message should show actual received length."""
+        client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
+        prompt = "a" * (MAX_PROMPT_LENGTH + 5000)
+
+        with pytest.raises(ValueError) as exc_info:
+            client.generate_answer(prompt)
+
+        error_msg = str(exc_info.value)
+        assert "105,000 characters" in error_msg
+        assert "100,000 characters" in error_msg
+        assert "shorten your prompt" in error_msg
 
 
 class TestGenerateAnswerNonRetryableErrors:
@@ -413,7 +486,8 @@ class TestGenerateAnswerResponseParsing:
 
         client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
-        with pytest.raises(RuntimeError, match="invalid 'output' structure"):
+        # Empty output item has no content, resulting in "no text content" error
+        with pytest.raises(RuntimeError, match="OpenAI response contains no text content"):
             client.generate_answer("Test")
 
     def test_generate_answer_missing_content(self, httpx_mock):
@@ -429,7 +503,8 @@ class TestGenerateAnswerResponseParsing:
 
         client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
-        with pytest.raises(RuntimeError, match="missing 'content' field"):
+        # Missing content field results in "no text content" error
+        with pytest.raises(RuntimeError, match="OpenAI response contains no text content"):
             client.generate_answer("Test")
 
     def test_generate_answer_missing_usage(self, httpx_mock, caplog):

@@ -159,8 +159,8 @@ def detect_mentions(
 
     Notes:
         - Empty answer_text returns empty list (not an error)
-        - Each occurrence tracked separately (even multiple mentions of same brand)
-        - Exact duplicates at same position are deduplicated
+        - Only FIRST occurrence of each brand is kept (deduplicated by normalized_name)
+        - If brand has multiple aliases, only one mention is returned
         - Word boundaries prevent "hub" from matching in "GitHub"
         - Case-insensitive: "hubspot", "HubSpot", "HUBSPOT" all match
     """
@@ -202,7 +202,7 @@ def detect_mentions(
 
     # Find all matches
     all_matches: list[BrandMention] = []
-    seen_positions: set[tuple[int, str]] = set()  # Track (position, text) to avoid exact duplicates
+    seen_brands: dict[str, BrandMention] = {}  # Track first occurrence by normalized_name (case-insensitive)
 
     for _alias, primary_name, category, pattern in brand_patterns:
         # Find all occurrences of this alias
@@ -211,24 +211,35 @@ def detect_mentions(
             original_text = match.group(0)
             match_position = match.start()
 
-            # Deduplicate only exact same text at same position
-            # This allows multiple occurrences of the same brand at different positions
-            position_key = (match_position, original_text.lower())
-            if position_key in seen_positions:
+            # Deduplicate by normalized_name (case-insensitive) - keep only FIRST occurrence
+            # Use lowercase for deduplication key so "HubSpot" and "Hubspot" are treated as same brand
+            brand_key = primary_name.lower()
+
+            if brand_key in seen_brands:
+                # Already found this brand - keep the earlier occurrence
+                existing_mention = seen_brands[brand_key]
+                if match_position < existing_mention.match_position:
+                    # This occurrence is earlier - replace it
+                    # Use the PRIMARY_NAME that came first (preserve first pattern's normalization)
+                    seen_brands[brand_key] = BrandMention(
+                        original_text=original_text,
+                        normalized_name=existing_mention.normalized_name,  # Keep first pattern's normalized name
+                        brand_category=category,
+                        match_position=match_position,
+                    )
+                # Skip if current occurrence is later
                 continue
 
-            seen_positions.add(position_key)
-
-            all_matches.append(
-                BrandMention(
-                    original_text=original_text,
-                    normalized_name=primary_name,
-                    brand_category=category,
-                    match_position=match_position,
-                )
+            # First time seeing this brand
+            seen_brands[brand_key] = BrandMention(
+                original_text=original_text,
+                normalized_name=primary_name,
+                brand_category=category,
+                match_position=match_position,
             )
 
-    # Sort by position (order of appearance in text)
+    # Convert dict to list and sort by position
+    all_matches = list(seen_brands.values())
     all_matches.sort(key=lambda m: m.match_position)
 
     return all_matches

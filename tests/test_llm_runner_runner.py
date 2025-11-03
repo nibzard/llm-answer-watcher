@@ -93,7 +93,10 @@ def create_test_config(
     if models is None:
         models = [
             RuntimeModel(
-                provider="openai", model_name="gpt-4o-mini", api_key="test-key"
+                provider="openai",
+                model_name="gpt-4o-mini",
+                api_key="test-key",
+                system_prompt="You are a helpful assistant.",
             )
         ]
 
@@ -153,6 +156,7 @@ class TestRunAll:
                     provider="openai",
                     model_name="gpt-4o-mini",
                     api_key="test-key",
+                    system_prompt="You are a helpful assistant.",
                 )
             ],
             output_dir=str(tmp_path / "output"),
@@ -259,9 +263,17 @@ class TestRunAll:
             ],
             models=[
                 RuntimeModel(
-                    provider="openai", model_name="gpt-4o-mini", api_key="key1"
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="key1",
+                    system_prompt="You are a helpful assistant.",
                 ),
-                RuntimeModel(provider="openai", model_name="gpt-4o", api_key="key2"),
+                RuntimeModel(
+                    provider="openai",
+                    model_name="gpt-4o",
+                    api_key="key2",
+                    system_prompt="You are a helpful assistant.",
+                ),
             ],
             output_dir=str(tmp_path / "output"),
             database_path=str(tmp_path / "test.db"),
@@ -357,7 +369,12 @@ class TestRunAll:
                 Intent(id="intent2", prompt="Prompt 2"),
             ],
             models=[
-                RuntimeModel(provider="openai", model_name="gpt-4o-mini", api_key="key")
+                RuntimeModel(
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="key",
+                    system_prompt="You are a helpful assistant.",
+                )
             ],
             output_dir=str(tmp_path / "output"),
             database_path=str(tmp_path / "test.db"),
@@ -460,7 +477,12 @@ class TestRunAll:
             competitors=[],
             intents=[Intent(id="intent1", prompt="Prompt")],
             models=[
-                RuntimeModel(provider="openai", model_name="gpt-4o-mini", api_key="key")
+                RuntimeModel(
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="key",
+                    system_prompt="You are a helpful assistant.",
+                )
             ],
             output_dir=str(tmp_path / "output"),
             database_path=str(tmp_path / "test.db"),
@@ -538,7 +560,12 @@ class TestRunAll:
             competitors=[],
             intents=[Intent(id="intent1", prompt="Prompt")],
             models=[
-                RuntimeModel(provider="openai", model_name="gpt-4o-mini", api_key="key")
+                RuntimeModel(
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="key",
+                    system_prompt="You are a helpful assistant.",
+                )
             ],
             output_dir=str(tmp_path / "output"),
             database_path=str(tmp_path / "test.db"),
@@ -622,7 +649,12 @@ class TestRunAll:
             competitors=["Competitor1"],
             intents=[Intent(id="intent1", prompt="Prompt")],
             models=[
-                RuntimeModel(provider="openai", model_name="gpt-4o-mini", api_key="key")
+                RuntimeModel(
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="key",
+                    system_prompt="You are a helpful assistant.",
+                )
             ],
             output_dir=str(tmp_path / "output"),
             database_path=str(tmp_path / "test.db"),
@@ -713,7 +745,12 @@ class TestRunAll:
             competitors=[],
             intents=[Intent(id="intent1", prompt="Prompt")],
             models=[
-                RuntimeModel(provider="openai", model_name="gpt-4o-mini", api_key="key")
+                RuntimeModel(
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="key",
+                    system_prompt="You are a helpful assistant.",
+                )
             ],
             output_dir=str(tmp_path / "output"),
             database_path=str(tmp_path / "test.db"),

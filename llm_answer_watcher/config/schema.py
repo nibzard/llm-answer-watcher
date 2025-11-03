@@ -193,9 +193,22 @@ class Intent(BaseModel):
     @field_validator("prompt")
     @classmethod
     def validate_prompt(cls, v: str) -> str:
-        """Validate prompt is non-empty."""
+        """
+        Validate prompt is non-empty and within length limits.
+
+        Prevents excessively long prompts that could cause runaway API costs.
+        """
         if not v or v.isspace():
             raise ValueError("Intent prompt cannot be empty")
+
+        # Import at function level to avoid circular dependency
+        from llm_answer_watcher.llm_runner.openai_client import MAX_PROMPT_LENGTH
+
+        if len(v) > MAX_PROMPT_LENGTH:
+            raise ValueError(
+                f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH:,} characters "
+                f"(received {len(v):,} characters)"
+            )
         return v
 
 

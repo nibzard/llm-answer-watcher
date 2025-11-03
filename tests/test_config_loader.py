@@ -312,6 +312,43 @@ class TestIntent:
             Intent(id="test-id", prompt="")
         assert "Intent prompt cannot be empty" in str(exc_info.value)
 
+    def test_rejects_prompt_over_max_length(self):
+        """Intent should reject prompts exceeding MAX_PROMPT_LENGTH."""
+        from llm_answer_watcher.llm_runner.openai_client import MAX_PROMPT_LENGTH
+
+        with pytest.raises(
+            ValidationError,
+            match=r"Prompt exceeds maximum length"
+        ):
+            Intent(
+                id="test",
+                prompt="a" * (MAX_PROMPT_LENGTH + 1)
+            )
+
+    def test_accepts_prompt_at_max_length(self):
+        """Intent should accept prompts exactly at MAX_PROMPT_LENGTH."""
+        from llm_answer_watcher.llm_runner.openai_client import MAX_PROMPT_LENGTH
+
+        intent = Intent(
+            id="test",
+            prompt="a" * MAX_PROMPT_LENGTH
+        )
+        assert len(intent.prompt) == MAX_PROMPT_LENGTH
+
+    def test_prompt_length_error_shows_counts(self):
+        """Intent validation error should show actual and max character counts."""
+        from llm_answer_watcher.llm_runner.openai_client import MAX_PROMPT_LENGTH
+
+        with pytest.raises(ValidationError) as exc_info:
+            Intent(
+                id="test",
+                prompt="a" * (MAX_PROMPT_LENGTH + 10000)
+            )
+
+        error_msg = str(exc_info.value)
+        assert "110,000" in error_msg
+        assert "100,000" in error_msg
+
 
 class TestWatcherConfig:
     """Test WatcherConfig root model."""

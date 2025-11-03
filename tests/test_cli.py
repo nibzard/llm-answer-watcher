@@ -209,7 +209,10 @@ def mock_runtime_config(tmp_path):
         intents=[Intent(id="test-intent-1", prompt="What are the best tools?")],
         models=[
             RuntimeModel(
-                provider="openai", model_name="gpt-4o-mini", api_key="sk-test-key"
+                provider="openai",
+                model_name="gpt-4o-mini",
+                api_key="sk-test-key",
+                system_prompt="You are a helpful assistant.",
             )
         ],
     )
@@ -472,7 +475,10 @@ class TestRunCommandExitCodes:
             ],
             models=[
                 RuntimeModel(
-                    provider="openai", model_name="gpt-4o-mini", api_key="sk-test-key"
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="sk-test-key",
+                    system_prompt="You are a helpful assistant.",
                 )
             ],
         )
@@ -757,7 +763,10 @@ class TestRunCommandFlags:
             intents=[Intent(id=f"intent-{i}", prompt=f"Prompt {i}") for i in range(20)],
             models=[
                 RuntimeModel(
-                    provider="openai", model_name="gpt-4o-mini", api_key="sk-test-key"
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="sk-test-key",
+                    system_prompt="You are a helpful assistant.",
                 )
             ],
         )
@@ -823,7 +832,10 @@ class TestRunCommandFlags:
             intents=[Intent(id=f"intent-{i}", prompt=f"Prompt {i}") for i in range(15)],
             models=[
                 RuntimeModel(
-                    provider="openai", model_name="gpt-4o-mini", api_key="sk-test-key"
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="sk-test-key",
+                    system_prompt="You are a helpful assistant.",
                 )
             ],
         )
@@ -882,7 +894,10 @@ class TestRunCommandFlags:
             intents=[Intent(id=f"intent-{i}", prompt=f"Prompt {i}") for i in range(15)],
             models=[
                 RuntimeModel(
-                    provider="openai", model_name="gpt-4o-mini", api_key="sk-test-key"
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="sk-test-key",
+                    system_prompt="You are a helpful assistant.",
                 )
             ],
         )
@@ -928,8 +943,8 @@ class TestRunCommandFlags:
 
         assert result.exit_code == EXIT_SUCCESS
 
-        # setup_logging should be called with verbose=True
-        mock_setup_logging.assert_called_once_with(verbose=True)
+        # setup_logging should be called with verbose=True and quiet_logs=True
+        mock_setup_logging.assert_called_once_with(verbose=True, quiet_logs=True)
 
     @patch("llm_answer_watcher.cli.load_config")
     def test_run_verbose_shows_traceback_on_error(
@@ -1522,7 +1537,10 @@ class TestIntegrationScenarios:
             ],
             models=[
                 RuntimeModel(
-                    provider="openai", model_name="gpt-4o-mini", api_key="sk-test-key"
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="sk-test-key",
+                    system_prompt="You are a helpful assistant.",
                 )
             ],
         )

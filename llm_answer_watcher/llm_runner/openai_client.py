@@ -78,6 +78,10 @@ httpx_logger.setLevel(logging.WARNING)
 # OpenAI API endpoint
 OPENAI_API_URL = "https://api.openai.com/v1/responses"
 
+# Maximum prompt length to prevent excessive API costs
+# ~25k tokens at 4 chars/token average - prevents runaway costs from extremely long prompts
+MAX_PROMPT_LENGTH = 100_000
+
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
@@ -222,9 +226,17 @@ class OpenAIClient:
             If a non-retryable error occurs (e.g., 401), it checks the status
             code and raises immediately without retry.
         """
-        # Validate prompt
+        # Validate prompt is not empty
         if not prompt or prompt.isspace():
             raise ValueError("Prompt cannot be empty")
+
+        # Validate prompt length to prevent excessive API costs
+        if len(prompt) > MAX_PROMPT_LENGTH:
+            raise ValueError(
+                f"Prompt exceeds maximum length of {MAX_PROMPT_LENGTH:,} characters "
+                f"(received {len(prompt):,} characters). "
+                f"Please shorten your prompt to stay within the limit."
+            )
 
         # Build request payload with model-specific parameters
         # Responses API uses 'input' array with typed content objects

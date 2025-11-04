@@ -35,6 +35,7 @@ Architecture:
 import json
 import logging
 import sqlite3
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 
 from ..config.schema import RuntimeConfig, RuntimeModel
@@ -250,7 +251,9 @@ def validate_budget(config: RuntimeConfig, cost_estimate: dict) -> None:
             )
 
 
-def run_all(config: RuntimeConfig) -> dict:
+def run_all(
+    config: RuntimeConfig, progress_callback: Callable[[], None] | None = None
+) -> dict:
     """
     Execute complete LLM query workflow and return results.
 
@@ -263,6 +266,8 @@ def run_all(config: RuntimeConfig) -> dict:
 
     Args:
         config: Runtime configuration with intents, models, API keys, paths
+        progress_callback: Optional callback function to call after each query
+            completes (successful or failed). Used by CLI to update progress bar.
 
     Returns:
         Summary dictionary with structure:
@@ -546,6 +551,10 @@ def run_all(config: RuntimeConfig) -> dict:
                     f"appeared_mine={extraction_result.appeared_mine}"
                 )
 
+                # Call progress callback if provided
+                if progress_callback:
+                    progress_callback()
+
             except Exception as e:
                 # Query failed - write error file and track
                 error_message = str(e)
@@ -573,6 +582,10 @@ def run_all(config: RuntimeConfig) -> dict:
                         "error_message": error_message,
                     }
                 )
+
+                # Call progress callback if provided (even for errors)
+                if progress_callback:
+                    progress_callback()
 
     # Generate run metadata summary
     run_meta = {

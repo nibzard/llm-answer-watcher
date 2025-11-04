@@ -326,6 +326,10 @@ class OpenAIClient:
         except Exception as e:
             raise RuntimeError(f"Failed to parse OpenAI response JSON: {e}") from e
 
+        # Debug: Log the entire response structure to understand token usage format
+        logger.debug(f"OpenAI Responses API response keys: {data.keys()}")
+        logger.debug(f"OpenAI usage field content: {data.get('usage', 'MISSING')}")
+
         # Extract answer text
         answer_text = self._extract_answer_text(data)
 
@@ -466,13 +470,24 @@ class OpenAIClient:
         if not usage or not isinstance(usage, dict):
             logger.warning(
                 f"OpenAI response missing 'usage' data for model={self.model_name}. "
-                "Token count and cost will be zero."
+                "Token count and cost will be zero. "
+                f"Response keys: {list(data.keys())}"
             )
             return 0, 0, 0
+
+        # Debug: Log what fields are in the usage object
+        logger.debug(f"Usage object keys for {self.model_name}: {list(usage.keys())}")
+        logger.debug(f"Usage object content: {usage}")
 
         total_tokens = usage.get("total_tokens", 0)
         prompt_tokens = usage.get("prompt_tokens", 0)
         completion_tokens = usage.get("completion_tokens", 0)
+
+        # Log the extracted values
+        logger.info(
+            f"Extracted token usage for {self.model_name}: "
+            f"total={total_tokens}, prompt={prompt_tokens}, completion={completion_tokens}"
+        )
 
         return (
             int(total_tokens) if total_tokens else 0,

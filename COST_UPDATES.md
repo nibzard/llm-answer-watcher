@@ -214,14 +214,33 @@ llm-answer-watcher run --config config.yaml --pricing-file custom_prices.json
 - [x] Create example config with budget settings
 - [x] Add pricing cache to .gitignore
 
-### In Progress ⏳
-- [ ] Testing & documentation updates
+### Completed - Phase 6: Testing ✅
+- [x] Write comprehensive tests for pricing module (400+ lines, 50+ tests)
+- [x] Write tests for web search cost calculations (240+ lines, 30+ tests)
+- [x] Write budget validation tests (350+ lines, 25+ tests)
+- [x] Test all pricing sources (remote, cache, overrides, fallback)
+- [x] Test fuzzy model name matching
+- [x] Test cache expiration logic
+- [x] Test all web search pricing tiers
+- [x] Test budget enforcement scenarios
+- [x] Test error handling and edge cases
 
-### Pending 🔜
-- [ ] Write comprehensive tests for pricing module
-- [ ] Update tests for web search cost calculations
-- [ ] Write budget validation tests
-- [ ] Update README.md and SPECS.md
+### Completed - Phase 7: Documentation ✅
+- [x] Update README.md with pricing and budget sections
+- [x] Document dynamic pricing commands
+- [x] Document web search cost tiers
+- [x] Document budget configuration
+- [x] Update key features list
+- [x] Add cost tracking SQL examples
+
+### All Phases Complete! 🎉
+✅ Phase 1: Dynamic Pricing Infrastructure
+✅ Phase 2: Web Search Cost Calculation
+✅ Phase 3: Budget System Schema
+✅ Phase 4: Budget Enforcement
+✅ Phase 5: CLI Pricing Commands
+✅ Phase 6: Comprehensive Testing
+✅ Phase 7: Documentation Updates
 
 ### Completed - Phase 4: Budget System ✅
 - [x] Add `estimate_run_cost()` function in runner

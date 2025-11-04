@@ -326,6 +326,10 @@ class OpenAIClient:
         except Exception as e:
             raise RuntimeError(f"Failed to parse OpenAI response JSON: {e}") from e
 
+        # Debug: Log the entire response structure to understand token usage format
+        logger.debug(f"OpenAI Responses API response keys: {data.keys()}")
+        logger.debug(f"OpenAI usage field content: {data.get('usage', 'MISSING')}")
+
         # Extract answer text
         answer_text = self._extract_answer_text(data)
 
@@ -336,7 +340,12 @@ class OpenAIClient:
         web_search_results, web_search_count = self._extract_web_search_results(data)
 
         # Calculate cost (including web search if applicable)
-        usage_meta = data.get("usage", {})
+        # Build usage_meta in the format expected by cost estimation functions
+        usage_meta = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": tokens_used,
+        }
 
         # Detect web search version for pricing
         from llm_answer_watcher.utils.cost import (
@@ -466,13 +475,27 @@ class OpenAIClient:
         if not usage or not isinstance(usage, dict):
             logger.warning(
                 f"OpenAI response missing 'usage' data for model={self.model_name}. "
-                "Token count and cost will be zero."
+                "Token count and cost will be zero. "
+                f"Response keys: {list(data.keys())}"
             )
             return 0, 0, 0
 
+        # Debug: Log what fields are in the usage object
+        logger.debug(f"Usage object keys for {self.model_name}: {list(usage.keys())}")
+        logger.debug(f"Usage object content: {usage}")
+
+        # OpenAI Responses API uses input_tokens/output_tokens
+        # Older Chat Completions API used prompt_tokens/completion_tokens
+        # Try both formats for compatibility
         total_tokens = usage.get("total_tokens", 0)
-        prompt_tokens = usage.get("prompt_tokens", 0)
-        completion_tokens = usage.get("completion_tokens", 0)
+        prompt_tokens = usage.get("input_tokens") or usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("output_tokens") or usage.get("completion_tokens", 0)
+
+        # Log the extracted values
+        logger.info(
+            f"Extracted token usage for {self.model_name}: "
+            f"total={total_tokens}, prompt={prompt_tokens}, completion={completion_tokens}"
+        )
 
         return (
             int(total_tokens) if total_tokens else 0,

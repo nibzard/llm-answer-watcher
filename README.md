@@ -13,7 +13,7 @@ LLM Answer Watcher is a production-ready CLI tool that asks LLMs specific questi
 
 - **🔍 Brand Mention Detection**: Word-boundary regex matching prevents false positives
 - **📊 Historical Tracking**: SQLite database stores all responses for trend analysis
-- **🤖 Multi-Provider Support**: OpenAI, Anthropic, and extensible provider system
+- **🤖 Multi-Provider Support**: OpenAI, Anthropic, Google Gemini, and extensible provider system
 - **📈 Rank Extraction**: Automatic detection of where brands appear in LLM responses
 - **💰 Cost Estimation**: Built-in token counting and cost calculation
 - **🎯 Dual-Mode CLI**: Beautiful Rich output for humans, structured JSON for AI agents
@@ -32,6 +32,7 @@ pip install llm-answer-watcher
 # Set your API keys
 export OPENAI_API_KEY=your_key_here
 export ANTHROPIC_API_KEY=your_key_here
+export GOOGLE_API_KEY=your_key_here
 
 # Run with example config
 llm-answer-watcher run --config examples/watcher.config.yaml
@@ -53,6 +54,9 @@ export OPENAI_API_KEY=sk-your-openai-key-here
 
 # Anthropic
 export ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
+
+# Google Gemini
+export GOOGLE_API_KEY=AIza-your-google-api-key-here
 ```
 
 ## 🔧 Installation
@@ -103,6 +107,10 @@ run_settings:
     - provider: "anthropic"
       model_name: "claude-3-5-haiku-20241022"
       env_api_key: "ANTHROPIC_API_KEY"
+
+    - provider: "google"
+      model_name: "gemini-2.0-flash-exp"
+      env_api_key: "GOOGLE_API_KEY"
 
   use_llm_rank_extraction: false  # Use regex-based extraction (faster/cheaper)
 

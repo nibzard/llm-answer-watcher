@@ -167,6 +167,7 @@ def build_client(
     Supported providers:
     - "openai": OpenAI API (GPT models)
     - "anthropic": Anthropic API (Claude models)
+    - "google": Google Gemini API (Gemini models)
     - "mistral": Mistral API - Future
 
     Args:
@@ -232,16 +233,30 @@ def build_client(
             tool_choice=tool_choice,
         )
 
+    if provider == "google":
+        # Import here to avoid circular dependencies and keep imports lazy
+        from llm_answer_watcher.llm_runner.gemini_client import (
+            GeminiClient,
+        )
+
+        return GeminiClient(
+            model_name=model_name,
+            api_key=api_key,
+            system_prompt=system_prompt,
+            tools=tools,
+            tool_choice=tool_choice,
+        )
+
     if provider == "mistral":
         # Planned for future implementation
         raise NotImplementedError(
             f"Provider '{provider}' support is planned but not yet implemented. "
-            "Currently supported providers: openai, anthropic"
+            "Currently supported providers: openai, anthropic, google"
         )
 
     # Unknown provider - clear error message
     raise ValueError(
         f"Unsupported provider: '{provider}'. "
-        f"Supported providers: openai, anthropic. "
+        f"Supported providers: openai, anthropic, google. "
         f"Planned providers: mistral"
     )

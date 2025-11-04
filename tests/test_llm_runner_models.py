@@ -11,6 +11,7 @@ Tests cover:
 import pytest
 
 from llm_answer_watcher.llm_runner.anthropic_client import AnthropicClient
+from llm_answer_watcher.llm_runner.grok_client import GrokClient
 from llm_answer_watcher.llm_runner.mistral_client import MistralClient
 from llm_answer_watcher.llm_runner.models import LLMClient, LLMResponse, build_client
 from llm_answer_watcher.llm_runner.openai_client import OpenAIClient
@@ -176,13 +177,36 @@ class TestBuildClient:
         assert client.model_name == "mistral-small-latest"
         assert client.api_key == "mistral-prod"
 
+    def test_build_client_grok_success(self):
+        """Test building Grok client successfully."""
+        client = build_client("grok", "grok-beta", "xai-test123", TEST_SYSTEM_PROMPT)
+
+        assert isinstance(client, GrokClient)
+        assert client.model_name == "grok-beta"
+        assert client.api_key == "xai-test123"
+
+    def test_build_client_grok_different_model(self):
+        """Test building Grok client with different model."""
+        client = build_client("grok", "grok-2-1212", "xai-prod456", TEST_SYSTEM_PROMPT)
+
+        assert isinstance(client, GrokClient)
+        assert client.model_name == "grok-2-1212"
+        assert client.api_key == "xai-prod456"
+
+    def test_build_client_grok_3_model(self):
+        """Test building Grok client with Grok 3 model."""
+        client = build_client("grok", "grok-3", "xai-test123", TEST_SYSTEM_PROMPT)
+
+        assert isinstance(client, GrokClient)
+        assert client.model_name == "grok-3"
+
     def test_build_client_unsupported_provider(self):
         """Test that unknown provider raises ValueError."""
         with pytest.raises(ValueError, match="Unsupported provider: 'gemini'"):
             build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
         # Verify error message lists supported providers
-        with pytest.raises(ValueError, match="Supported providers: openai, anthropic, mistral"):
+        with pytest.raises(ValueError, match="Supported providers: openai, anthropic, mistral, grok"):
             build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
     def test_build_client_empty_provider(self):

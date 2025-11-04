@@ -123,6 +123,45 @@ PRICING = {
             "output": 0.60 / 1_000_000,
         },
     },
+    "grok": {
+        # Grok Beta (Initial release - November 2024)
+        "grok-beta": {
+            "input": 5.00 / 1_000_000,  # $5.00 per 1M input tokens
+            "output": 15.00 / 1_000_000,  # $15.00 per 1M output tokens
+        },
+        # Grok 2 Models (December 2024)
+        "grok-2-1212": {
+            "input": 2.00 / 1_000_000,  # $2.00 per 1M input tokens
+            "output": 10.00 / 1_000_000,  # $10.00 per 1M output tokens
+        },
+        "grok-2-vision-1212": {
+            "input": 2.00 / 1_000_000,
+            "output": 10.00 / 1_000_000,
+        },
+        # Grok 2 latest (alias)
+        "grok-2-latest": {
+            "input": 2.00 / 1_000_000,
+            "output": 10.00 / 1_000_000,
+        },
+        # Grok 3 Models (February 2025)
+        "grok-3": {
+            "input": 3.00 / 1_000_000,  # $3.00 per 1M input tokens
+            "output": 15.00 / 1_000_000,  # $15.00 per 1M output tokens
+        },
+        "grok-3-mini": {
+            "input": 3.00 / 1_000_000,  # $3.00 per 1M input tokens (same as grok-3)
+            "output": 15.00 / 1_000_000,  # $15.00 per 1M output tokens
+        },
+        "grok-3-fast": {
+            "input": 5.00 / 1_000_000,  # $5.00 per 1M input tokens
+            "output": 25.00 / 1_000_000,  # $25.00 per 1M output tokens
+        },
+        # Grok 3 latest (alias)
+        "grok-3-latest": {
+            "input": 3.00 / 1_000_000,
+            "output": 15.00 / 1_000_000,
+        },
+    },
 }
 
 # Get logger for this module

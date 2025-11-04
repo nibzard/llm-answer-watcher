@@ -4,7 +4,7 @@ run_settings:
 
   models:
     - provider: "openai"
-      model_name: "gpt-4o-mini"
+      model_name: "gpt-5-nano"
       env_api_key: "OPENAI_API_KEY"
       system_prompt: "openai/gpt-4-default"  # Optional: Uses provider default if not specified
 
@@ -22,12 +22,11 @@ run_settings:
 
 brands:
   mine:
-    - "Warmly"
-    - "Warmly.io"
+    - "Lemwarm"
+    - "Lemlist"
 
   competitors:
     - "Instantly"
-    - "Lemwarm"
     - "HubSpot"
     - "Apollo.io"
     - "Woodpecker"

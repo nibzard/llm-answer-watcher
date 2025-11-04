@@ -215,13 +215,32 @@ llm-answer-watcher run --config config.yaml --pricing-file custom_prices.json
 - [x] Add pricing cache to .gitignore
 
 ### In Progress ⏳
-- [ ] Runner budget validation logic
+- [ ] Testing & documentation updates
 
 ### Pending 🔜
-- [ ] CLI commands for pricing (show, refresh, list)
-- [ ] Budget checking in runner before execution
-- [ ] Budget exceeded error handling
-- [ ] Testing & documentation updates
+- [ ] Write comprehensive tests for pricing module
+- [ ] Update tests for web search cost calculations
+- [ ] Write budget validation tests
+- [ ] Update README.md and SPECS.md
+
+### Completed - Phase 4: Budget System ✅
+- [x] Add `estimate_run_cost()` function in runner
+- [x] Add `validate_budget()` function with error handling
+- [x] Create `BudgetExceededError` exception
+- [x] Integrate budget validation into `run_all()`
+- [x] Add pre-run cost estimation logging
+- [x] Support per-run and per-intent budget limits
+- [x] Support warning thresholds
+
+### Completed - Phase 5: CLI Commands ✅
+- [x] Create `prices` command group with typer
+- [x] Implement `prices show` - Display pricing table
+- [x] Implement `prices refresh` - Update from remote
+- [x] Implement `prices list` - List all models
+- [x] Support `--provider` filter for all commands
+- [x] Support `--format json` for automation
+- [x] Add Rich table formatting for text mode
+- [x] Update CLI help text and docstrings
 
 ---
 

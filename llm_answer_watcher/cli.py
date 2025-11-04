@@ -9,6 +9,8 @@ Provides a dual-mode command-line interface with:
 Commands:
     run: Execute LLM queries and generate reports
     validate: Validate configuration without running queries
+    eval: Run evaluation suite to test extraction accuracy
+    prices: Manage LLM pricing data (show, refresh, list)
 
 Exit codes:
     0: Success - all queries successful
@@ -826,6 +828,217 @@ def eval(
     raise typer.Exit(EXIT_SUCCESS)  # All tests passed and thresholds met
 
 
+# Create prices command subapp
+prices_app = typer.Typer(help="Manage LLM pricing data")
+app.add_typer(prices_app, name="prices")
+
+
+@prices_app.command("show")
+def prices_show(
+    provider: str = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="Filter by provider (openai, anthropic, mistral, etc.)",
+    ),
+    format: str = typer.Option(
+        "text",
+        "--format",
+        "-f",
+        help="Output format: 'text' or 'json'",
+    ),
+):
+    """
+    Display current pricing for LLM models.
+
+    Shows cached pricing data from llm-prices.com with local overrides applied.
+    Use 'prices refresh' to update pricing from remote source.
+
+    Examples:
+      # Show all pricing
+      llm-answer-watcher prices show
+
+      # Show only OpenAI models
+      llm-answer-watcher prices show --provider openai
+
+      # JSON output for automation
+      llm-answer-watcher prices show --format json
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    from llm_answer_watcher.utils.pricing import list_available_models
+
+    # Set output mode
+    output_mode.format = format
+
+    try:
+        models = list_available_models()
+
+        # Filter by provider if specified
+        if provider:
+            models = [m for m in models if m["provider"].lower() == provider.lower()]
+
+        if not models:
+            if format == "json":
+                print(json.dumps({"models": [], "count": 0}))
+            else:
+                error(f"No models found for provider: {provider}")
+            raise typer.Exit(1)
+
+        # JSON output
+        if format == "json":
+            output = {"models": models, "count": len(models)}
+            print(json.dumps(output, indent=2))
+            raise typer.Exit(0)
+
+        # Text output with Rich table
+        console = Console()
+        table = Table(title=f"LLM Pricing ({len(models)} models)")
+        table.add_column("Provider", style="cyan")
+        table.add_column("Model", style="yellow")
+        table.add_column("Input ($/1M)", justify="right", style="green")
+        table.add_column("Output ($/1M)", justify="right", style="green")
+        table.add_column("Cached ($/1M)", justify="right", style="blue")
+        table.add_column("Source", style="magenta")
+
+        for model in models:
+            cached = (
+                f"${model['input_cached']:.2f}"
+                if model.get("input_cached")
+                else "N/A"
+            )
+            table.add_row(
+                model["provider"],
+                model["model"],
+                f"${model['input']:.2f}",
+                f"${model['output']:.2f}",
+                cached,
+                model["source"],
+            )
+
+        console.print(table)
+        raise typer.Exit(0)
+
+    except Exception as e:
+        if format == "json":
+            print(json.dumps({"error": str(e)}))
+        else:
+            error(f"Failed to show pricing: {e}")
+        raise typer.Exit(1)
+
+
+@prices_app.command("refresh")
+def prices_refresh(
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Force refresh even if cache is fresh",
+    ),
+    format: str = typer.Option(
+        "text",
+        "--format",
+        help="Output format: 'text' or 'json'",
+    ),
+):
+    """
+    Refresh pricing data from llm-prices.com.
+
+    Downloads latest pricing and updates the local cache (config/pricing_cache.json).
+    Cache is valid for 24 hours; use --force to refresh earlier.
+
+    Examples:
+      # Refresh if cache is older than 24 hours
+      llm-answer-watcher prices refresh
+
+      # Force refresh now
+      llm-answer-watcher prices refresh --force
+
+      # JSON output
+      llm-answer-watcher prices refresh --format json
+    """
+    from rich.console import Console
+
+    from llm_answer_watcher.utils.pricing import refresh_pricing
+
+    # Set output mode
+    output_mode.format = format
+
+    try:
+        if format != "json":
+            with spinner(
+                "Refreshing pricing from llm-prices.com...", format != "json"
+            ):
+                result = refresh_pricing(force=force)
+        else:
+            result = refresh_pricing(force=force)
+
+        # JSON output
+        if format == "json":
+            print(json.dumps(result, indent=2))
+            raise typer.Exit(0)
+
+        # Text output
+        if result["status"] == "success":
+            success(
+                f"✓ Refreshed pricing for {result['model_count']} models "
+                f"(updated: {result['updated_at']})"
+            )
+        elif result["status"] == "skipped":
+            info(f"ℹ  {result['reason']}")
+            info(
+                f"   Cached {result['model_count']} models from {result['cached_at']}"
+            )
+        else:
+            error(f"✗ Failed to refresh pricing: {result.get('error', 'Unknown error')}")
+            raise typer.Exit(1)
+
+        raise typer.Exit(0)
+
+    except Exception as e:
+        if format == "json":
+            print(json.dumps({"status": "error", "error": str(e)}))
+        else:
+            error(f"Failed to refresh pricing: {e}")
+        raise typer.Exit(1)
+
+
+@prices_app.command("list")
+def prices_list(
+    provider: str = typer.Option(
+        None,
+        "--provider",
+        "-p",
+        help="Filter by provider",
+    ),
+    format: str = typer.Option(
+        "text",
+        "--format",
+        "-f",
+        help="Output format: 'text' or 'json'",
+    ),
+):
+    """
+    List all supported models with pricing.
+
+    Displays comprehensive list of all models from cache, overrides, and fallback pricing.
+    Useful for finding model names and comparing costs.
+
+    Examples:
+      # List all models
+      llm-answer-watcher prices list
+
+      # List only Anthropic models
+      llm-answer-watcher prices list --provider anthropic
+
+      # JSON output for parsing
+      llm-answer-watcher prices list --format json
+    """
+    # This is essentially the same as 'show' but explicitly named for discoverability
+    prices_show(provider=provider, format=format)
+
+
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
@@ -885,6 +1098,7 @@ def main(
         console.print("  run       Execute LLM queries and generate report")
         console.print("  validate  Validate configuration without running")
         console.print("  eval      Run evaluation suite to test extraction accuracy")
+        console.print("  prices    Manage LLM pricing data (show, refresh, list)")
 
 
 def _read_version() -> str:

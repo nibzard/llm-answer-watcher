@@ -3,20 +3,25 @@ run_settings:
   sqlite_db_path: "./output/watcher.db"
 
   models:
+    # - provider: "openai"
+    #   model_name: "gpt-5-nano"
+    #   env_api_key: "OPENAI_API_KEY"
+    #   system_prompt: "openai/gpt-4-default"  # Optional: Uses provider default if not specified
+
     - provider: "openai"
-      model_name: "gpt-5-nano"
+      model_name: "gpt-4.1-nano"
       env_api_key: "OPENAI_API_KEY"
       system_prompt: "openai/gpt-4-default"  # Optional: Uses provider default if not specified
 
-    - provider: "anthropic"
-      model_name: "claude-3-5-haiku-20241022"
-      env_api_key: "ANTHROPIC_API_KEY"
-      # No system_prompt specified - will use anthropic/default.json
+    # - provider: "anthropic"
+    #   model_name: "claude-3-5-haiku-20241022"
+    #   env_api_key: "ANTHROPIC_API_KEY"
+    #   # No system_prompt specified - will use anthropic/default.json
 
-    - provider: "mistral"
-      model_name: "mistral-large-latest"
-      env_api_key: "MISTRAL_API_KEY"
-      # No system_prompt specified - will use mistral/default.json
+    # - provider: "mistral"
+    #   model_name: "mistral-large-latest"
+    #   env_api_key: "MISTRAL_API_KEY"
+    #   # No system_prompt specified - will use mistral/default.json
 
   use_llm_rank_extraction: false
 
@@ -37,6 +42,3 @@ intents:
 
   - id: "email-warmup-comparison"
     prompt: "Compare the top email warmup tools for improving deliverability"
-
-  - id: "sales-engagement-platforms"
-    prompt: "What are the best sales engagement platforms?"

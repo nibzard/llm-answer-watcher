@@ -337,7 +337,7 @@ def run(
                 if not output_mode.is_human()
                 else nullcontext()
             ):
-                results = run_all(runtime_config)
+                results = run_all(runtime_config, progress_callback=progress_callback)
 
         # Generate HTML report
         with spinner("Generating report..."):

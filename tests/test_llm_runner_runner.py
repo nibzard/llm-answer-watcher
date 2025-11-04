@@ -819,3 +819,160 @@ class TestRunAll:
         assert "InstantFlow" in meta["my_brands"]
         assert meta["total_intents"] == 1
         assert meta["total_models"] == 1
+
+    @freeze_time("2025-11-02 08:00:00")
+    @patch("llm_answer_watcher.llm_runner.runner.build_client")
+    @patch("llm_answer_watcher.llm_runner.runner.parse_answer")
+    @patch("llm_answer_watcher.llm_runner.runner.insert_run")
+    @patch("llm_answer_watcher.llm_runner.runner.insert_answer_raw")
+    @patch("llm_answer_watcher.llm_runner.runner.insert_mention")
+    def test_progress_callback_called_for_each_query(
+        self,
+        mock_insert_mention,
+        mock_insert_answer,
+        mock_insert_run,
+        mock_parse_answer,
+        mock_build_client,
+        tmp_path,
+    ):
+        """Test that progress callback is called after each query completes."""
+        # Setup config with 2 intents x 2 models = 4 total queries
+        config = create_test_config(
+            my_brand="InstantFlow",
+            intents=[
+                Intent(id="intent1", prompt="Prompt 1"),
+                Intent(id="intent2", prompt="Prompt 2"),
+            ],
+            models=[
+                RuntimeModel(
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="key1",
+                    system_prompt="You are a helpful assistant.",
+                ),
+                RuntimeModel(
+                    provider="openai",
+                    model_name="gpt-4o",
+                    api_key="key2",
+                    system_prompt="You are a helpful assistant.",
+                ),
+            ],
+            output_dir=str(tmp_path / "output"),
+            database_path=str(tmp_path / "test.db"),
+        )
+
+        # Mock LLM client
+        mock_client = MagicMock()
+        mock_client.generate_answer.return_value = LLMResponse(
+            answer_text="Test answer",
+            tokens_used=75,
+            cost_usd=0.000045,
+            provider="openai",
+            model_name="gpt-4o-mini",
+            timestamp_utc="2025-11-02T08:00:00Z",
+        )
+        mock_build_client.return_value = mock_client
+
+        # Mock parser
+        mock_parse_answer.return_value = ExtractionResult(
+            intent_id="intent1",
+            model_provider="openai",
+            model_name="gpt-4o-mini",
+            timestamp_utc="2025-11-02T08:00:00Z",
+            appeared_mine=False,
+            my_mentions=[],
+            competitor_mentions=[],
+            ranked_list=[],
+            rank_extraction_method="pattern",
+            rank_confidence=0.0,
+        )
+
+        # Create mock progress callback
+        progress_callback = MagicMock()
+
+        # Run with progress callback
+        result = run_all(config, progress_callback=progress_callback)
+
+        # Verify callback was called once per query (4 queries)
+        assert progress_callback.call_count == 4
+        assert result["total_queries"] == 4
+        assert result["success_count"] == 4
+
+    @freeze_time("2025-11-02 08:00:00")
+    @patch("llm_answer_watcher.llm_runner.runner.build_client")
+    @patch("llm_answer_watcher.llm_runner.runner.parse_answer")
+    @patch("llm_answer_watcher.llm_runner.runner.insert_run")
+    @patch("llm_answer_watcher.llm_runner.runner.insert_answer_raw")
+    @patch("llm_answer_watcher.llm_runner.runner.insert_mention")
+    def test_progress_callback_called_even_on_errors(
+        self,
+        mock_insert_mention,
+        mock_insert_answer,
+        mock_insert_run,
+        mock_parse_answer,
+        mock_build_client,
+        tmp_path,
+    ):
+        """Test that progress callback is called even when queries fail."""
+        # Setup config with 2 queries
+        config = create_test_config(
+            my_brand="InstantFlow",
+            intents=[Intent(id="intent1", prompt="Prompt 1")],
+            models=[
+                RuntimeModel(
+                    provider="openai",
+                    model_name="gpt-4o-mini",
+                    api_key="key1",
+                    system_prompt="You are a helpful assistant.",
+                ),
+                RuntimeModel(
+                    provider="openai",
+                    model_name="gpt-4o",
+                    api_key="key2",
+                    system_prompt="You are a helpful assistant.",
+                ),
+            ],
+            output_dir=str(tmp_path / "output"),
+            database_path=str(tmp_path / "test.db"),
+        )
+
+        # Mock LLM client - first call succeeds, second fails
+        mock_client = MagicMock()
+        mock_client.generate_answer.side_effect = [
+            LLMResponse(
+                answer_text="Success",
+                tokens_used=75,
+                cost_usd=0.000045,
+                provider="openai",
+                model_name="gpt-4o-mini",
+                timestamp_utc="2025-11-02T08:00:00Z",
+            ),
+            Exception("API error"),
+        ]
+        mock_build_client.return_value = mock_client
+
+        # Mock parser
+        mock_parse_answer.return_value = ExtractionResult(
+            intent_id="intent1",
+            model_provider="openai",
+            model_name="gpt-4o-mini",
+            timestamp_utc="2025-11-02T08:00:00Z",
+            appeared_mine=False,
+            my_mentions=[],
+            competitor_mentions=[],
+            ranked_list=[],
+            rank_extraction_method="pattern",
+            rank_confidence=0.0,
+        )
+
+        # Create mock progress callback
+        progress_callback = MagicMock()
+
+        # Run with progress callback
+        result = run_all(config, progress_callback=progress_callback)
+
+        # Verify callback was called for both successful and failed queries
+        assert progress_callback.call_count == 2
+        assert result["total_queries"] == 2
+        assert result["success_count"] == 1
+        assert result["error_count"] == 1

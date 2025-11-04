@@ -28,7 +28,8 @@ The codebase currently contains:
   - ✅ Milestone 3: Report generation + CLI
   - ✅ Milestone 4: Polish, docs, tests (80%+ coverage achieved)
 - **Bonus**: Complete evaluation framework with CLI integration
-- **Remaining work**: Anthropic/Mistral client implementation (optional), advanced features (trends command, DeepEval integration)
+- **Remaining work**: Mistral client implementation (optional), advanced features (trends command, DeepEval integration)
+- **Recently completed**: Anthropic client implementation with full Claude model support
 
 ## Architecture & Domain Design
 
@@ -98,8 +99,8 @@ def build_client(
     tool_choice: str = "auto",
 ) -> LLMClient:
     # Factory pattern for multi-provider support
-    # Currently supports: openai
-    # Planned: anthropic, mistral
+    # Currently supports: openai, anthropic
+    # Planned: mistral
     ...
 ```
 

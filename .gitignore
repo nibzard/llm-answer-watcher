@@ -62,6 +62,9 @@ output/
 *.sqlite
 *.sqlite3
 
+# Pricing cache (auto-generated from llm-prices.com)
+config/pricing_cache.json
+
 # Environment variables (API keys)
 .env
 .env.*

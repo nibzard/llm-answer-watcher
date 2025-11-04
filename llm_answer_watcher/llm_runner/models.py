@@ -167,6 +167,7 @@ def build_client(
     Supported providers:
     - "openai": OpenAI API (GPT models)
     - "anthropic": Anthropic API (Claude models)
+    - "grok": X.AI Grok API (Grok models)
     - "mistral": Mistral API - Future
 
     Args:
@@ -193,6 +194,8 @@ def build_client(
         >>> # With tools enabled
         >>> client = build_client("openai", "gpt-4o-mini", "sk-...", "...",
         ...     tools=[{"type": "web_search"}], tool_choice="auto")
+        >>> # Grok example
+        >>> client = build_client("grok", "grok-beta", "xai-...", "...")
 
     Security:
         - NEVER log the api_key parameter in any form
@@ -232,16 +235,30 @@ def build_client(
             tool_choice=tool_choice,
         )
 
+    if provider == "grok":
+        # Import here to avoid circular dependencies and keep imports lazy
+        from llm_answer_watcher.llm_runner.grok_client import (
+            GrokClient,
+        )
+
+        return GrokClient(
+            model_name=model_name,
+            api_key=api_key,
+            system_prompt=system_prompt,
+            tools=tools,
+            tool_choice=tool_choice,
+        )
+
     if provider == "mistral":
         # Planned for future implementation
         raise NotImplementedError(
             f"Provider '{provider}' support is planned but not yet implemented. "
-            "Currently supported providers: openai, anthropic"
+            "Currently supported providers: openai, anthropic, grok"
         )
 
     # Unknown provider - clear error message
     raise ValueError(
         f"Unsupported provider: '{provider}'. "
-        f"Supported providers: openai, anthropic. "
+        f"Supported providers: openai, anthropic, grok. "
         f"Planned providers: mistral"
     )

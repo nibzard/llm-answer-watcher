@@ -11,6 +11,7 @@ Tests cover:
 import pytest
 
 from llm_answer_watcher.llm_runner.anthropic_client import AnthropicClient
+from llm_answer_watcher.llm_runner.grok_client import GrokClient
 from llm_answer_watcher.llm_runner.models import LLMClient, LLMResponse, build_client
 from llm_answer_watcher.llm_runner.openai_client import OpenAIClient
 
@@ -159,6 +160,29 @@ class TestBuildClient:
         assert client.model_name == "claude-3-5-sonnet-20241022"
         assert client.api_key == "sk-ant-prod"
 
+    def test_build_client_grok_success(self):
+        """Test building Grok client successfully."""
+        client = build_client("grok", "grok-beta", "xai-test123", TEST_SYSTEM_PROMPT)
+
+        assert isinstance(client, GrokClient)
+        assert client.model_name == "grok-beta"
+        assert client.api_key == "xai-test123"
+
+    def test_build_client_grok_different_model(self):
+        """Test building Grok client with different model."""
+        client = build_client("grok", "grok-2-1212", "xai-prod456", TEST_SYSTEM_PROMPT)
+
+        assert isinstance(client, GrokClient)
+        assert client.model_name == "grok-2-1212"
+        assert client.api_key == "xai-prod456"
+
+    def test_build_client_grok_3_model(self):
+        """Test building Grok client with Grok 3 model."""
+        client = build_client("grok", "grok-3", "xai-test123", TEST_SYSTEM_PROMPT)
+
+        assert isinstance(client, GrokClient)
+        assert client.model_name == "grok-3"
+
     def test_build_client_mistral_not_implemented(self):
         """Test that Mistral provider raises NotImplementedError."""
         with pytest.raises(
@@ -169,7 +193,7 @@ class TestBuildClient:
 
         # Verify error message mentions currently supported providers
         with pytest.raises(
-            NotImplementedError, match="Currently supported providers: openai, anthropic"
+            NotImplementedError, match="Currently supported providers: openai, anthropic, grok"
         ):
             build_client("mistral", "mistral-large-latest", "mistral-key", TEST_SYSTEM_PROMPT)
 
@@ -179,7 +203,7 @@ class TestBuildClient:
             build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
         # Verify error message lists supported and planned providers
-        with pytest.raises(ValueError, match="Supported providers: openai, anthropic"):
+        with pytest.raises(ValueError, match="Supported providers: openai, anthropic, grok"):
             build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(ValueError, match="Planned providers: mistral"):

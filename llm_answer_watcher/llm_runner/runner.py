@@ -224,12 +224,10 @@ def run_all(config: RuntimeConfig) -> dict:
                 answer_text = response.answer_text
                 cost_usd = response.cost_usd
 
-                # Create usage metadata for storage
-                # Note: LLMResponse doesn't include detailed usage, so we reconstruct it
-                # for backward compatibility with the existing schema
+                # Create usage metadata for storage with actual token breakdown
                 usage_meta = {
-                    "prompt_tokens": 0,  # Not available in LLMResponse structure
-                    "completion_tokens": 0,  # Not available in LLMResponse structure
+                    "prompt_tokens": response.prompt_tokens,
+                    "completion_tokens": response.completion_tokens,
                     "total_tokens": response.tokens_used,
                 }
 

@@ -317,8 +317,8 @@ class OpenAIClient:
         # Extract answer text
         answer_text = self._extract_answer_text(data)
 
-        # Extract token usage
-        tokens_used = self._extract_token_usage(data)
+        # Extract token usage (total, prompt, completion)
+        tokens_used, prompt_tokens, completion_tokens = self._extract_token_usage(data)
 
         # Extract web search results (if tools were used)
         web_search_results, web_search_count = self._extract_web_search_results(data)
@@ -341,6 +341,8 @@ class OpenAIClient:
         return LLMResponse(
             answer_text=answer_text,
             tokens_used=tokens_used,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
             cost_usd=cost_usd,
             provider="openai",
             model_name=self.model_name,
@@ -412,18 +414,19 @@ class OpenAIClient:
         except (KeyError, IndexError, TypeError) as e:
             raise RuntimeError(f"Invalid OpenAI response structure: {e}") from e
 
-    def _extract_token_usage(self, data: dict[str, Any]) -> int:
+    def _extract_token_usage(self, data: dict[str, Any]) -> tuple[int, int, int]:
         """
-        Extract total token usage from OpenAI Responses API response.
+        Extract token usage breakdown from OpenAI Responses API response.
 
         Args:
             data: Parsed JSON response from OpenAI Responses API
 
         Returns:
-            int: Total tokens used (prompt + completion), or 0 if unavailable
+            tuple[int, int, int]: (total_tokens, prompt_tokens, completion_tokens)
+                All values default to 0 if unavailable
 
         Note:
-            Returns 0 if usage data is missing (graceful degradation).
+            Returns (0, 0, 0) if usage data is missing (graceful degradation).
             Logs warning if usage data is unavailable.
         """
         usage = data.get("usage")
@@ -432,10 +435,17 @@ class OpenAIClient:
                 f"OpenAI response missing 'usage' data for model={self.model_name}. "
                 "Token count and cost will be zero."
             )
-            return 0
+            return 0, 0, 0
 
         total_tokens = usage.get("total_tokens", 0)
-        return int(total_tokens) if total_tokens else 0
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("completion_tokens", 0)
+
+        return (
+            int(total_tokens) if total_tokens else 0,
+            int(prompt_tokens) if prompt_tokens else 0,
+            int(completion_tokens) if completion_tokens else 0,
+        )
 
     def _extract_web_search_results(self, data: dict[str, Any]) -> tuple[list[dict] | None, int]:
         """

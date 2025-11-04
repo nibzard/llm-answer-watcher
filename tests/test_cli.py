@@ -209,7 +209,12 @@ def mock_runtime_config(tmp_path):
         intents=[Intent(id="test-intent-1", prompt="What are the best tools?")],
         models=[
             RuntimeModel(
-                provider="openai", model_name="gpt-4o-mini", api_key="sk-test-key"
+                provider="openai",
+                model_name="gpt-4o-mini",
+                api_key="sk-test-key",
+                system_prompt="You are ChatGPT, a helpful AI assistant.",
+                tools=None,
+                tool_choice="auto",
             )
         ],
     )
@@ -929,7 +934,10 @@ class TestRunCommandFlags:
         assert result.exit_code == EXIT_SUCCESS
 
         # setup_logging should be called with verbose=True
-        mock_setup_logging.assert_called_once_with(verbose=True)
+        # Note: quiet_logs is set based on output format (agent/quiet modes)
+        mock_setup_logging.assert_called_once()
+        call_kwargs = mock_setup_logging.call_args.kwargs
+        assert call_kwargs['verbose'] is True
 
     @patch("llm_answer_watcher.cli.load_config")
     def test_run_verbose_shows_traceback_on_error(

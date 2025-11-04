@@ -27,7 +27,7 @@ class ModelConfig(BaseModel):
     Specifies which LLM to call and where to find its API key in the environment.
 
     Attributes:
-        provider: LLM provider name (openai, anthropic, mistral)
+        provider: LLM provider name (openai, anthropic, google, mistral)
         model_name: Specific model identifier (e.g., "gpt-4o-mini")
         env_api_key: Environment variable name containing the API key
         system_prompt: Optional relative path to system prompt JSON (e.g., "openai/gpt-4-default")
@@ -36,7 +36,7 @@ class ModelConfig(BaseModel):
         tool_choice: Tool selection mode ("auto", "required", "none"). Default: "auto"
     """
 
-    provider: Literal["openai", "anthropic", "mistral"]
+    provider: Literal["openai", "anthropic", "google", "mistral"]
     model_name: str
     env_api_key: str
     system_prompt: str | None = None

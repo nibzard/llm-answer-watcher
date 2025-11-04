@@ -10,6 +10,7 @@ Tests cover:
 
 import pytest
 
+from llm_answer_watcher.llm_runner.anthropic_client import AnthropicClient
 from llm_answer_watcher.llm_runner.models import LLMClient, LLMResponse, build_client
 from llm_answer_watcher.llm_runner.openai_client import OpenAIClient
 
@@ -142,19 +143,21 @@ class TestBuildClient:
         assert client.model_name == "gpt-4o"
         assert client.api_key == "sk-prod456"
 
-    def test_build_client_anthropic_not_implemented(self):
-        """Test that Anthropic provider raises NotImplementedError."""
-        with pytest.raises(
-            NotImplementedError,
-            match="Provider 'anthropic' support is planned but not yet implemented",
-        ):
-            build_client("anthropic", "claude-3-5-haiku-20241022", "sk-ant-test", TEST_SYSTEM_PROMPT)
+    def test_build_client_anthropic_success(self):
+        """Test building Anthropic client successfully."""
+        client = build_client("anthropic", "claude-3-5-haiku-20241022", "sk-ant-test", TEST_SYSTEM_PROMPT)
 
-        # Verify error message mentions supported providers
-        with pytest.raises(
-            NotImplementedError, match="Currently supported providers: openai"
-        ):
-            build_client("anthropic", "claude-3-5-haiku-20241022", "sk-ant-test", TEST_SYSTEM_PROMPT)
+        assert isinstance(client, AnthropicClient)
+        assert client.model_name == "claude-3-5-haiku-20241022"
+        assert client.api_key == "sk-ant-test"
+
+    def test_build_client_anthropic_different_model(self):
+        """Test building Anthropic client with different model."""
+        client = build_client("anthropic", "claude-3-5-sonnet-20241022", "sk-ant-prod", TEST_SYSTEM_PROMPT)
+
+        assert isinstance(client, AnthropicClient)
+        assert client.model_name == "claude-3-5-sonnet-20241022"
+        assert client.api_key == "sk-ant-prod"
 
     def test_build_client_mistral_not_implemented(self):
         """Test that Mistral provider raises NotImplementedError."""
@@ -164,16 +167,22 @@ class TestBuildClient:
         ):
             build_client("mistral", "mistral-large-latest", "mistral-key", TEST_SYSTEM_PROMPT)
 
+        # Verify error message mentions currently supported providers
+        with pytest.raises(
+            NotImplementedError, match="Currently supported providers: openai, anthropic"
+        ):
+            build_client("mistral", "mistral-large-latest", "mistral-key", TEST_SYSTEM_PROMPT)
+
     def test_build_client_unsupported_provider(self):
         """Test that unknown provider raises ValueError."""
         with pytest.raises(ValueError, match="Unsupported provider: 'gemini'"):
             build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
         # Verify error message lists supported and planned providers
-        with pytest.raises(ValueError, match="Supported providers: openai"):
+        with pytest.raises(ValueError, match="Supported providers: openai, anthropic"):
             build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
-        with pytest.raises(ValueError, match="Planned providers: anthropic, mistral"):
+        with pytest.raises(ValueError, match="Planned providers: mistral"):
             build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
     def test_build_client_empty_provider(self):

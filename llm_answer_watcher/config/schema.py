@@ -121,9 +121,38 @@ class Brands(BaseModel):
     Defines which brand names represent "us" vs competitors for tracking
     in LLM responses.
 
+    IMPORTANT: Each brand in both 'mine' and 'competitors' is tracked separately.
+    If you have multiple products to track (e.g., "ProductA" and "ProductB"),
+    list them as separate items - they will be tracked independently.
+
+    For brand aliases (e.g., "Warmly" and "Warmly.io" both refer to the same product),
+    the system uses exact and fuzzy matching to detect variations. However, if you
+    need explicit alias support, list the primary name first alphabetically.
+
     Attributes:
-        mine: List of aliases representing our brand (required, min 1)
-        competitors: List of competitor brand aliases (optional)
+        mine: List of brands representing "us" (required, min 1)
+              Each brand is tracked separately in database and reports
+              Sorted alphabetically for deterministic processing
+        competitors: List of competitor brand names (optional)
+                    Each competitor is tracked separately
+                    Sorted alphabetically for deterministic processing
+
+    Example:
+        # Single product with variations detected via fuzzy matching:
+        brands:
+          mine:
+            - "Warmly"  # Fuzzy matching will catch "Warmly.io", "warmly", etc.
+          competitors:
+            - "HubSpot"
+            - "Instantly"
+
+        # Multiple products tracked separately:
+        brands:
+          mine:
+            - "ProductA"  # Tracked independently
+            - "ProductB"  # Tracked independently
+          competitors:
+            - "CompetitorX"
     """
 
     mine: list[str]
@@ -133,27 +162,40 @@ class Brands(BaseModel):
     @classmethod
     def validate_mine(cls, v: list[str]) -> list[str]:
         """
-        Validate 'mine' brand aliases.
+        Validate and normalize 'mine' brand aliases with deterministic ordering.
 
-        Removes empty/whitespace-only entries and ensures at least one
-        valid alias remains.
+        Removes empty/whitespace-only entries, ensures at least one valid alias,
+        and sorts alphabetically for stable normalization across config changes.
+
+        CRITICAL: Alphabetical sorting ensures the same primary brand name even if
+        YAML order changes, preventing historical data inconsistencies.
         """
         # Remove empty/whitespace-only entries
         cleaned = [b.strip() for b in v if b and not b.isspace()]
         if not cleaned:
             raise ValueError("At least one brand alias required in 'mine'")
+
+        # Sort alphabetically for deterministic normalization
+        # Primary brand name will be the alphabetically first alias
+        cleaned.sort()
+
         return cleaned
 
     @field_validator("competitors")
     @classmethod
     def validate_competitors(cls, v: list[str]) -> list[str]:
         """
-        Validate competitor brand aliases.
+        Validate competitor brand aliases with deterministic ordering.
 
-        Removes empty/whitespace-only entries. Empty competitor list is allowed.
+        Removes empty/whitespace-only entries, sorts alphabetically for stability.
+        Empty competitor list is allowed.
         """
         # Remove empty/whitespace-only entries
         cleaned = [b.strip() for b in v if b and not b.isspace()]
+
+        # Sort alphabetically for deterministic processing
+        cleaned.sort()
+
         return cleaned
 
 
@@ -262,7 +304,7 @@ class RuntimeModel(BaseModel):
         provider: LLM provider name (openai, anthropic, mistral)
         model_name: Specific model identifier
         api_key: Resolved API key from environment (NEVER log this)
-        system_prompt: Resolved system prompt text (loaded from JSON file)
+        system_prompt: Resolved system prompt text (loaded from JSON file or default)
         tools: Optional list of tool configurations (e.g., [{"type": "web_search"}])
         tool_choice: Tool selection mode ("auto", "required", "none")
     """
@@ -270,7 +312,7 @@ class RuntimeModel(BaseModel):
     provider: str
     model_name: str
     api_key: str
-    system_prompt: str
+    system_prompt: str = "You are ChatGPT, a large language model trained by OpenAI."
     tools: list[dict] | None = None
     tool_choice: str = "auto"
 

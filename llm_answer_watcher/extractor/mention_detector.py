@@ -90,25 +90,29 @@ def normalize_brand_name(brand_aliases: list[str]) -> str:
     """
     Get canonical brand name from brand aliases list.
 
-    The primary brand name is the first item in the brand_aliases list.
-    This ensures consistent normalization for deduplication.
+    The primary brand name is the alphabetically first item in the list.
+    This ensures deterministic normalization even if YAML order changes.
+
+    CRITICAL: Config schema automatically sorts brand aliases alphabetically,
+    so this function always receives a sorted list. The primary brand name
+    is stable across config changes, preventing historical data inconsistencies.
 
     Args:
-        brand_aliases: List of all aliases for this brand
+        brand_aliases: List of all aliases for this brand (pre-sorted alphabetically by config)
 
     Returns:
-        Primary brand name (first alias in list)
+        Primary brand name (alphabetically first alias in list)
 
     Example:
-        >>> normalize_brand_name(["HubSpot", "Hubspot", "hub spot"])
+        >>> normalize_brand_name(["HubSpot", "Hubspot", "hub spot"])  # Already sorted by config
         'HubSpot'
-        >>> normalize_brand_name(["Warmly", "Warmly.io"])
+        >>> normalize_brand_name(["Warmly", "Warmly.io"])  # Already sorted by config
         'Warmly'
     """
     if not brand_aliases:
         raise ValueError("brand_aliases list cannot be empty")
 
-    # Primary name is always the first alias
+    # Primary name is always the first alias (alphabetically due to config sorting)
     return brand_aliases[0]
 
 
@@ -121,12 +125,16 @@ def detect_mentions(
     Uses regex with word boundaries to avoid false positives. Matches are
     case-insensitive but preserve original case in results.
 
+    IMPORTANT: Each brand in both our_brands and competitor_brands is tracked
+    SEPARATELY. If you have multiple products (e.g., ["ProductA", "ProductB"]),
+    they will be treated as independent brands with separate tracking.
+
     Process:
-    1. Create word-boundary patterns for all brand aliases
+    1. Create word-boundary patterns for all brands
     2. Search answer text for matches
     3. For each match:
        - Extract original text (preserving case)
-       - Set normalized name (primary alias)
+       - Set normalized name (brand name itself)
        - Set category ("mine" or "competitor")
        - Record character position
     4. Sort by position (order of appearance)
@@ -134,8 +142,8 @@ def detect_mentions(
 
     Args:
         answer_text: Text from LLM response to search for mentions
-        our_brands: List of aliases representing our brand(s)
-        competitor_brands: List of competitor brand aliases
+        our_brands: List of brands representing "us" (each tracked separately)
+        competitor_brands: List of competitor brands (each tracked separately)
 
     Returns:
         List of BrandMention objects sorted by appearance order (match_position)
@@ -143,7 +151,7 @@ def detect_mentions(
     Example:
         >>> mentions = detect_mentions(
         ...     "I prefer HubSpot over Instantly for email warmup.",
-        ...     our_brands=["Instantly", "instantly"],
+        ...     our_brands=["Instantly"],
         ...     competitor_brands=["HubSpot", "Mailshake"]
         ... )
         >>> len(mentions)
@@ -154,6 +162,23 @@ def detect_mentions(
         'competitor'
         >>> mentions[1].normalized_name
         'Instantly'
+        >>> mentions[1].brand_category
+        'mine'
+
+        # Multiple products tracked separately:
+        >>> mentions = detect_mentions(
+        ...     "Use ProductA or ProductB for best results.",
+        ...     our_brands=["ProductA", "ProductB"],
+        ...     competitor_brands=[]
+        ... )
+        >>> len(mentions)
+        2
+        >>> mentions[0].normalized_name
+        'ProductA'
+        >>> mentions[1].normalized_name
+        'ProductB'
+        >>> mentions[0].brand_category
+        'mine'
         >>> mentions[1].brand_category
         'mine'
 
@@ -175,26 +200,25 @@ def detect_mentions(
     # Build mapping of alias -> (primary_name, category, pattern)
     brand_patterns: list[tuple[str, str, str, re.Pattern]] = []
 
-    # Add our brands (all aliases for ONE brand - normalize to first alias)
-    our_brand_primary = our_brands[0] if our_brands else ""
-    for alias in our_brands:
-        if not alias or alias.isspace():
+    # Add our brands (EACH is a SEPARATE brand tracked independently)
+    for brand_name in our_brands:
+        if not brand_name or brand_name.isspace():
             continue
         try:
-            pattern = create_brand_pattern(alias)
-            # All "our_brands" are aliases for the same brand (normalize to first)
-            brand_patterns.append((alias, our_brand_primary, "mine", pattern))
+            pattern = create_brand_pattern(brand_name)
+            # Each "mine" brand is tracked separately (normalized name = itself)
+            brand_patterns.append((brand_name, brand_name, "mine", pattern))
         except ValueError:
-            # Skip invalid aliases
+            # Skip invalid brand names
             continue
 
-    # Add competitor brands (each is a SEPARATE brand - normalize to itself)
+    # Add competitor brands (each is a SEPARATE brand tracked independently)
     for brand_name in competitor_brands:
         if not brand_name or brand_name.isspace():
             continue
         try:
             pattern = create_brand_pattern(brand_name)
-            # Each competitor is a separate brand (normalized name = itself)
+            # Each competitor is tracked separately (normalized name = itself)
             brand_patterns.append((brand_name, brand_name, "competitor", pattern))
         except ValueError:
             # Skip invalid brand names

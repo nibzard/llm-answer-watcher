@@ -13,7 +13,7 @@ LLM Answer Watcher is a production-ready CLI tool that asks LLMs specific questi
 
 - **🔍 Brand Mention Detection**: Word-boundary regex matching prevents false positives
 - **📊 Historical Tracking**: SQLite database stores all responses for trend analysis
-- **🤖 Multi-Provider Support**: OpenAI, Anthropic, Mistral, Google, DeepSeek, XAI (100+ models)
+- **🤖 Multi-Provider Support**: OpenAI, Anthropic, Mistral, X.AI Grok, Google Gemini, and extensible provider system
 - **📈 Rank Extraction**: Automatic detection of where brands appear in LLM responses
 - **💰 Dynamic Pricing**: Auto-loads from llm-prices.com with 24-hour caching
 - **🛡️ Budget Protection**: Set spending limits to prevent runaway costs
@@ -34,6 +34,9 @@ pip install llm-answer-watcher
 # Set your API keys
 export OPENAI_API_KEY=your_key_here
 export ANTHROPIC_API_KEY=your_key_here
+export MISTRAL_API_KEY=your_key_here
+export XAI_API_KEY=your_key_here  # For Grok
+export GOOGLE_API_KEY=your_key_here  # For Gemini
 
 # Run with example config
 llm-answer-watcher run --config examples/watcher.config.yaml
@@ -43,7 +46,7 @@ llm-answer-watcher run --config examples/watcher.config.yaml
 
 - **Python 3.12+ or 3.13** (Required)
 - **uv** (recommended) or **pip** for package management
-- **API keys** for LLM providers (OpenAI, Anthropic, etc.)
+- **API keys** for LLM providers (OpenAI, Anthropic, Mistral, etc.)
 
 ### API Key Setup
 
@@ -55,6 +58,15 @@ export OPENAI_API_KEY=sk-your-openai-key-here
 
 # Anthropic
 export ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
+
+# Mistral
+export MISTRAL_API_KEY=mistral-your-key-here
+
+# X.AI Grok
+export XAI_API_KEY=xai-your-grok-key-here
+
+# Google Gemini
+export GOOGLE_API_KEY=AIza-your-google-api-key-here
 ```
 
 ## 🔧 Installation
@@ -106,6 +118,18 @@ run_settings:
       model_name: "claude-3-5-haiku-20241022"
       env_api_key: "ANTHROPIC_API_KEY"
 
+    - provider: "mistral"
+      model_name: "mistral-large-latest"
+      env_api_key: "MISTRAL_API_KEY"
+
+    - provider: "grok"
+      model_name: "grok-beta"
+      env_api_key: "XAI_API_KEY"
+
+    - provider: "google"
+      model_name: "gemini-2.0-flash-exp"
+      env_api_key: "GOOGLE_API_KEY"
+
   use_llm_rank_extraction: false  # Use regex-based extraction (faster/cheaper)
 
 brands:
@@ -131,7 +155,7 @@ intents:
 - **Brand aliases**: Include all variations of your brand name (e.g., "HubSpot", "HubSpot CRM")
 - **Competitor list**: Be comprehensive - include direct and indirect competitors
 - **Intent prompts**: Use natural language queries that real users would ask
-- **Model selection**: Use smaller models (gpt-4o-mini, claude-haiku) for cost efficiency
+- **Model selection**: Use smaller models (gpt-4o-mini, claude-haiku, grok-2-1212) for cost efficiency
 - **LLM rank extraction**: Set to `true` only if regex extraction fails (costs more)
 
 ## 📖 Usage Examples
@@ -148,7 +172,7 @@ Output:
 ```
 🔍 Running LLM Answer Watcher...
 ├── Query: "What are the best email warmup tools?"
-├── Models: OpenAI gpt-4o-mini, Anthropic claude-3-5-haiku
+├── Models: OpenAI gpt-4o-mini, Anthropic claude-3-5-haiku, Mistral mistral-large-latest
 ├── Brands: 2 monitored, 5 competitors
 └── Output: ./output/2025-11-01T14-30-00Z/
 
@@ -325,10 +349,11 @@ llm-answer-watcher prices list --format json
 The tool estimates costs **before** running queries:
 
 ```bash
-# Example pre-run output:
-Estimated cost: $0.0360 for 6 queries (includes 20% buffer)
-✓ Budget check passed
-Starting run...
+# Example cost breakdown
+├── OpenAI gpt-4o-mini: $0.0006 per query × 3 intents = $0.0018
+├── Anthropic claude-3-5-haiku: $0.0008 per query × 3 intents = $0.0024
+├── Grok grok-2-1212: $0.0012 per query × 3 intents = $0.0036
+└── Total estimated cost: $0.0078
 ```
 
 Cost estimation includes:
@@ -390,6 +415,48 @@ FROM answers_raw
 GROUP BY intent_id;
 ```
 
+## 🔌 Supported Providers & Models
+
+LLM Answer Watcher supports multiple LLM providers with a unified interface:
+
+### OpenAI
+- **Provider**: `openai`
+- **Models**: `gpt-4o-mini`, `gpt-4o`, `gpt-4-turbo`, `gpt-3.5-turbo`
+- **Pricing**: $0.15-$2.50 per 1M input tokens, $0.60-$10 per 1M output tokens
+- **Features**: Fast, cost-effective, excellent for production use
+
+### Anthropic (Claude)
+- **Provider**: `anthropic`
+- **Models**: `claude-3-5-haiku-20241022`, `claude-3-5-sonnet-20241022`, `claude-3-opus-20240229`
+- **Pricing**: $0.80-$15 per 1M input tokens, $4-$75 per 1M output tokens
+- **Features**: High-quality responses, strong reasoning capabilities
+
+### X.AI (Grok)
+- **Provider**: `grok`
+- **Models**: `grok-beta`, `grok-2-1212`, `grok-2-latest`, `grok-3`, `grok-3-mini`
+- **Pricing**: $2-$5 per 1M input tokens, $10-$25 per 1M output tokens
+- **Features**: OpenAI-compatible API, real-time X platform integration
+
+### Configuration Example
+
+```yaml
+models:
+  # Cost-optimized configuration
+  - provider: "openai"
+    model_name: "gpt-4o-mini"
+    env_api_key: "OPENAI_API_KEY"
+
+  # High-quality configuration
+  - provider: "anthropic"
+    model_name: "claude-3-5-sonnet-20241022"
+    env_api_key: "ANTHROPIC_API_KEY"
+
+  # Alternative provider
+  - provider: "grok"
+    model_name: "grok-2-1212"
+    env_api_key: "XAI_API_KEY"
+```
+
 ## 🤖 Using with AI Agents
 
 LLM Answer Watcher is designed for AI agent automation:
@@ -436,6 +503,7 @@ your_brand_mentions = [
 # Use .env files (add to .gitignore)
 echo "OPENAI_API_KEY=sk-your-key" > .env
 echo "ANTHROPIC_API_KEY=sk-ant-your-key" >> .env
+echo "XAI_API_KEY=xai-your-key" >> .env
 
 # Load in your shell
 source .env

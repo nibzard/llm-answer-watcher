@@ -109,6 +109,55 @@ PRICING = {
             "output": 1.25 / 1_000_000,
         },
     },
+    "google": {
+        # Gemini 2.0 models
+        "gemini-2.0-flash-exp": {
+            "input": 0.0,  # Free during experimental preview
+            "output": 0.0,  # Free during experimental preview
+        },
+        # Gemini 1.5 models
+        "gemini-1.5-pro": {
+            "input": 1.25 / 1_000_000,  # $1.25 per 1M input tokens (up to 128k)
+            "output": 5.00 / 1_000_000,  # $5.00 per 1M output tokens
+        },
+        "gemini-1.5-pro-001": {
+            "input": 1.25 / 1_000_000,
+            "output": 5.00 / 1_000_000,
+        },
+        "gemini-1.5-pro-002": {
+            "input": 1.25 / 1_000_000,
+            "output": 5.00 / 1_000_000,
+        },
+        "gemini-1.5-flash": {
+            "input": 0.075 / 1_000_000,  # $0.075 per 1M input tokens (up to 128k)
+            "output": 0.30 / 1_000_000,  # $0.30 per 1M output tokens
+        },
+        "gemini-1.5-flash-001": {
+            "input": 0.075 / 1_000_000,
+            "output": 0.30 / 1_000_000,
+        },
+        "gemini-1.5-flash-002": {
+            "input": 0.075 / 1_000_000,
+            "output": 0.30 / 1_000_000,
+        },
+        "gemini-1.5-flash-8b": {
+            "input": 0.0375 / 1_000_000,  # $0.0375 per 1M input tokens
+            "output": 0.15 / 1_000_000,  # $0.15 per 1M output tokens
+        },
+        "gemini-1.5-flash-8b-001": {
+            "input": 0.0375 / 1_000_000,
+            "output": 0.15 / 1_000_000,
+        },
+        # Gemini 1.0 models (legacy)
+        "gemini-1.0-pro": {
+            "input": 0.50 / 1_000_000,  # $0.50 per 1M input tokens
+            "output": 1.50 / 1_000_000,  # $1.50 per 1M output tokens
+        },
+        "gemini-1.0-pro-001": {
+            "input": 0.50 / 1_000_000,
+            "output": 1.50 / 1_000_000,
+        },
+    },
     "mistral": {
         "mistral-large-latest": {
             "input": 2.00 / 1_000_000,
@@ -121,6 +170,45 @@ PRICING = {
         "codestral-latest": {
             "input": 0.20 / 1_000_000,
             "output": 0.60 / 1_000_000,
+        },
+    },
+    "grok": {
+        # Grok Beta (Initial release - November 2024)
+        "grok-beta": {
+            "input": 5.00 / 1_000_000,  # $5.00 per 1M input tokens
+            "output": 15.00 / 1_000_000,  # $15.00 per 1M output tokens
+        },
+        # Grok 2 Models (December 2024)
+        "grok-2-1212": {
+            "input": 2.00 / 1_000_000,  # $2.00 per 1M input tokens
+            "output": 10.00 / 1_000_000,  # $10.00 per 1M output tokens
+        },
+        "grok-2-vision-1212": {
+            "input": 2.00 / 1_000_000,
+            "output": 10.00 / 1_000_000,
+        },
+        # Grok 2 latest (alias)
+        "grok-2-latest": {
+            "input": 2.00 / 1_000_000,
+            "output": 10.00 / 1_000_000,
+        },
+        # Grok 3 Models (February 2025)
+        "grok-3": {
+            "input": 3.00 / 1_000_000,  # $3.00 per 1M input tokens
+            "output": 15.00 / 1_000_000,  # $15.00 per 1M output tokens
+        },
+        "grok-3-mini": {
+            "input": 3.00 / 1_000_000,  # $3.00 per 1M input tokens (same as grok-3)
+            "output": 15.00 / 1_000_000,  # $15.00 per 1M output tokens
+        },
+        "grok-3-fast": {
+            "input": 5.00 / 1_000_000,  # $5.00 per 1M input tokens
+            "output": 25.00 / 1_000_000,  # $25.00 per 1M output tokens
+        },
+        # Grok 3 latest (alias)
+        "grok-3-latest": {
+            "input": 3.00 / 1_000_000,
+            "output": 15.00 / 1_000_000,
         },
     },
 }

@@ -166,8 +166,10 @@ def build_client(
 
     Supported providers:
     - "openai": OpenAI API (GPT models)
-    - "anthropic": Anthropic API (Claude models) - Future
-    - "mistral": Mistral API - Future
+    - "anthropic": Anthropic API (Claude models)
+    - "mistral": Mistral API (Mistral models)
+    - "grok": X.AI Grok API (Grok models)
+    - "google": Google Gemini API (Gemini models)
 
     Args:
         provider: Provider identifier (lowercase string)
@@ -193,6 +195,8 @@ def build_client(
         >>> # With tools enabled
         >>> client = build_client("openai", "gpt-4o-mini", "sk-...", "...",
         ...     tools=[{"type": "web_search"}], tool_choice="auto")
+        >>> # Grok example
+        >>> client = build_client("grok", "grok-beta", "xai-...", "...")
 
     Security:
         - NEVER log the api_key parameter in any form
@@ -218,16 +222,64 @@ def build_client(
             tool_choice=tool_choice,
         )
 
-    if provider in ("anthropic", "mistral"):
-        # Planned for future implementation
-        raise NotImplementedError(
-            f"Provider '{provider}' support is planned but not yet implemented. "
-            "Currently supported providers: openai"
+    if provider == "anthropic":
+        # Import here to avoid circular dependencies and keep imports lazy
+        from llm_answer_watcher.llm_runner.anthropic_client import (
+            AnthropicClient,
+        )
+
+        return AnthropicClient(
+            model_name=model_name,
+            api_key=api_key,
+            system_prompt=system_prompt,
+            tools=tools,
+            tool_choice=tool_choice,
+        )
+
+    if provider == "mistral":
+        # Import here to avoid circular dependencies and keep imports lazy
+        from llm_answer_watcher.llm_runner.mistral_client import (
+            MistralClient,
+        )
+
+        return MistralClient(
+            model_name=model_name,
+            api_key=api_key,
+            system_prompt=system_prompt,
+            tools=tools,
+            tool_choice=tool_choice,
+        )
+
+    if provider == "grok":
+        # Import here to avoid circular dependencies and keep imports lazy
+        from llm_answer_watcher.llm_runner.grok_client import (
+            GrokClient,
+        )
+
+        return GrokClient(
+            model_name=model_name,
+            api_key=api_key,
+            system_prompt=system_prompt,
+            tools=tools,
+            tool_choice=tool_choice,
+        )
+
+    if provider == "google":
+        # Import here to avoid circular dependencies and keep imports lazy
+        from llm_answer_watcher.llm_runner.gemini_client import (
+            GeminiClient,
+        )
+
+        return GeminiClient(
+            model_name=model_name,
+            api_key=api_key,
+            system_prompt=system_prompt,
+            tools=tools,
+            tool_choice=tool_choice,
         )
 
     # Unknown provider - clear error message
     raise ValueError(
         f"Unsupported provider: '{provider}'. "
-        f"Supported providers: openai. "
-        f"Planned providers: anthropic, mistral"
+        f"Supported providers: openai, anthropic, mistral, grok, google"
     )

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **LLM Answer Watcher** is a production-ready CLI tool that monitors how large language models talk about brands versus competitors in buyer-intent queries. It asks LLMs specific questions (e.g., "best email warmup tools"), extracts structured signals (Did we appear? Who else appeared? In what rank?), and stores results in SQLite for historical tracking.
 
 **Key characteristics:**
-- **BYOK (Bring Your Own Keys)**: Users provide their own OpenAI/Anthropic API keys
+- **BYOK (Bring Your Own Keys)**: Users provide their own OpenAI/Anthropic/Mistral/Grok/Google API keys
 - **Local-first**: All data stored locally in SQLite and JSON files
 - **API-first mindset**: Internal contract designed to become HTTP API in Cloud product
 - **Dual-mode CLI**: Beautiful Rich output for humans, structured JSON for AI agents
@@ -18,8 +18,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Current phase**: Production-ready, ~95% complete (1,001/1,053 tasks done)
 
 The codebase currently contains:
-- **~7,700 lines of production Python code** across 35 modules
-- **~16,600 lines of test code** with 695+ test cases
+- **~8,200 lines of production Python code** across 36 modules
+- **~17,400 lines of test code** with 750+ test cases
 - Complete engineering specification (SPECS.md)
 - Comprehensive TODO.md tracking progress (52 pending tasks remain)
 - **All 4 milestones COMPLETE**:
@@ -28,7 +28,8 @@ The codebase currently contains:
   - ✅ Milestone 3: Report generation + CLI
   - ✅ Milestone 4: Polish, docs, tests (80%+ coverage achieved)
 - **Bonus**: Complete evaluation framework with CLI integration
-- **Remaining work**: Anthropic/Mistral client implementation (optional), advanced features (trends command, DeepEval integration)
+- **Remaining work**: Advanced features (trends command, DeepEval integration)
+- **Recently completed**: Mistral, Grok, and Google Gemini client implementations with full model support
 
 ## Architecture & Domain Design
 
@@ -90,7 +91,7 @@ class LLMClient(Protocol):
         ...
 
 def build_client(
-    provider: str,
+    provider: str,  # "openai", "anthropic", "google"
     model_name: str,
     api_key: str,
     system_prompt: str,
@@ -98,8 +99,7 @@ def build_client(
     tool_choice: str = "auto",
 ) -> LLMClient:
     # Factory pattern for multi-provider support
-    # Currently supports: openai
-    # Planned: anthropic, mistral
+    # Currently supports: openai, anthropic, mistral, grok, google
     ...
 ```
 

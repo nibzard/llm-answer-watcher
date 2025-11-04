@@ -337,16 +337,37 @@ class OpenAIClient:
 
         # Calculate cost (including web search if applicable)
         usage_meta = data.get("usage", {})
-        cost_usd = estimate_cost("openai", self.model_name, usage_meta)
+
+        # Detect web search version for pricing
+        from llm_answer_watcher.utils.cost import (
+            detect_web_search_version,
+            estimate_cost_with_dynamic_pricing,
+        )
+
+        web_search_version = detect_web_search_version(self.model_name)
+
+        # Use enhanced cost calculation with web search support
+        cost_breakdown = estimate_cost_with_dynamic_pricing(
+            provider="openai",
+            model=self.model_name,
+            usage_meta=usage_meta,
+            web_search_count=web_search_count,
+            web_search_version=web_search_version,
+            use_dynamic_pricing=True,
+        )
+
+        cost_usd = cost_breakdown["total_cost_usd"]
 
         # Get current timestamp
         timestamp = utc_timestamp()
 
-        # Log web search usage if applicable
+        # Log web search usage and costs if applicable
         if web_search_count > 0:
             logger.info(
                 f"Web search performed: {web_search_count} searches, "
-                f"model={self.model_name}"
+                f"model={self.model_name}, "
+                f"tool_cost=${cost_breakdown['web_search_tool_cost_usd']:.6f}, "
+                f"content_cost=${cost_breakdown['web_search_content_cost_usd']:.6f}"
             )
 
         # Build and return response

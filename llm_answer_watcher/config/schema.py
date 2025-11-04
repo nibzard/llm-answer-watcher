@@ -71,6 +71,33 @@ class ModelConfig(BaseModel):
         return v
 
 
+class BudgetConfig(BaseModel):
+    """
+    Budget control settings to prevent runaway costs.
+
+    Enables cost limits and warnings for LLM API usage. All costs are in USD.
+
+    Attributes:
+        enabled: Enable budget controls (default: True)
+        max_per_run_usd: Maximum cost per run (abort if exceeded)
+        max_per_intent_usd: Maximum cost per intent (abort if exceeded)
+        warn_threshold_usd: Warn if estimated cost exceeds this (but continue)
+    """
+
+    enabled: bool = True
+    max_per_run_usd: float | None = None
+    max_per_intent_usd: float | None = None
+    warn_threshold_usd: float | None = None
+
+    @field_validator("max_per_run_usd", "max_per_intent_usd", "warn_threshold_usd")
+    @classmethod
+    def validate_positive(cls, v: float | None) -> float | None:
+        """Validate budget values are positive if specified."""
+        if v is not None and v <= 0:
+            raise ValueError(f"Budget value must be positive, got: {v}")
+        return v
+
+
 class RunSettings(BaseModel):
     """
     Runtime settings for watcher execution.
@@ -82,12 +109,14 @@ class RunSettings(BaseModel):
         sqlite_db_path: Path to SQLite database for historical tracking
         models: List of LLM models to query for each intent
         use_llm_rank_extraction: Enable LLM-assisted ranking (slower, more accurate)
+        budget: Optional budget controls to prevent runaway costs
     """
 
     output_dir: str
     sqlite_db_path: str
     models: list[ModelConfig]
     use_llm_rank_extraction: bool = False
+    budget: BudgetConfig | None = None
 
     @field_validator("output_dir")
     @classmethod

@@ -15,7 +15,9 @@ LLM Answer Watcher is a production-ready CLI tool that asks LLMs specific questi
 - **📊 Historical Tracking**: SQLite database stores all responses for trend analysis
 - **🤖 Multi-Provider Support**: OpenAI, Anthropic, Mistral, X.AI Grok, Google Gemini, and extensible provider system
 - **📈 Rank Extraction**: Automatic detection of where brands appear in LLM responses
-- **💰 Cost Estimation**: Built-in token counting and cost calculation
+- **💰 Dynamic Pricing**: Auto-loads from llm-prices.com with 24-hour caching
+- **🛡️ Budget Protection**: Set spending limits to prevent runaway costs
+- **🔧 Web Search Costs**: Accurate calculation for all OpenAI web search tiers
 - **🎯 Dual-Mode CLI**: Beautiful Rich output for humans, structured JSON for AI agents
 - **📋 HTML Reports**: Auto-generated reports with historical data visualizations
 - **🔒 Local-First**: All data stored locally, BYOK (Bring Your Own Keys)
@@ -320,9 +322,31 @@ case $? in
 esac
 ```
 
-## 💰 Cost Estimation
+## 💰 Cost Estimation & Budget Controls
 
-The tool estimates costs before running queries:
+### Dynamic Pricing
+
+LLM Answer Watcher automatically loads current pricing from [llm-prices.com](https://www.llm-prices.com):
+
+```bash
+# View current pricing for all models
+llm-answer-watcher prices show
+
+# View pricing for specific provider
+llm-answer-watcher prices show --provider openai
+
+# Refresh pricing (auto-caches for 24 hours)
+llm-answer-watcher prices refresh --force
+
+# Export pricing as JSON
+llm-answer-watcher prices list --format json
+```
+
+**Supported Models**: 100+ models across OpenAI, Anthropic, Mistral, Google, DeepSeek, and XAI.
+
+### Pre-Run Cost Estimation
+
+The tool estimates costs **before** running queries:
 
 ```bash
 # Example cost breakdown
@@ -332,11 +356,64 @@ The tool estimates costs before running queries:
 └── Total estimated cost: $0.0078
 ```
 
-Cost factors:
-- **Model pricing**: Different models have different per-token costs
-- **Intent complexity**: Longer prompts may use more tokens
-- **Response length**: More detailed LLM responses cost more
-- **Number of brands**: More brands to analyze doesn't significantly increase cost
+Cost estimation includes:
+- **Token usage**: Input (~150 tokens) + Output (~500 tokens) per query
+- **Web search costs**: $10-$25 per 1,000 calls depending on model
+- **Safety buffer**: 20% added to prevent unexpected overruns
+
+### Web Search Costs
+
+Web search tool usage is automatically calculated based on OpenAI pricing:
+
+| Tool Version | Cost | Content Tokens |
+|--------------|------|----------------|
+| Standard (all models) | $10/1k calls | @ model rate |
+| gpt-4o-mini, gpt-4.1-mini | $10/1k calls | Fixed 8k tokens |
+| Preview reasoning (o1, o3) | $10/1k calls | @ model rate |
+| Preview non-reasoning | $25/1k calls | **FREE** |
+
+### Budget Protection
+
+Protect against runaway costs with budget limits:
+
+```yaml
+run_settings:
+  # ... other settings ...
+
+  budget:
+    enabled: true
+    max_per_run_usd: 1.00         # Hard limit per run
+    max_per_intent_usd: 0.10      # Limit per intent
+    warn_threshold_usd: 0.50      # Warning (but continue)
+```
+
+**Budget Enforcement**:
+- Validates **before** execution starts
+- Aborts if estimated cost exceeds limits
+- Logs warnings when threshold exceeded
+- Can be disabled for unlimited runs
+
+Example budget error:
+```
+❌ Budget exceeded: Estimated run cost $1.25 exceeds max_per_run_usd budget of $1.00.
+   Run would execute 12 queries. Use --force to override or increase budget limit.
+```
+
+### Cost Tracking
+
+All costs are tracked in SQLite and JSON artifacts:
+
+```sql
+-- View total costs by model
+SELECT model_name, SUM(estimated_cost_usd) as total_cost
+FROM answers_raw
+GROUP BY model_name;
+
+-- View average cost per intent
+SELECT intent_id, AVG(estimated_cost_usd) as avg_cost
+FROM answers_raw
+GROUP BY intent_id;
+```
 
 ## 🔌 Supported Providers & Models
 

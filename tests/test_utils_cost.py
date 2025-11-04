@@ -437,3 +437,245 @@ class TestEstimateCostIntegration:
         expected = 0.000203
 
         assert abs(total_cost - expected) < 0.000001  # Allow for rounding
+
+
+class TestCalculateWebSearchCost:
+    """Test suite for calculate_web_search_cost() function."""
+
+    def test_web_search_standard_cost(self):
+        """Test standard web search cost calculation."""
+        from llm_answer_watcher.utils.cost import calculate_web_search_cost
+
+        # 2 web searches at standard rate ($10/1k)
+        result = calculate_web_search_cost(
+            provider="openai",
+            model="gpt-4o",
+            web_search_count=2,
+            web_search_version="web_search",
+        )
+
+        # Tool call cost: (2 / 1000) * $10 = $0.02
+        assert result["tool_call_cost_usd"] == 0.02
+        assert result["content_cost_usd"] == 0.0  # Included in token usage
+        assert result["total_cost_usd"] == 0.02
+
+    def test_web_search_gpt4o_mini_fixed_tokens(self):
+        """Test gpt-4o-mini web search with fixed 8k tokens."""
+        from llm_answer_watcher.utils.cost import calculate_web_search_cost
+
+        # 1 web search for gpt-4o-mini
+        result = calculate_web_search_cost(
+            provider="openai",
+            model="gpt-4o-mini",
+            web_search_count=1,
+            web_search_version="web_search_gpt4o_mini",
+        )
+
+        # Tool call cost: (1 / 1000) * $10 = $0.01
+        # Content cost: 8000 tokens * ($0.15/1M) = $0.0012
+        expected_tool = 0.01
+        expected_content = 8000 * (0.15 / 1_000_000)
+        expected_total = expected_tool + expected_content
+
+        assert result["tool_call_cost_usd"] == expected_tool
+        assert result["content_cost_usd"] == pytest.approx(expected_content, abs=0.000001)
+        assert result["fixed_tokens"] == 8000
+        assert result["total_cost_usd"] == pytest.approx(expected_total, abs=0.000001)
+
+    def test_web_search_preview_reasoning(self):
+        """Test preview reasoning model web search cost."""
+        from llm_answer_watcher.utils.cost import calculate_web_search_cost
+
+        # 3 web searches for o1 model
+        result = calculate_web_search_cost(
+            provider="openai",
+            model="o1-preview",
+            web_search_count=3,
+            web_search_version="web_search_preview_reasoning",
+        )
+
+        # Tool call cost: (3 / 1000) * $10 = $0.03
+        assert result["tool_call_cost_usd"] == 0.03
+        assert result["content_cost_usd"] == 0.0  # Included in token usage
+        assert result["total_cost_usd"] == 0.03
+
+    def test_web_search_preview_non_reasoning_free_content(self):
+        """Test preview non-reasoning with FREE content tokens."""
+        from llm_answer_watcher.utils.cost import calculate_web_search_cost
+
+        # 1 web search with free content
+        result = calculate_web_search_cost(
+            provider="openai",
+            model="gpt-4o",
+            web_search_count=1,
+            web_search_version="web_search_preview_non_reasoning",
+        )
+
+        # Tool call cost: (1 / 1000) * $25 = $0.025
+        # Content cost: FREE
+        assert result["tool_call_cost_usd"] == 0.025
+        assert result["content_cost_usd"] == 0.0
+        assert result["total_cost_usd"] == 0.025
+
+    def test_web_search_zero_searches(self):
+        """Test zero web searches returns zero cost."""
+        from llm_answer_watcher.utils.cost import calculate_web_search_cost
+
+        result = calculate_web_search_cost(
+            provider="openai",
+            model="gpt-4o",
+            web_search_count=0,
+            web_search_version="web_search",
+        )
+
+        assert result["tool_call_cost_usd"] == 0.0
+        assert result["content_cost_usd"] == 0.0
+        assert result["total_cost_usd"] == 0.0
+
+    def test_web_search_non_openai_provider(self):
+        """Test error when provider is not OpenAI."""
+        from llm_answer_watcher.utils.cost import calculate_web_search_cost
+
+        with pytest.raises(ValueError) as exc_info:
+            calculate_web_search_cost(
+                provider="anthropic",
+                model="claude-3-5-sonnet",
+                web_search_count=1,
+                web_search_version="web_search",
+            )
+
+        assert "openai" in str(exc_info.value).lower()
+
+    def test_web_search_negative_count(self):
+        """Test error when web_search_count is negative."""
+        from llm_answer_watcher.utils.cost import calculate_web_search_cost
+
+        with pytest.raises(ValueError) as exc_info:
+            calculate_web_search_cost(
+                provider="openai",
+                model="gpt-4o",
+                web_search_count=-1,
+                web_search_version="web_search",
+            )
+
+        assert "must be >= 0" in str(exc_info.value)
+
+
+class TestDetectWebSearchVersion:
+    """Test suite for detect_web_search_version() function."""
+
+    def test_detect_gpt4o_mini(self):
+        """Test detection for gpt-4o-mini model."""
+        from llm_answer_watcher.utils.cost import detect_web_search_version
+
+        version = detect_web_search_version("gpt-4o-mini")
+        assert version == "web_search_gpt4o_mini"
+
+    def test_detect_gpt41_mini(self):
+        """Test detection for gpt-4.1-mini model."""
+        from llm_answer_watcher.utils.cost import detect_web_search_version
+
+        version = detect_web_search_version("gpt-4.1-mini")
+        assert version == "web_search_gpt4o_mini"
+
+    def test_detect_reasoning_model_preview(self):
+        """Test detection for reasoning models with preview."""
+        from llm_answer_watcher.utils.cost import detect_web_search_version
+
+        version = detect_web_search_version("o1-preview", tool_version="preview")
+        assert version == "web_search_preview_reasoning"
+
+        version = detect_web_search_version("o3-mini", tool_version="preview")
+        assert version == "web_search_preview_reasoning"
+
+    def test_detect_non_reasoning_preview(self):
+        """Test detection for non-reasoning models with preview."""
+        from llm_answer_watcher.utils.cost import detect_web_search_version
+
+        version = detect_web_search_version("gpt-4o", tool_version="preview")
+        assert version == "web_search_preview_non_reasoning"
+
+    def test_detect_standard(self):
+        """Test detection for standard web search."""
+        from llm_answer_watcher.utils.cost import detect_web_search_version
+
+        version = detect_web_search_version("gpt-4o")
+        assert version == "web_search"
+
+        version = detect_web_search_version("gpt-4-turbo")
+        assert version == "web_search"
+
+
+class TestEstimateCostWithDynamicPricing:
+    """Test suite for estimate_cost_with_dynamic_pricing() function."""
+
+    def test_cost_breakdown_without_web_search(self):
+        """Test cost breakdown for standard query without web search."""
+        from llm_answer_watcher.utils.cost import estimate_cost_with_dynamic_pricing
+
+        usage = {"prompt_tokens": 100, "completion_tokens": 50}
+
+        breakdown = estimate_cost_with_dynamic_pricing(
+            provider="openai",
+            model="gpt-4o-mini",
+            usage_meta=usage,
+            web_search_count=0,
+            use_dynamic_pricing=False,  # Use fallback
+        )
+
+        # Should have token cost, no web search cost
+        assert breakdown["token_cost_usd"] > 0
+        assert breakdown["web_search_tool_cost_usd"] == 0.0
+        assert breakdown["web_search_content_cost_usd"] == 0.0
+        assert breakdown["total_cost_usd"] == breakdown["token_cost_usd"]
+        assert breakdown["pricing_source"] in ["fallback", "remote", "cache"]
+
+    def test_cost_breakdown_with_web_search(self):
+        """Test cost breakdown including web search."""
+        from llm_answer_watcher.utils.cost import estimate_cost_with_dynamic_pricing
+
+        usage = {"prompt_tokens": 100, "completion_tokens": 50}
+
+        breakdown = estimate_cost_with_dynamic_pricing(
+            provider="openai",
+            model="gpt-4o",
+            usage_meta=usage,
+            web_search_count=2,
+            web_search_version="web_search",
+            use_dynamic_pricing=False,  # Use fallback
+        )
+
+        # Should have both token and web search costs
+        assert breakdown["token_cost_usd"] > 0
+        assert breakdown["web_search_tool_cost_usd"] > 0
+        assert breakdown["total_cost_usd"] == (
+            breakdown["token_cost_usd"]
+            + breakdown["web_search_tool_cost_usd"]
+            + breakdown["web_search_content_cost_usd"]
+        )
+
+    def test_cost_breakdown_gpt4o_mini_web_search(self):
+        """Test cost breakdown for gpt-4o-mini with web search."""
+        from llm_answer_watcher.utils.cost import estimate_cost_with_dynamic_pricing
+
+        usage = {"prompt_tokens": 100, "completion_tokens": 50}
+
+        breakdown = estimate_cost_with_dynamic_pricing(
+            provider="openai",
+            model="gpt-4o-mini",
+            usage_meta=usage,
+            web_search_count=1,
+            web_search_version="web_search_gpt4o_mini",
+            use_dynamic_pricing=False,  # Use fallback
+        )
+
+        # Should have token cost, tool cost, and content cost (8k fixed tokens)
+        assert breakdown["token_cost_usd"] > 0
+        assert breakdown["web_search_tool_cost_usd"] == 0.01  # $10/1k for 1 call
+        assert breakdown["web_search_content_cost_usd"] > 0  # 8k tokens
+        assert (
+            breakdown["total_cost_usd"]
+            == breakdown["token_cost_usd"]
+            + breakdown["web_search_tool_cost_usd"]
+            + breakdown["web_search_content_cost_usd"]
+        )

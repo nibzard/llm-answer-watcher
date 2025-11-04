@@ -37,7 +37,7 @@ import logging
 import sqlite3
 from dataclasses import asdict, dataclass
 
-from ..config.schema import RuntimeConfig
+from ..config.schema import RuntimeConfig, RuntimeModel
 from ..extractor.parser import parse_answer
 from ..storage.db import insert_answer_raw, insert_mention, insert_run
 from ..storage.writer import (
@@ -103,6 +103,153 @@ class RawAnswerRecord:
     web_search_count: int = 0
 
 
+class BudgetExceededError(Exception):
+    """Raised when estimated cost exceeds budget limits."""
+
+    pass
+
+
+def estimate_run_cost(config: RuntimeConfig) -> dict:
+    """
+    Estimate total cost for a run before execution.
+
+    Uses conservative estimates for token usage:
+    - Input tokens: 150 per query (prompt + system)
+    - Output tokens: 500 per query (answer)
+    - Web search: $0.01 per call if tools enabled
+
+    Adds 20% buffer for safety.
+
+    Args:
+        config: Runtime configuration with intents and models
+
+    Returns:
+        dict: Cost estimate with breakdown:
+            - total_estimated_cost: Total estimated cost in USD
+            - per_intent_costs: Dict mapping intent_id to estimated cost
+            - total_queries: Total number of queries
+            - buffer_percentage: Safety buffer applied (20%)
+
+    Example:
+        >>> estimate = estimate_run_cost(config)
+        >>> print(f"Estimated: ${estimate['total_estimated_cost']:.4f}")
+        Estimated: $0.0240
+        >>> print(f"Queries: {estimate['total_queries']}")
+        Queries: 6
+    """
+    from ..utils.pricing import PricingNotAvailableError, get_pricing
+
+    # Conservative token estimates
+    AVG_INPUT_TOKENS = 150  # Prompt + system message
+    AVG_OUTPUT_TOKENS = 500  # Response
+    BUFFER_PERCENTAGE = 0.20  # 20% safety buffer
+
+    total_cost = 0.0
+    per_intent_costs = {}
+
+    for intent in config.intents:
+        intent_cost = 0.0
+
+        for model in config.models:
+            # Get pricing for this model
+            try:
+                pricing = get_pricing(model.provider, model.model_name)
+                input_rate = pricing.input / 1_000_000  # Convert to per-token
+                output_rate = pricing.output / 1_000_000
+            except (PricingNotAvailableError, Exception) as e:
+                logger.warning(
+                    f"Cannot estimate cost for {model.provider}/{model.model_name}: {e}. "
+                    "Using $0.002 fallback."
+                )
+                # Fallback: assume ~$0.002 per query (gpt-4o-mini ballpark)
+                input_rate = 0.00000015  # $0.15/1M
+                output_rate = 0.0000006  # $0.60/1M
+
+            # Calculate token cost
+            query_cost = (AVG_INPUT_TOKENS * input_rate) + (
+                AVG_OUTPUT_TOKENS * output_rate
+            )
+
+            # Add web search cost if tools enabled
+            if model.tools:
+                # Assume 1 web search per query
+                web_search_cost = 0.01  # $10/1k = $0.01 per call
+                query_cost += web_search_cost
+
+            intent_cost += query_cost
+
+        per_intent_costs[intent.id] = round(intent_cost, 6)
+        total_cost += intent_cost
+
+    # Add safety buffer
+    total_with_buffer = total_cost * (1 + BUFFER_PERCENTAGE)
+
+    return {
+        "total_estimated_cost": round(total_with_buffer, 6),
+        "total_queries": len(config.intents) * len(config.models),
+        "per_intent_costs": per_intent_costs,
+        "buffer_percentage": BUFFER_PERCENTAGE,
+        "base_cost": round(total_cost, 6),
+    }
+
+
+def validate_budget(config: RuntimeConfig, cost_estimate: dict) -> None:
+    """
+    Validate estimated cost against budget limits.
+
+    Checks budget configuration and raises BudgetExceededError if limits
+    would be violated. Logs warnings if warn_threshold exceeded.
+
+    Args:
+        config: Runtime configuration with budget settings
+        cost_estimate: Cost estimate from estimate_run_cost()
+
+    Raises:
+        BudgetExceededError: If max_per_run_usd or max_per_intent_usd exceeded
+
+    Example:
+        >>> estimate = estimate_run_cost(config)
+        >>> validate_budget(config, estimate)  # Raises if budget exceeded
+    """
+    budget = config.run_settings.budget
+
+    # No budget configured or disabled
+    if not budget or not budget.enabled:
+        logger.debug("Budget controls disabled or not configured")
+        return
+
+    total_cost = cost_estimate["total_estimated_cost"]
+    per_intent_costs = cost_estimate["per_intent_costs"]
+
+    # Check total run budget
+    if budget.max_per_run_usd is not None:
+        if total_cost > budget.max_per_run_usd:
+            raise BudgetExceededError(
+                f"Estimated run cost ${total_cost:.4f} exceeds max_per_run_usd "
+                f"budget of ${budget.max_per_run_usd:.2f}. "
+                f"Run would execute {cost_estimate['total_queries']} queries. "
+                f"Use --force to override or increase budget limit."
+            )
+
+    # Check per-intent budget
+    if budget.max_per_intent_usd is not None:
+        for intent_id, intent_cost in per_intent_costs.items():
+            if intent_cost > budget.max_per_intent_usd:
+                raise BudgetExceededError(
+                    f"Estimated cost for intent '{intent_id}' (${intent_cost:.4f}) "
+                    f"exceeds max_per_intent_usd budget of ${budget.max_per_intent_usd:.2f}. "
+                    f"Use --force to override or increase budget limit."
+                )
+
+    # Check warning threshold
+    if budget.warn_threshold_usd is not None:
+        if total_cost > budget.warn_threshold_usd:
+            logger.warning(
+                f"⚠️  Estimated cost ${total_cost:.4f} exceeds warning threshold "
+                f"of ${budget.warn_threshold_usd:.2f}. Proceeding with execution."
+            )
+
+
 def run_all(config: RuntimeConfig) -> dict:
     """
     Execute complete LLM query workflow and return results.
@@ -140,6 +287,7 @@ def run_all(config: RuntimeConfig) -> dict:
         }
 
     Raises:
+        BudgetExceededError: If estimated cost exceeds configured budget limits
         OSError: If output directory cannot be created
         PermissionError: If insufficient permissions for file/DB operations
         Exception: Database errors are logged but don't stop execution
@@ -170,6 +318,20 @@ def run_all(config: RuntimeConfig) -> dict:
         f"Config: {len(config.intents)} intents, {len(config.models)} models, "
         f"output_dir={config.run_settings.output_dir}"
     )
+
+    # Estimate cost and validate budget (if configured)
+    cost_estimate = estimate_run_cost(config)
+    logger.info(
+        f"Estimated cost: ${cost_estimate['total_estimated_cost']:.4f} "
+        f"for {cost_estimate['total_queries']} queries "
+        f"(includes {int(cost_estimate['buffer_percentage'] * 100)}% buffer)"
+    )
+
+    try:
+        validate_budget(config, cost_estimate)
+    except BudgetExceededError as e:
+        logger.error(f"Budget exceeded: {e}")
+        raise
 
     # Create output directory for this run
     run_dir = create_run_directory(config.run_settings.output_dir, run_id)

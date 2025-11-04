@@ -142,9 +142,29 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
         - Fails fast if environment variable is missing
         - API keys are only held in memory, never persisted
     """
+    # List of implemented providers
+    IMPLEMENTED_PROVIDERS = {"openai"}
+    PLANNED_PROVIDERS = {"anthropic", "mistral"}
+
     resolved_models: list[RuntimeModel] = []
 
     for model_config in config.run_settings.models:
+        # Validate provider is implemented
+        if model_config.provider not in IMPLEMENTED_PROVIDERS:
+            if model_config.provider in PLANNED_PROVIDERS:
+                raise ValueError(
+                    f"Provider '{model_config.provider}' is not yet implemented. "
+                    f"Currently supported providers: {', '.join(sorted(IMPLEMENTED_PROVIDERS))}. "
+                    f"Planned providers: {', '.join(sorted(PLANNED_PROVIDERS))}. "
+                    f"Please use an implemented provider or check back in a future release."
+                )
+            else:
+                raise ValueError(
+                    f"Unknown provider '{model_config.provider}'. "
+                    f"Supported providers: {', '.join(sorted(IMPLEMENTED_PROVIDERS))}. "
+                    f"Planned providers: {', '.join(sorted(PLANNED_PROVIDERS))}."
+                )
+
         # Get environment variable name from config
         env_var_name = model_config.env_api_key
 

@@ -39,6 +39,8 @@ class LLMResponse:
     Attributes:
         answer_text: The LLM's complete response text
         tokens_used: Total tokens consumed (prompt + completion)
+        prompt_tokens: Tokens in the prompt/input
+        completion_tokens: Tokens in the completion/output
         cost_usd: Estimated cost in USD based on provider pricing
         provider: Provider name (e.g., "openai", "anthropic")
         model_name: Specific model identifier (e.g., "gpt-4o-mini")
@@ -50,6 +52,8 @@ class LLMResponse:
         >>> response = LLMResponse(
         ...     answer_text="Based on market research...",
         ...     tokens_used=450,
+        ...     prompt_tokens=100,
+        ...     completion_tokens=350,
         ...     cost_usd=0.000135,
         ...     provider="openai",
         ...     model_name="gpt-4o-mini",
@@ -59,6 +63,8 @@ class LLMResponse:
         ... )
         >>> response.cost_usd
         0.000135
+        >>> response.prompt_tokens + response.completion_tokens == response.tokens_used
+        True
     """
 
     answer_text: str
@@ -67,6 +73,8 @@ class LLMResponse:
     provider: str
     model_name: str
     timestamp_utc: str
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
     web_search_results: list[dict] | None = None
     web_search_count: int = 0
 

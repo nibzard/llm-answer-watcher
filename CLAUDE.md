@@ -15,14 +15,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-**Current phase**: Initial setup complete, implementation pending
+**Current phase**: Production-ready, ~95% complete (1,001/1,053 tasks done)
 
 The codebase currently contains:
+- **~7,700 lines of production Python code** across 35 modules
+- **~16,600 lines of test code** with 695+ test cases
 - Complete engineering specification (SPECS.md)
-- Comprehensive TODO.md with 200+ tasks across 4 milestones
-- Project skeleton (LICENSE, .gitignore, ruff.toml, hooks)
-- Subagent team configuration (developer, tester, reviewer)
-- No Python code yet - ready to begin Milestone 1
+- Comprehensive TODO.md tracking progress (52 pending tasks remain)
+- **All 4 milestones COMPLETE**:
+  - ✅ Milestone 1: Project skeleton & config
+  - ✅ Milestone 2: Provider client + runner core (OpenAI fully implemented)
+  - ✅ Milestone 3: Report generation + CLI
+  - ✅ Milestone 4: Polish, docs, tests (80%+ coverage achieved)
+- **Bonus**: Complete evaluation framework with CLI integration
+- **Remaining work**: Anthropic/Mistral client implementation (optional), advanced features (trends command, DeepEval integration)
 
 ## Architecture & Domain Design
 
@@ -65,15 +71,36 @@ run_all(config: RuntimeConfig) -> dict:
 
 **2. Provider Abstraction** (`llm_runner/models.py`)
 ```python
-class LLMClient(Protocol):
-    def generate_answer(prompt: str) -> tuple[str, dict]:
-        # Provider-agnostic interface
-        # Returns (answer_text, usage_meta)
-        pass
+@dataclass
+class LLMResponse:
+    """Structured response from LLM with metadata"""
+    answer_text: str
+    tokens_used: int
+    cost_usd: float
+    provider: str
+    model_name: str
+    timestamp_utc: str
+    web_search_results: list[dict] | None = None
+    web_search_count: int = 0
 
-def build_client(provider: str, model: str, api_key: str) -> LLMClient:
+class LLMClient(Protocol):
+    def generate_answer(self, prompt: str) -> LLMResponse:
+        # Provider-agnostic interface
+        # Returns structured LLMResponse with answer and metadata
+        ...
+
+def build_client(
+    provider: str,
+    model_name: str,
+    api_key: str,
+    system_prompt: str,
+    tools: list[dict] | None = None,
+    tool_choice: str = "auto",
+) -> LLMClient:
     # Factory pattern for multi-provider support
-    pass
+    # Currently supports: openai
+    # Planned: anthropic, mistral
+    ...
 ```
 
 **3. Dual-Mode CLI Pattern** (`utils/console.py`)

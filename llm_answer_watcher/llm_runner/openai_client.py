@@ -340,7 +340,12 @@ class OpenAIClient:
         web_search_results, web_search_count = self._extract_web_search_results(data)
 
         # Calculate cost (including web search if applicable)
-        usage_meta = data.get("usage", {})
+        # Build usage_meta in the format expected by cost estimation functions
+        usage_meta = {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": tokens_used,
+        }
 
         # Detect web search version for pricing
         from llm_answer_watcher.utils.cost import (
@@ -479,9 +484,12 @@ class OpenAIClient:
         logger.debug(f"Usage object keys for {self.model_name}: {list(usage.keys())}")
         logger.debug(f"Usage object content: {usage}")
 
+        # OpenAI Responses API uses input_tokens/output_tokens
+        # Older Chat Completions API used prompt_tokens/completion_tokens
+        # Try both formats for compatibility
         total_tokens = usage.get("total_tokens", 0)
-        prompt_tokens = usage.get("prompt_tokens", 0)
-        completion_tokens = usage.get("completion_tokens", 0)
+        prompt_tokens = usage.get("input_tokens") or usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("output_tokens") or usage.get("completion_tokens", 0)
 
         # Log the extracted values
         logger.info(

@@ -13,7 +13,7 @@ LLM Answer Watcher is a production-ready CLI tool that asks LLMs specific questi
 
 - **🔍 Brand Mention Detection**: Word-boundary regex matching prevents false positives
 - **📊 Historical Tracking**: SQLite database stores all responses for trend analysis
-- **🤖 Multi-Provider Support**: OpenAI, Anthropic, X.AI Grok, and extensible provider system
+- **🤖 Multi-Provider Support**: OpenAI, Anthropic, Mistral, X.AI Grok, and extensible provider system
 - **📈 Rank Extraction**: Automatic detection of where brands appear in LLM responses
 - **💰 Cost Estimation**: Built-in token counting and cost calculation
 - **🎯 Dual-Mode CLI**: Beautiful Rich output for humans, structured JSON for AI agents
@@ -32,6 +32,7 @@ pip install llm-answer-watcher
 # Set your API keys
 export OPENAI_API_KEY=your_key_here
 export ANTHROPIC_API_KEY=your_key_here
+export MISTRAL_API_KEY=your_key_here
 export XAI_API_KEY=your_key_here  # For Grok
 
 # Run with example config
@@ -42,7 +43,7 @@ llm-answer-watcher run --config examples/watcher.config.yaml
 
 - **Python 3.12+ or 3.13** (Required)
 - **uv** (recommended) or **pip** for package management
-- **API keys** for LLM providers (OpenAI, Anthropic, etc.)
+- **API keys** for LLM providers (OpenAI, Anthropic, Mistral, etc.)
 
 ### API Key Setup
 
@@ -108,6 +109,10 @@ run_settings:
       model_name: "claude-3-5-haiku-20241022"
       env_api_key: "ANTHROPIC_API_KEY"
 
+    - provider: "mistral"
+      model_name: "mistral-large-latest"
+      env_api_key: "MISTRAL_API_KEY"
+
     - provider: "grok"
       model_name: "grok-beta"
       env_api_key: "XAI_API_KEY"
@@ -154,7 +159,7 @@ Output:
 ```
 🔍 Running LLM Answer Watcher...
 ├── Query: "What are the best email warmup tools?"
-├── Models: OpenAI gpt-4o-mini, Anthropic claude-3-5-haiku
+├── Models: OpenAI gpt-4o-mini, Anthropic claude-3-5-haiku, Mistral mistral-large-latest
 ├── Brands: 2 monitored, 5 competitors
 └── Output: ./output/2025-11-01T14-30-00Z/
 

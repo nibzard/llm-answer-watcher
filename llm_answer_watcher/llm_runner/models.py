@@ -167,8 +167,8 @@ def build_client(
     Supported providers:
     - "openai": OpenAI API (GPT models)
     - "anthropic": Anthropic API (Claude models)
+    - "mistral": Mistral API (Mistral models)
     - "grok": X.AI Grok API (Grok models)
-    - "mistral": Mistral API - Future
 
     Args:
         provider: Provider identifier (lowercase string)
@@ -250,15 +250,21 @@ def build_client(
         )
 
     if provider == "mistral":
-        # Planned for future implementation
-        raise NotImplementedError(
-            f"Provider '{provider}' support is planned but not yet implemented. "
-            "Currently supported providers: openai, anthropic, grok"
+        # Import here to avoid circular dependencies and keep imports lazy
+        from llm_answer_watcher.llm_runner.mistral_client import (
+            MistralClient,
+        )
+
+        return MistralClient(
+            model_name=model_name,
+            api_key=api_key,
+            system_prompt=system_prompt,
+            tools=tools,
+            tool_choice=tool_choice,
         )
 
     # Unknown provider - clear error message
     raise ValueError(
         f"Unsupported provider: '{provider}'. "
-        f"Supported providers: openai, anthropic, grok. "
-        f"Planned providers: mistral"
+        f"Supported providers: openai, anthropic, mistral, grok"
     )

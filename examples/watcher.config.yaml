@@ -4,7 +4,7 @@ run_settings:
 
   models:
     - provider: "openai"
-      model_name: "gpt-4o-mini"
+      model_name: "gpt-5-nano"
       env_api_key: "OPENAI_API_KEY"
       system_prompt: "openai/gpt-4-default"  # Optional: Uses provider default if not specified
 
@@ -13,16 +13,20 @@ run_settings:
       env_api_key: "ANTHROPIC_API_KEY"
       # No system_prompt specified - will use anthropic/default.json
 
+    - provider: "mistral"
+      model_name: "mistral-large-latest"
+      env_api_key: "MISTRAL_API_KEY"
+      # No system_prompt specified - will use mistral/default.json
+
   use_llm_rank_extraction: false
 
 brands:
   mine:
-    - "Warmly"
-    - "Warmly.io"
+    - "Lemwarm"
+    - "Lemlist"
 
   competitors:
     - "Instantly"
-    - "Lemwarm"
     - "HubSpot"
     - "Apollo.io"
     - "Woodpecker"

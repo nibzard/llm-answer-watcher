@@ -25,7 +25,7 @@ Example:
 import logging
 
 # Pricing table based on public provider pricing
-# Updated: 2025-11-01
+# Updated: 2025-11-05
 # All prices are USD per token (calculated as price_per_million / 1,000,000)
 PRICING = {
     "openai": {
@@ -209,6 +209,36 @@ PRICING = {
         "grok-3-latest": {
             "input": 3.00 / 1_000_000,
             "output": 15.00 / 1_000_000,
+        },
+    },
+    "perplexity": {
+        # Sonar Models - Grounded LLMs with web search
+        # Note: Sonar models also have request fees ($5-$14 per 1k requests)
+        # that vary by search context size. Request fees not yet implemented in v1.
+        "sonar": {
+            "input": 1.00 / 1_000_000,  # $1.00 per 1M input tokens
+            "output": 1.00 / 1_000_000,  # $1.00 per 1M output tokens
+        },
+        "sonar-pro": {
+            "input": 3.00 / 1_000_000,  # $3.00 per 1M input tokens
+            "output": 15.00 / 1_000_000,  # $15.00 per 1M output tokens
+        },
+        "sonar-reasoning": {
+            "input": 1.00 / 1_000_000,  # $1.00 per 1M input tokens
+            "output": 5.00 / 1_000_000,  # $5.00 per 1M output tokens
+        },
+        "sonar-reasoning-pro": {
+            "input": 2.00 / 1_000_000,  # $2.00 per 1M input tokens
+            "output": 8.00 / 1_000_000,  # $8.00 per 1M output tokens
+        },
+        # Sonar Deep Research has additional costs:
+        # - Citations: $2 per 1M tokens
+        # - Searches: $5 per 1k searches
+        # - Reasoning: $3 per 1M tokens
+        # These are not yet implemented in v1.
+        "sonar-deep-research": {
+            "input": 2.00 / 1_000_000,  # $2.00 per 1M input tokens
+            "output": 8.00 / 1_000_000,  # $8.00 per 1M output tokens
         },
     },
 }

@@ -13,7 +13,7 @@ LLM Answer Watcher is a production-ready CLI tool that asks LLMs specific questi
 
 - **🔍 Brand Mention Detection**: Word-boundary regex matching prevents false positives
 - **📊 Historical Tracking**: SQLite database stores all responses for trend analysis
-- **🤖 Multi-Provider Support**: OpenAI, Anthropic, Mistral, X.AI Grok, Google Gemini, and extensible provider system
+- **🤖 Multi-Provider Support**: OpenAI, Anthropic, Mistral, X.AI Grok, Google Gemini, Perplexity, and extensible provider system
 - **📈 Rank Extraction**: Automatic detection of where brands appear in LLM responses
 - **💰 Dynamic Pricing**: Auto-loads from llm-prices.com with 24-hour caching
 - **🛡️ Budget Protection**: Set spending limits to prevent runaway costs
@@ -37,6 +37,7 @@ export ANTHROPIC_API_KEY=your_key_here
 export MISTRAL_API_KEY=your_key_here
 export XAI_API_KEY=your_key_here  # For Grok
 export GOOGLE_API_KEY=your_key_here  # For Gemini
+export PERPLEXITY_API_KEY=your_key_here  # For Perplexity
 
 # Run with example config
 llm-answer-watcher run --config examples/watcher.config.yaml
@@ -67,6 +68,9 @@ export XAI_API_KEY=xai-your-grok-key-here
 
 # Google Gemini
 export GOOGLE_API_KEY=AIza-your-google-api-key-here
+
+# Perplexity
+export PERPLEXITY_API_KEY=pplx-your-perplexity-key-here
 ```
 
 ## 🔧 Installation
@@ -437,6 +441,13 @@ LLM Answer Watcher supports multiple LLM providers with a unified interface:
 - **Pricing**: $2-$5 per 1M input tokens, $10-$25 per 1M output tokens
 - **Features**: OpenAI-compatible API, real-time X platform integration
 
+### Perplexity
+- **Provider**: `perplexity`
+- **Models**: `sonar`, `sonar-pro`, `sonar-reasoning`, `sonar-reasoning-pro`, `sonar-deep-research`
+- **Pricing**: $1-$3 per 1M input tokens, $1-$15 per 1M output tokens
+- **Features**: Grounded LLMs with web search, real-time information, citations
+- **Note**: Request fees (varies by search context) not yet included in cost estimates
+
 ### Configuration Example
 
 ```yaml
@@ -455,6 +466,11 @@ models:
   - provider: "grok"
     model_name: "grok-2-1212"
     env_api_key: "XAI_API_KEY"
+
+  # Web search-enabled provider
+  - provider: "perplexity"
+    model_name: "sonar-pro"
+    env_api_key: "PERPLEXITY_API_KEY"
 ```
 
 ## 🤖 Using with AI Agents

@@ -163,6 +163,173 @@ def write_report(
     logger.info(f"HTML report written to: {run_dir}/report.html")
 
 
+def _calculate_visibility_scores(intents_data: list[dict]) -> dict:
+    """
+    Calculate visibility scores for all brands across all intents.
+
+    Visibility score = percentage of intents where a brand appeared.
+    Also calculates average rank when the brand appears in ranked lists.
+
+    Args:
+        intents_data: List of intent dicts with results and mentions
+
+    Returns:
+        Dictionary with brand visibility metrics:
+        {
+            "my_brands": [
+                {
+                    "brand_name": "Warmly",
+                    "normalized_name": "warmly",
+                    "appearance_count": 5,
+                    "total_queries": 10,
+                    "visibility_percentage": 50,
+                    "times_ranked": 4,
+                    "average_rank": 2.5
+                },
+                ...
+            ],
+            "competitor_brands": [...],
+            "total_queries": 10
+        }
+
+    Note:
+        - Aggregates across all intents and models
+        - Uses normalized_name for brand deduplication
+        - Average rank only calculated when rank_position is not null
+        - Sorted by visibility_percentage descending
+    """
+    # Track brand appearances across all queries
+    my_brands_stats: dict[str, dict] = {}
+    competitor_brands_stats: dict[str, dict] = {}
+    total_queries = 0
+
+    # Iterate through all intents and their model results
+    for intent in intents_data:
+        for result in intent.get("results", []):
+            total_queries += 1
+
+            # Track which brands appeared in this query (for deduplication)
+            my_brands_in_this_query = set()
+            competitor_brands_in_this_query = set()
+
+            # Process "my" brand mentions
+            for mention in result.get("my_mentions", []):
+                normalized = mention.get("normalized_name", "").lower()
+                original = mention.get("original_text", normalized)
+
+                if normalized not in my_brands_stats:
+                    my_brands_stats[normalized] = {
+                        "brand_name": original,
+                        "normalized_name": normalized,
+                        "appearance_count": 0,
+                        "rank_positions": [],
+                    }
+
+                # Track that this brand appeared in this query
+                my_brands_in_this_query.add(normalized)
+
+            # Increment appearance count for brands that appeared in this query
+            for brand_name in my_brands_in_this_query:
+                my_brands_stats[brand_name]["appearance_count"] += 1
+
+            # Process competitor brand mentions
+            for mention in result.get("competitor_mentions", []):
+                normalized = mention.get("normalized_name", "").lower()
+                original = mention.get("original_text", normalized)
+
+                if normalized not in competitor_brands_stats:
+                    competitor_brands_stats[normalized] = {
+                        "brand_name": original,
+                        "normalized_name": normalized,
+                        "appearance_count": 0,
+                        "rank_positions": [],
+                    }
+
+                # Track that this brand appeared in this query
+                competitor_brands_in_this_query.add(normalized)
+
+            # Increment appearance count for competitor brands that appeared in this query
+            for brand_name in competitor_brands_in_this_query:
+                competitor_brands_stats[brand_name]["appearance_count"] += 1
+
+            # Process ranked lists to extract rank positions
+            for ranked_brand in result.get("ranked_list", []):
+                brand_name = ranked_brand.get("brand_name", "")
+                normalized = brand_name.lower()
+                rank_pos = ranked_brand.get("rank_position")
+
+                if rank_pos is not None:
+                    # Check if this brand is in our tracking (mine or competitor)
+                    if normalized in my_brands_stats:
+                        my_brands_stats[normalized]["rank_positions"].append(rank_pos)
+                    elif normalized in competitor_brands_stats:
+                        competitor_brands_stats[normalized]["rank_positions"].append(
+                            rank_pos
+                        )
+
+    # Calculate final metrics for my brands
+    my_brands_list = []
+    for normalized, stats in my_brands_stats.items():
+        appearance_count = stats["appearance_count"]
+        rank_positions = stats["rank_positions"]
+
+        visibility_percentage = (
+            int(appearance_count / total_queries * 100) if total_queries > 0 else 0
+        )
+        times_ranked = len(rank_positions)
+        average_rank = (
+            round(sum(rank_positions) / times_ranked, 1) if times_ranked > 0 else None
+        )
+
+        my_brands_list.append(
+            {
+                "brand_name": stats["brand_name"],
+                "normalized_name": normalized,
+                "appearance_count": appearance_count,
+                "total_queries": total_queries,
+                "visibility_percentage": visibility_percentage,
+                "times_ranked": times_ranked,
+                "average_rank": average_rank,
+            }
+        )
+
+    # Calculate final metrics for competitor brands
+    competitor_brands_list = []
+    for normalized, stats in competitor_brands_stats.items():
+        appearance_count = stats["appearance_count"]
+        rank_positions = stats["rank_positions"]
+
+        visibility_percentage = (
+            int(appearance_count / total_queries * 100) if total_queries > 0 else 0
+        )
+        times_ranked = len(rank_positions)
+        average_rank = (
+            round(sum(rank_positions) / times_ranked, 1) if times_ranked > 0 else None
+        )
+
+        competitor_brands_list.append(
+            {
+                "brand_name": stats["brand_name"],
+                "normalized_name": normalized,
+                "appearance_count": appearance_count,
+                "total_queries": total_queries,
+                "visibility_percentage": visibility_percentage,
+                "times_ranked": times_ranked,
+                "average_rank": average_rank,
+            }
+        )
+
+    # Sort by visibility percentage descending
+    my_brands_list.sort(key=lambda x: x["visibility_percentage"], reverse=True)
+    competitor_brands_list.sort(key=lambda x: x["visibility_percentage"], reverse=True)
+
+    return {
+        "my_brands": my_brands_list,
+        "competitor_brands": competitor_brands_list,
+        "total_queries": total_queries,
+    }
+
+
 def _build_template_data(
     run_dir: Path,
     run_id: str,
@@ -243,6 +410,9 @@ def _build_template_data(
             }
         )
 
+    # Calculate visibility scores
+    visibility_scores = _calculate_visibility_scores(intents_data)
+
     return {
         "run_id": run_id,
         "timestamp_utc": timestamp_utc,
@@ -252,6 +422,7 @@ def _build_template_data(
         "success_rate": success_rate,
         "models_used": models_used,
         "intents": intents_data,
+        "visibility_scores": visibility_scores,
     }
 
 

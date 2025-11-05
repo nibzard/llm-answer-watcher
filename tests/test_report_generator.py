@@ -32,6 +32,7 @@ from llm_answer_watcher.config.schema import (
 )
 from llm_answer_watcher.report.generator import (
     _build_template_data,
+    _calculate_visibility_scores,
     _load_model_result,
     generate_report,
     write_report,
@@ -2046,3 +2047,480 @@ class TestIntegrationScenarios:
 
         # Should show high confidence
         assert_html_contains(html, "100%")
+
+
+# ============================================================================
+# Tests - Visibility Score Calculation
+# ============================================================================
+
+
+class TestVisibilityScores:
+    """Tests for _calculate_visibility_scores() function."""
+
+    def test_calculates_visibility_percentage_single_brand(self):
+        """Test visibility percentage for single brand appearing in all queries."""
+        intents_data = [
+            {
+                "intent_id": "email-warmup",
+                "results": [
+                    {
+                        "my_mentions": [
+                            {
+                                "original_text": "Warmly",
+                                "normalized_name": "warmly",
+                            }
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    },
+                    {
+                        "my_mentions": [
+                            {
+                                "original_text": "Warmly",
+                                "normalized_name": "warmly",
+                            }
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    },
+                ],
+            }
+        ]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        assert scores["total_queries"] == 2
+        assert len(scores["my_brands"]) == 1
+        assert scores["my_brands"][0]["brand_name"] == "Warmly"
+        assert scores["my_brands"][0]["appearance_count"] == 2
+        assert scores["my_brands"][0]["visibility_percentage"] == 100
+
+    def test_calculates_visibility_percentage_partial(self):
+        """Test visibility percentage when brand appears in some but not all queries."""
+        intents_data = [
+            {
+                "intent_id": "email-warmup",
+                "results": [
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"}
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    },
+                    {
+                        "my_mentions": [],  # Warmly doesn't appear here
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    },
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"}
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    },
+                    {
+                        "my_mentions": [],  # Warmly doesn't appear here either
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    },
+                ],
+            }
+        ]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        # Warmly appeared in 2 out of 4 queries = 50%
+        assert scores["total_queries"] == 4
+        assert scores["my_brands"][0]["appearance_count"] == 2
+        assert scores["my_brands"][0]["visibility_percentage"] == 50
+
+    def test_calculates_average_rank_from_ranked_list(self):
+        """Test average rank is calculated from ranked list entries."""
+        intents_data = [
+            {
+                "intent_id": "email-warmup",
+                "results": [
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"}
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [
+                            {
+                                "brand_name": "Warmly",
+                                "rank_position": 1,
+                                "confidence": 1.0,
+                            }
+                        ],
+                    },
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"}
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [
+                            {
+                                "brand_name": "Warmly",
+                                "rank_position": 3,
+                                "confidence": 1.0,
+                            }
+                        ],
+                    },
+                ],
+            }
+        ]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        # Average of rank 1 and rank 3 = 2.0
+        assert scores["my_brands"][0]["times_ranked"] == 2
+        assert scores["my_brands"][0]["average_rank"] == 2.0
+
+    def test_average_rank_none_when_not_ranked(self):
+        """Test average_rank is None when brand never appears in ranked lists."""
+        intents_data = [
+            {
+                "intent_id": "email-warmup",
+                "results": [
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"}
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [],  # Mentioned but not ranked
+                    }
+                ],
+            }
+        ]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        assert scores["my_brands"][0]["times_ranked"] == 0
+        assert scores["my_brands"][0]["average_rank"] is None
+
+    def test_tracks_competitor_brands_separately(self):
+        """Test competitor brands are tracked separately from my brands."""
+        intents_data = [
+            {
+                "intent_id": "email-warmup",
+                "results": [
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"}
+                        ],
+                        "competitor_mentions": [
+                            {"original_text": "HubSpot", "normalized_name": "hubspot"}
+                        ],
+                        "ranked_list": [],
+                    }
+                ],
+            }
+        ]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        assert len(scores["my_brands"]) == 1
+        assert len(scores["competitor_brands"]) == 1
+        assert scores["my_brands"][0]["brand_name"] == "Warmly"
+        assert scores["competitor_brands"][0]["brand_name"] == "HubSpot"
+
+    def test_sorts_brands_by_visibility_percentage(self):
+        """Test brands are sorted by visibility percentage descending."""
+        intents_data = [
+            {
+                "intent_id": "email-warmup",
+                "results": [
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"},
+                            {"original_text": "Warmly.io", "normalized_name": "warmly.io"},
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    },
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"}
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    },
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"}
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    },
+                ],
+            }
+        ]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        # Warmly: 3/3 = 100%
+        # Warmly.io: 1/3 = 33%
+        assert len(scores["my_brands"]) == 2
+        assert scores["my_brands"][0]["brand_name"] == "Warmly"
+        assert scores["my_brands"][0]["visibility_percentage"] == 100
+        assert scores["my_brands"][1]["brand_name"] == "Warmly.io"
+        assert scores["my_brands"][1]["visibility_percentage"] == 33
+
+    def test_handles_multiple_competitors_with_different_frequencies(self):
+        """Test multiple competitors are tracked with correct frequencies."""
+        intents_data = [
+            {
+                "intent_id": "email-warmup",
+                "results": [
+                    {
+                        "my_mentions": [],
+                        "competitor_mentions": [
+                            {"original_text": "HubSpot", "normalized_name": "hubspot"},
+                            {"original_text": "Instantly", "normalized_name": "instantly"},
+                        ],
+                        "ranked_list": [],
+                    },
+                    {
+                        "my_mentions": [],
+                        "competitor_mentions": [
+                            {"original_text": "HubSpot", "normalized_name": "hubspot"}
+                        ],
+                        "ranked_list": [],
+                    },
+                ],
+            }
+        ]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        # HubSpot: 2/2 = 100%
+        # Instantly: 1/2 = 50%
+        assert len(scores["competitor_brands"]) == 2
+        assert scores["competitor_brands"][0]["brand_name"] == "HubSpot"
+        assert scores["competitor_brands"][0]["visibility_percentage"] == 100
+        assert scores["competitor_brands"][1]["brand_name"] == "Instantly"
+        assert scores["competitor_brands"][1]["visibility_percentage"] == 50
+
+    def test_handles_empty_intents_data(self):
+        """Test handling of empty intents data."""
+        scores = _calculate_visibility_scores([])
+
+        assert scores["total_queries"] == 0
+        assert scores["my_brands"] == []
+        assert scores["competitor_brands"] == []
+
+    def test_handles_intents_with_no_results(self):
+        """Test handling of intents with empty results list."""
+        intents_data = [{"intent_id": "email-warmup", "results": []}]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        assert scores["total_queries"] == 0
+        assert scores["my_brands"] == []
+        assert scores["competitor_brands"] == []
+
+    def test_handles_all_empty_mentions(self):
+        """Test handling when all results have empty mentions."""
+        intents_data = [
+            {
+                "intent_id": "email-warmup",
+                "results": [
+                    {
+                        "my_mentions": [],
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    },
+                    {
+                        "my_mentions": [],
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    },
+                ],
+            }
+        ]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        assert scores["total_queries"] == 2
+        assert scores["my_brands"] == []
+        assert scores["competitor_brands"] == []
+
+    def test_normalized_name_deduplication(self):
+        """Test brands are deduplicated by normalized name."""
+        intents_data = [
+            {
+                "intent_id": "email-warmup",
+                "results": [
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"},
+                            {"original_text": "WARMLY", "normalized_name": "warmly"},
+                            {"original_text": "warmly", "normalized_name": "warmly"},
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [],
+                    }
+                ],
+            }
+        ]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        # Should count as only 1 brand despite 3 mentions with different cases
+        assert len(scores["my_brands"]) == 1
+        assert scores["my_brands"][0]["appearance_count"] == 1
+
+    def test_case_insensitive_normalized_name_matching(self):
+        """Test normalized names are matched case-insensitively."""
+        intents_data = [
+            {
+                "intent_id": "email-warmup",
+                "results": [
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "Warmly"}
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [
+                            {"brand_name": "warmly", "rank_position": 1, "confidence": 1.0}
+                        ],
+                    },
+                    {
+                        "my_mentions": [
+                            {"original_text": "WARMLY", "normalized_name": "WARMLY"}
+                        ],
+                        "competitor_mentions": [],
+                        "ranked_list": [
+                            {"brand_name": "WARMLY", "rank_position": 2, "confidence": 1.0}
+                        ],
+                    },
+                ],
+            }
+        ]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        # Should be treated as the same brand
+        assert len(scores["my_brands"]) == 1
+        assert scores["my_brands"][0]["appearance_count"] == 2
+        assert scores["my_brands"][0]["times_ranked"] == 2
+        assert scores["my_brands"][0]["average_rank"] == 1.5
+
+    def test_integration_with_build_template_data(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
+        """Test visibility scores are included in template data."""
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+
+        create_parsed_json_file(
+            run_dir, "email-warmup", "openai", "gpt-4o-mini", sample_parsed_data
+        )
+
+        data = _build_template_data(
+            run_dir,
+            "test-run",
+            runtime_config,
+            sample_results,
+        )
+
+        # Should include visibility_scores in template data
+        assert "visibility_scores" in data
+        assert "my_brands" in data["visibility_scores"]
+        assert "competitor_brands" in data["visibility_scores"]
+        assert "total_queries" in data["visibility_scores"]
+
+    def test_visibility_scores_in_generated_report(
+        self, tmp_path, runtime_config, sample_results, sample_parsed_data
+    ):
+        """Test visibility scores appear in generated HTML report."""
+        run_dir = tmp_path / "run"
+        run_dir.mkdir()
+
+        create_parsed_json_file(
+            run_dir, "email-warmup", "openai", "gpt-4o-mini", sample_parsed_data
+        )
+
+        html = generate_report(
+            str(run_dir),
+            "test-run",
+            runtime_config,
+            sample_results,
+        )
+
+        # Should contain visibility scores section
+        assert_html_contains(html, "Brand Visibility Scores")
+        assert_html_contains(html, "Visibility score shows the percentage")
+
+    def test_realistic_visibility_scenario(self):
+        """Test realistic scenario with multiple brands and varying appearances."""
+        intents_data = [
+            {
+                "intent_id": "email-warmup",
+                "results": [
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"}
+                        ],
+                        "competitor_mentions": [
+                            {"original_text": "HubSpot", "normalized_name": "hubspot"},
+                            {"original_text": "Instantly", "normalized_name": "instantly"},
+                        ],
+                        "ranked_list": [
+                            {"brand_name": "Warmly", "rank_position": 1, "confidence": 1.0},
+                            {"brand_name": "HubSpot", "rank_position": 2, "confidence": 1.0},
+                            {"brand_name": "Instantly", "rank_position": 3, "confidence": 1.0},
+                        ],
+                    },
+                    {
+                        "my_mentions": [],
+                        "competitor_mentions": [
+                            {"original_text": "HubSpot", "normalized_name": "hubspot"}
+                        ],
+                        "ranked_list": [
+                            {"brand_name": "HubSpot", "rank_position": 1, "confidence": 1.0}
+                        ],
+                    },
+                    {
+                        "my_mentions": [
+                            {"original_text": "Warmly", "normalized_name": "warmly"}
+                        ],
+                        "competitor_mentions": [
+                            {"original_text": "HubSpot", "normalized_name": "hubspot"}
+                        ],
+                        "ranked_list": [
+                            {"brand_name": "Warmly", "rank_position": 2, "confidence": 0.9},
+                            {"brand_name": "HubSpot", "rank_position": 1, "confidence": 1.0},
+                        ],
+                    },
+                ],
+            }
+        ]
+
+        scores = _calculate_visibility_scores(intents_data)
+
+        # Warmly: appeared in 2/3 queries = 66%
+        warmly = scores["my_brands"][0]
+        assert warmly["brand_name"] == "Warmly"
+        assert warmly["appearance_count"] == 2
+        assert warmly["visibility_percentage"] == 66
+        assert warmly["times_ranked"] == 2
+        assert warmly["average_rank"] == 1.5  # (1 + 2) / 2
+
+        # HubSpot: appeared in 3/3 queries = 100%
+        hubspot = scores["competitor_brands"][0]
+        assert hubspot["brand_name"] == "HubSpot"
+        assert hubspot["appearance_count"] == 3
+        assert hubspot["visibility_percentage"] == 100
+        assert hubspot["times_ranked"] == 3
+        assert hubspot["average_rank"] == 1.3  # (2 + 1 + 1) / 3 = 1.333... rounded to 1.3
+
+        # Instantly: appeared in 1/3 queries = 33%
+        instantly = scores["competitor_brands"][1]
+        assert instantly["brand_name"] == "Instantly"
+        assert instantly["appearance_count"] == 1
+        assert instantly["visibility_percentage"] == 33
+        assert instantly["times_ranked"] == 1
+        assert instantly["average_rank"] == 3.0

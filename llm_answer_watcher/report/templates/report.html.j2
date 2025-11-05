@@ -426,6 +426,117 @@
             font-family: var(--font-mono);
         }
 
+        /* Visibility Scores */
+        .visibility-section {
+            background: var(--color-surface);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--color-border);
+        }
+
+        .visibility-section h2 {
+            font-size: 1.25rem;
+            color: var(--color-primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--color-border);
+        }
+
+        .visibility-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .visibility-column h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--color-text);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .brand-score-item {
+            background: var(--color-bg);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .brand-score-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .brand-score-name {
+            font-weight: 600;
+            color: var(--color-text);
+            font-size: 1rem;
+        }
+
+        .visibility-percentage {
+            font-size: 1.25rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-family: var(--font-mono);
+        }
+
+        .visibility-high {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .visibility-medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .visibility-low {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .brand-score-details {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.875rem;
+            color: var(--color-text-muted);
+            margin-top: 0.5rem;
+        }
+
+        .score-detail {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .score-detail-label {
+            font-weight: 500;
+        }
+
+        .score-detail-value {
+            font-family: var(--font-mono);
+        }
+
+        .no-visibility-data {
+            text-align: center;
+            padding: 2rem;
+            color: var(--color-text-muted);
+            font-style: italic;
+            background: var(--color-bg);
+            border: 1px dashed var(--color-border);
+            border-radius: var(--radius);
+        }
+
         /* Footer */
         .footer {
             background: var(--color-surface);
@@ -454,6 +565,10 @@
             }
 
             .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .visibility-grid {
                 grid-template-columns: 1fr;
             }
 
@@ -530,6 +645,90 @@
                     {{ model.provider }}/{{ model.model_name }}
                 </span>
                 {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Visibility Scores -->
+        {% if visibility_scores and (visibility_scores.my_brands or visibility_scores.competitor_brands) %}
+        <section class="visibility-section">
+            <h2>Brand Visibility Scores</h2>
+            <p style="color: var(--color-text-muted); font-size: 0.875rem; margin-top: 0.5rem;">
+                Visibility score shows the percentage of queries where each brand appeared across all intents and models tested.
+            </p>
+
+            <div class="visibility-grid">
+                <!-- My Brands -->
+                <div class="visibility-column">
+                    <h3>
+                        <span style="color: var(--color-success);">✓</span>
+                        My Brands ({{ visibility_scores.my_brands|length }})
+                    </h3>
+                    {% if visibility_scores.my_brands %}
+                        {% for brand in visibility_scores.my_brands %}
+                        <div class="brand-score-item">
+                            <div class="brand-score-header">
+                                <div class="brand-score-name">{{ brand.brand_name }}</div>
+                                <div class="visibility-percentage {% if brand.visibility_percentage >= 60 %}visibility-high{% elif brand.visibility_percentage >= 30 %}visibility-medium{% else %}visibility-low{% endif %}">
+                                    {{ brand.visibility_percentage }}%
+                                </div>
+                            </div>
+                            <div class="brand-score-details">
+                                <div class="score-detail">
+                                    <span class="score-detail-label">Appeared in:</span>
+                                    <span class="score-detail-value">{{ brand.appearance_count }}/{{ brand.total_queries }} queries</span>
+                                </div>
+                                {% if brand.average_rank %}
+                                <div class="score-detail">
+                                    <span class="score-detail-label">Avg rank:</span>
+                                    <span class="score-detail-value">#{{ brand.average_rank }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="no-visibility-data">
+                            No brand mentions found
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Competitor Brands -->
+                <div class="visibility-column">
+                    <h3>
+                        <span style="color: var(--color-text-muted);">◆</span>
+                        Competitors ({{ visibility_scores.competitor_brands|length }})
+                    </h3>
+                    {% if visibility_scores.competitor_brands %}
+                        {% for brand in visibility_scores.competitor_brands %}
+                        <div class="brand-score-item">
+                            <div class="brand-score-header">
+                                <div class="brand-score-name">{{ brand.brand_name }}</div>
+                                <div class="visibility-percentage {% if brand.visibility_percentage >= 60 %}visibility-high{% elif brand.visibility_percentage >= 30 %}visibility-medium{% else %}visibility-low{% endif %}">
+                                    {{ brand.visibility_percentage }}%
+                                </div>
+                            </div>
+                            <div class="brand-score-details">
+                                <div class="score-detail">
+                                    <span class="score-detail-label">Appeared in:</span>
+                                    <span class="score-detail-value">{{ brand.appearance_count }}/{{ brand.total_queries }} queries</span>
+                                </div>
+                                {% if brand.average_rank %}
+                                <div class="score-detail">
+                                    <span class="score-detail-label">Avg rank:</span>
+                                    <span class="score-detail-value">#{{ brand.average_rank }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="no-visibility-data">
+                            No competitor mentions found
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </section>
         {% endif %}

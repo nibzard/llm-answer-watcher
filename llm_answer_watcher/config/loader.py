@@ -31,6 +31,7 @@ from .schema import (
     RuntimeExtractionModel,
     RuntimeExtractionSettings,
     RuntimeModel,
+    RuntimeOperation,
     WatcherConfig,
 )
 
@@ -139,6 +140,23 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
                 f"Failed to resolve extraction settings from {config_path}: {e}"
             ) from e
 
+    # Resolve global operations if present
+    resolved_global_operations = []
+    if watcher_config.global_operations:
+        try:
+            resolved_global_operations = resolve_operations(
+                watcher_config.global_operations,
+                resolved_models,
+            )
+        except APIKeyMissingError:
+            raise
+        except ConfigValidationError:
+            raise
+        except Exception as e:
+            raise ConfigValidationError(
+                f"Failed to resolve global operations from {config_path}: {e}"
+            ) from e
+
     # Build RuntimeConfig with resolved API keys
     return RuntimeConfig(
         run_settings=watcher_config.run_settings,
@@ -146,6 +164,7 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
         brands=watcher_config.brands,
         intents=watcher_config.intents,
         models=resolved_models,
+        global_operations=resolved_global_operations,
     )
 
 
@@ -361,3 +380,86 @@ def resolve_extraction_settings(
         fallback_to_regex=extraction_config.fallback_to_regex,
         min_confidence=extraction_config.min_confidence,
     )
+
+
+def resolve_operations(
+    operations: list,  # list[Operation] from schema
+    resolved_models: list[RuntimeModel],
+) -> list[RuntimeOperation]:
+    """
+    Resolve operations with model overrides.
+
+    Takes list of Operation configurations and resolves any model overrides
+    to RuntimeModel instances. Operations without model overrides will use
+    the default model at runtime (first model in resolved_models list).
+
+    Args:
+        operations: List of Operation configurations from WatcherConfig
+        resolved_models: List of resolved RuntimeModel instances
+
+    Returns:
+        List of RuntimeOperation instances with resolved model overrides
+
+    Raises:
+        ConfigValidationError: If operation specifies unknown model
+
+    Example:
+        >>> # Operations with and without model overrides
+        >>> operations = [
+        ...     Operation(id="op1", model="gpt-4o-mini", ...),
+        ...     Operation(id="op2", model=None, ...)  # Will use default
+        ... ]
+        >>> resolved = resolve_operations(operations, resolved_models)
+        >>> resolved[0].runtime_model  # Specific model
+        RuntimeModel(provider='openai', model_name='gpt-4o-mini', ...)
+        >>> resolved[1].runtime_model  # None - will use default at runtime
+        None
+
+    Note:
+        - Operations with model=None will have runtime_model=None
+        - Runtime executor will use first model from config as default
+        - Model string format: "model_name" (must match a configured model)
+    """
+    from .schema import Operation
+
+    runtime_operations: list[RuntimeOperation] = []
+
+    for operation in operations:
+        # Type hint for IDE support
+        op: Operation = operation
+
+        # Resolve model override if specified
+        runtime_model = None
+        if op.model:
+            # Find matching model by model_name
+            matching_model = None
+            for model in resolved_models:
+                if model.model_name == op.model:
+                    matching_model = model
+                    break
+
+            if not matching_model:
+                raise ConfigValidationError(
+                    f"Operation '{op.id}' specifies model '{op.model}' "
+                    f"which is not configured in run_settings.models. "
+                    f"Available models: {', '.join(m.model_name for m in resolved_models)}"
+                )
+
+            runtime_model = matching_model
+
+        # Build RuntimeOperation
+        runtime_operation = RuntimeOperation(
+            id=op.id,
+            description=op.description,
+            prompt=op.prompt,
+            runtime_model=runtime_model,
+            enabled=op.enabled,
+            depends_on=op.depends_on,
+            condition=op.condition,
+            output_format=op.output_format,
+            type=op.type,
+        )
+
+        runtime_operations.append(runtime_operation)
+
+    return runtime_operations

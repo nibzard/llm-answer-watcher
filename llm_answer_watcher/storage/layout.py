@@ -13,6 +13,7 @@ Output structure:
             intent_{id}_raw_{provider}_{model}.json
             intent_{id}_parsed_{provider}_{model}.json
             intent_{id}_error_{provider}_{model}.json
+            intent_{id}_operation_{operation_id}_{provider}_{model}.json
 
 Key features:
 - Deterministic file naming (no timestamps, no randomness)
@@ -25,6 +26,8 @@ Example:
     './output/2025-11-02T08-00-00Z'
     >>> get_raw_answer_filename("email-warmup", "openai", "gpt-4o-mini")
     'intent_email-warmup_raw_openai_gpt-4o-mini.json'
+    >>> get_operation_result_filename("email-warmup", "content-gaps", "openai", "gpt-4o-mini")
+    'intent_email-warmup_operation_content-gaps_openai_gpt-4o-mini.json'
 """
 
 import os
@@ -186,3 +189,34 @@ def get_report_filename() -> str:
         Always named "report.html" for easy discovery. Opens in any browser.
     """
     return "report.html"
+
+
+def get_operation_result_filename(
+    intent_id: str, operation_id: str, provider: str, model: str
+) -> str:
+    """
+    Get filename for operation result JSON.
+
+    Operation result file contains the output of a custom post-intent operation
+    with metadata (tokens, cost, dependencies, etc.).
+
+    Args:
+        intent_id: Intent query identifier (e.g., "email-warmup")
+        operation_id: Operation identifier (e.g., "content-gaps")
+        provider: LLM provider name (e.g., "openai", "anthropic")
+        model: Model name (e.g., "gpt-4o-mini", "claude-3-5-sonnet")
+
+    Returns:
+        Filename string like "intent_{intent_id}_operation_{operation_id}_{provider}_{model}.json"
+
+    Example:
+        >>> get_operation_result_filename("email-warmup", "content-gaps", "openai", "gpt-4o-mini")
+        'intent_email-warmup_operation_content-gaps_openai_gpt-4o-mini.json'
+        >>> get_operation_result_filename("sales-tools", "action-items", "anthropic", "claude-3-5-sonnet")
+        'intent_sales-tools_operation_action-items_anthropic_claude-3-5-sonnet.json'
+
+    Note:
+        Filename is filesystem-safe. All parameters are sanitized by config
+        validation before reaching this function.
+    """
+    return f"intent_{intent_id}_operation_{operation_id}_{provider}_{model}.json"

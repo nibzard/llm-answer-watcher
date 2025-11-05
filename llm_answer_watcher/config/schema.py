@@ -11,16 +11,18 @@ Models:
     ExtractionModelConfig: Extraction model configuration (project-level)
     ExtractionSettings: Extraction method configuration (function calling vs regex)
     Brands: Brand alias collections (mine vs competitors)
+    Operation: Custom post-intent operation configuration
     Intent: Buyer-intent query configuration
     WatcherConfig: Root configuration model (validates entire YAML)
     RuntimeModel: Resolved model configuration with API key
     RuntimeExtractionModel: Resolved extraction model with API key
+    RuntimeOperation: Resolved operation with runtime model configuration
     RuntimeConfig: Runtime configuration with resolved API keys
 """
 
 from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 
 class ModelConfig(BaseModel):
@@ -308,20 +310,156 @@ class Brands(BaseModel):
         return cleaned
 
 
+class Operation(BaseModel):
+    """
+    Custom post-intent operation configuration.
+
+    Operations allow users to perform additional LLM-based analysis on intent
+    responses. They support template variables, dependency chaining, and
+    conditional execution.
+
+    Template variables available in prompt field:
+        {brand:mine} - Primary brand name (alphabetically first)
+        {brand:mine_all} - All brand aliases as comma-separated list
+        {brand:competitors} - All competitor names as comma-separated list
+        {competitors:mentioned} - Competitors detected in response
+        {intent:id} - Intent identifier
+        {intent:prompt} - Original intent prompt text
+        {intent:response} - Raw LLM response text
+        {rank:mine} - My brand's detected rank (or "not found")
+        {mentions:mine} - All mentions of my brand
+        {mentions:competitors} - All competitor mentions
+        {operation:operation_id} - Output from previous operation (chaining)
+        {model:provider} - Model provider (e.g., "openai")
+        {model:name} - Model name (e.g., "gpt-4o-mini")
+        {run:id} - Run ID timestamp
+        {run:timestamp} - UTC timestamp
+
+    Attributes:
+        id: Unique operation identifier (alphanumeric, hyphens, underscores)
+        description: Human-readable description for reports/logs
+        prompt: Template prompt with variable substitution
+        model: Optional model override (defaults to intent's model if not specified)
+        enabled: Enable/disable operation without removing from config
+        depends_on: List of operation IDs this depends on (for chaining)
+        condition: Optional condition string for conditional execution
+        output_format: Expected output format ("text" or "json")
+        type: Operation type ("standard", "structured", or "webhook")
+
+    Example:
+        operations:
+          - id: "content-gaps"
+            description: "Identify content opportunities"
+            prompt: |
+              Analyze how to improve ranking for {brand:mine}.
+              Current rank: {rank:mine}
+              Response: {intent:response}
+            model: "gpt-4o-mini"
+            enabled: true
+
+          - id: "action-items"
+            description: "Generate action items"
+            prompt: |
+              Based on this analysis: {operation:content-gaps}
+              Create 3 specific action items.
+            depends_on: ["content-gaps"]
+    """
+
+    id: str
+    description: str | None = None
+    prompt: str
+    model: str | None = None
+    enabled: bool = True
+    depends_on: list[str] = []
+    condition: str | None = None
+    output_format: Literal["text", "json"] = "text"
+    type: Literal["standard", "structured", "webhook"] = "standard"
+
+    @field_validator("id")
+    @classmethod
+    def validate_id(cls, v: str) -> str:
+        """
+        Validate operation ID is a valid slug.
+
+        Must be non-empty and contain only alphanumeric characters,
+        hyphens, and underscores.
+        """
+        if not v or v.isspace():
+            raise ValueError("Operation ID cannot be empty")
+        # Check for valid slug format (alphanumeric, hyphens, underscores)
+        if not all(c.isalnum() or c in "-_" for c in v):
+            raise ValueError(
+                f"Operation ID must be alphanumeric with hyphens/underscores: {v}"
+            )
+        return v
+
+    @field_validator("prompt")
+    @classmethod
+    def validate_prompt(cls, v: str) -> str:
+        """
+        Validate prompt is non-empty and within length limits.
+
+        Prevents excessively long prompts that could cause runaway API costs.
+        """
+        if not v or v.isspace():
+            raise ValueError("Operation prompt cannot be empty")
+
+        # Import at function level to avoid circular dependency
+        from llm_answer_watcher.llm_runner.openai_client import MAX_PROMPT_LENGTH
+
+        if len(v) > MAX_PROMPT_LENGTH:
+            raise ValueError(
+                f"Operation prompt exceeds maximum length of {MAX_PROMPT_LENGTH:,} "
+                f"characters (received {len(v):,} characters)"
+            )
+        return v
+
+    @field_validator("depends_on")
+    @classmethod
+    def validate_depends_on(cls, v: list[str]) -> list[str]:
+        """
+        Validate depends_on list contains valid operation IDs.
+
+        Checks for empty strings and duplicate dependencies.
+        Circular dependency detection happens at WatcherConfig level.
+        """
+        if not v:
+            return v
+
+        # Remove empty/whitespace-only entries
+        cleaned = [dep.strip() for dep in v if dep and not dep.strip().isspace()]
+
+        # Check for duplicates
+        if len(cleaned) != len(set(cleaned)):
+            duplicates = {dep for dep in cleaned if cleaned.count(dep) > 1}
+            raise ValueError(f"Duplicate operation dependencies found: {duplicates}")
+
+        # Validate each dependency ID format
+        for dep in cleaned:
+            if not all(c.isalnum() or c in "-_" for c in dep):
+                raise ValueError(
+                    f"Dependency ID must be alphanumeric with hyphens/underscores: {dep}"
+                )
+
+        return cleaned
+
+
 class Intent(BaseModel):
     """
     Buyer-intent query configuration.
 
     Represents a question we repeatedly ask LLMs to monitor brand mentions
-    and rankings.
+    and rankings. Can include custom operations for additional analysis.
 
     Attributes:
         id: Unique identifier slug (alphanumeric, hyphens, underscores)
         prompt: The actual question to ask the LLM
+        operations: Optional list of custom operations to run after this intent completes
     """
 
     id: str
     prompt: str
+    operations: list[Operation] = []
 
     @field_validator("id")
     @classmethod
@@ -362,25 +500,47 @@ class Intent(BaseModel):
             )
         return v
 
+    @field_validator("operations")
+    @classmethod
+    def validate_operations(cls, v: list[Operation]) -> list[Operation]:
+        """
+        Validate operations list has unique IDs.
+
+        Circular dependency detection happens at WatcherConfig level
+        where we have visibility into all operations.
+        """
+        if not v:
+            return v
+
+        # Check for duplicate operation IDs within this intent
+        ids = [op.id for op in v]
+        if len(ids) != len(set(ids)):
+            duplicates = {op_id for op_id in ids if ids.count(op_id) > 1}
+            raise ValueError(f"Duplicate operation IDs found in intent: {duplicates}")
+
+        return v
+
 
 class WatcherConfig(BaseModel):
     """
     Root configuration model for watcher.config.yaml.
 
     Validates the entire configuration file structure and enforces
-    business rules like unique intent IDs.
+    business rules like unique intent IDs and operation dependencies.
 
     Attributes:
         run_settings: Runtime settings (output paths, models, feature flags)
         extraction_settings: Optional extraction settings (defaults to regex with first model)
         brands: Brand alias collections (mine vs competitors)
         intents: List of buyer-intent queries to monitor
+        global_operations: Operations that run for EVERY intent (applied automatically)
     """
 
     run_settings: RunSettings
     extraction_settings: ExtractionSettings | None = None
     brands: Brands
     intents: list[Intent]
+    global_operations: list[Operation] = []
 
     @field_validator("intents")
     @classmethod
@@ -401,6 +561,112 @@ class WatcherConfig(BaseModel):
             raise ValueError(f"Duplicate intent IDs found: {duplicates}")
 
         return v
+
+    @field_validator("global_operations")
+    @classmethod
+    def validate_global_operations_unique(cls, v: list[Operation]) -> list[Operation]:
+        """
+        Validate global_operations list has unique IDs.
+
+        Raises:
+            ValueError: If duplicate operation IDs found in global_operations
+        """
+        if not v:
+            return v
+
+        # Check for duplicate operation IDs
+        ids = [op.id for op in v]
+        if len(ids) != len(set(ids)):
+            duplicates = {op_id for op_id in ids if ids.count(op_id) > 1}
+            raise ValueError(
+                f"Duplicate operation IDs found in global_operations: {duplicates}"
+            )
+
+        return v
+
+    @model_validator(mode="after")
+    def validate_operation_dependencies(self) -> "WatcherConfig":
+        """
+        Validate operation dependencies and detect circular references.
+
+        Checks:
+        1. All operation IDs are unique across global_operations and all intents
+        2. All depends_on references point to valid operation IDs
+        3. No circular dependencies exist
+
+        Raises:
+            ValueError: If validation fails
+        """
+        # Collect all operations and their IDs
+        all_operations: dict[str, Operation] = {}
+
+        # Add global operations
+        for op in self.global_operations:
+            if op.id in all_operations:
+                raise ValueError(
+                    f"Operation ID '{op.id}' appears in global_operations "
+                    "and also in an intent's operations"
+                )
+            all_operations[op.id] = op
+
+        # Add intent-specific operations
+        for intent in self.intents:
+            for op in intent.operations:
+                if op.id in all_operations:
+                    raise ValueError(
+                        f"Operation ID '{op.id}' is duplicated across "
+                        "global_operations and/or multiple intents"
+                    )
+                all_operations[op.id] = op
+
+        # Validate all depends_on references
+        for op_id, op in all_operations.items():
+            for dep_id in op.depends_on:
+                if dep_id not in all_operations:
+                    raise ValueError(
+                        f"Operation '{op_id}' depends on '{dep_id}' "
+                        "which does not exist"
+                    )
+
+        # Detect circular dependencies using DFS
+        def has_cycle(op_id: str, visited: set[str], rec_stack: set[str]) -> bool:
+            """
+            Detect cycle in dependency graph using DFS.
+
+            Args:
+                op_id: Current operation ID being checked
+                visited: Set of all visited operation IDs
+                rec_stack: Recursion stack for cycle detection
+
+            Returns:
+                True if cycle detected, False otherwise
+            """
+            visited.add(op_id)
+            rec_stack.add(op_id)
+
+            # Check all dependencies
+            op = all_operations[op_id]
+            for dep_id in op.depends_on:
+                if dep_id not in visited:
+                    if has_cycle(dep_id, visited, rec_stack):
+                        return True
+                elif dep_id in rec_stack:
+                    # Found a back edge - circular dependency
+                    return True
+
+            rec_stack.remove(op_id)
+            return False
+
+        # Check for cycles starting from each operation
+        visited: set[str] = set()
+        for op_id in all_operations:
+            if op_id not in visited:
+                if has_cycle(op_id, visited, set()):
+                    raise ValueError(
+                        f"Circular dependency detected involving operation '{op_id}'"
+                    )
+
+        return self
 
 
 class RuntimeModel(BaseModel):
@@ -531,6 +797,36 @@ class RuntimeExtractionSettings(BaseModel):
     min_confidence: float
 
 
+class RuntimeOperation(BaseModel):
+    """
+    Resolved operation configuration for runtime execution.
+
+    Created by config.loader after resolving model overrides and validating
+    dependencies. Contains all information needed to execute the operation.
+
+    Attributes:
+        id: Unique operation identifier
+        description: Human-readable description
+        prompt: Template prompt with variables (not yet rendered)
+        runtime_model: Resolved model configuration for this operation
+        enabled: Whether operation is enabled
+        depends_on: List of operation IDs this depends on
+        condition: Optional condition string for conditional execution
+        output_format: Expected output format ("text" or "json")
+        type: Operation type ("standard", "structured", or "webhook")
+    """
+
+    id: str
+    description: str | None = None
+    prompt: str
+    runtime_model: RuntimeModel | None = None
+    enabled: bool = True
+    depends_on: list[str] = []
+    condition: str | None = None
+    output_format: Literal["text", "json"] = "text"
+    type: Literal["standard", "structured", "webhook"] = "standard"
+
+
 class RuntimeConfig(BaseModel):
     """
     Runtime configuration with resolved API keys.
@@ -544,6 +840,7 @@ class RuntimeConfig(BaseModel):
         brands: Brand aliases from config
         intents: Intent queries from config
         models: Resolved model configurations with API keys
+        global_operations: Operations that run for every intent
     """
 
     run_settings: RunSettings
@@ -551,6 +848,7 @@ class RuntimeConfig(BaseModel):
     brands: Brands
     intents: list[Intent]
     models: list[RuntimeModel]
+    global_operations: list[RuntimeOperation] = []
 
     @field_validator("models")
     @classmethod

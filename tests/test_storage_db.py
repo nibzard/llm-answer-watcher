@@ -125,6 +125,7 @@ def test_init_db_creates_all_tables(tmp_path):
         "answers_raw",
         "intent_classifications",
         "mentions",
+        "operations",
         "runs",
         "schema_version",
     ]
@@ -154,6 +155,10 @@ def test_init_db_creates_all_indexes(tmp_path):
         "idx_intent_classifications_type",
         "idx_intent_classifications_buyer_stage",
         "idx_intent_classifications_urgency",
+        "idx_operations_run",
+        "idx_operations_intent",
+        "idx_operations_timestamp",
+        "idx_operations_operation_id",
     ]
     assert sorted(indexes) == sorted(expected_indexes)
 

@@ -32,7 +32,7 @@ from ..utils.time import utc_timestamp
 logger = logging.getLogger(__name__)
 
 # Current schema version - increment when migrations are added
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 def init_db_if_needed(db_path: str) -> None:
@@ -188,9 +188,11 @@ def apply_migrations(
                 _migrate_to_v1(conn)
             elif target_version == 2:
                 _migrate_to_v2(conn)
+            elif target_version == 3:
+                _migrate_to_v3(conn)
             # Future migrations go here:
-            # elif target_version == 3:
-            #     _migrate_to_v3(conn)
+            # elif target_version == 4:
+            #     _migrate_to_v4(conn)
             else:
                 raise ValueError(f"No migration defined for version {target_version}")
 
@@ -373,6 +375,93 @@ def _migrate_to_v2(conn: sqlite3.Connection) -> None:
     """)
 
     logger.debug("Added web search columns to answers_raw table (schema v2)")
+
+
+def _migrate_to_v3(conn: sqlite3.Connection) -> None:
+    """
+    Migrate database schema to version 3.
+
+    Adds operations support by creating the operations table:
+    - operations: Store custom operation results with metadata
+
+    This enables tracking of post-intent operations that perform
+    additional analysis on LLM responses (content gaps, action items, etc.).
+
+    Table structure:
+    - run_id: Foreign key to runs table
+    - intent_id: Which intent this operation ran for
+    - model_provider: Model provider used for operation
+    - model_name: Specific model used
+    - operation_id: Operation identifier (from config)
+    - operation_description: Human-readable description
+    - operation_prompt: Rendered prompt (with variables substituted)
+    - result_text: LLM output for this operation
+    - tokens_used_input: Input tokens consumed
+    - tokens_used_output: Output tokens generated
+    - cost_usd: Estimated cost for this operation
+    - timestamp_utc: When operation executed
+    - depends_on: JSON array of dependency operation IDs
+    - execution_order: Order in which operation was executed
+    - skipped: Whether operation was skipped (condition not met)
+    - error: Error message if operation failed
+
+    Args:
+        conn: Active SQLite database connection in transaction
+
+    Raises:
+        sqlite3.Error: If table creation or index creation fails
+
+    Note:
+        This migration is called automatically by apply_migrations().
+        Do NOT call directly - use apply_migrations() instead.
+    """
+    # Create operations table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS operations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT NOT NULL,
+            intent_id TEXT NOT NULL,
+            model_provider TEXT NOT NULL,
+            model_name TEXT NOT NULL,
+            operation_id TEXT NOT NULL,
+            operation_description TEXT,
+            operation_prompt TEXT NOT NULL,
+            result_text TEXT,
+            tokens_used_input INTEGER DEFAULT 0,
+            tokens_used_output INTEGER DEFAULT 0,
+            cost_usd REAL DEFAULT 0.0,
+            timestamp_utc TEXT NOT NULL,
+            depends_on TEXT,
+            execution_order INTEGER NOT NULL,
+            skipped INTEGER DEFAULT 0,
+            error TEXT,
+            FOREIGN KEY (run_id) REFERENCES runs(run_id),
+            UNIQUE(run_id, intent_id, model_provider, model_name, operation_id)
+        )
+    """)
+
+    # Create indexes for common queries
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_operations_run
+        ON operations(run_id)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_operations_intent
+        ON operations(intent_id)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_operations_timestamp
+        ON operations(timestamp_utc)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_operations_operation_id
+        ON operations(operation_id)
+    """)
+
+    logger.debug("Created operations table and indexes (schema v3)")
 
 
 # ============================================================================
@@ -657,6 +746,146 @@ def insert_mention(
     logger.debug(
         f"Inserted mention: {normalized_name} (is_mine={is_mine}, rank={rank_position})"
     )
+
+
+def insert_operation(
+    conn: sqlite3.Connection,
+    run_id: str,
+    intent_id: str,
+    model_provider: str,
+    model_name: str,
+    operation_id: str,
+    operation_description: str | None,
+    operation_prompt: str,
+    result_text: str,
+    tokens_used_input: int,
+    tokens_used_output: int,
+    cost_usd: float,
+    timestamp_utc: str,
+    depends_on: list[str],
+    execution_order: int,
+    skipped: bool = False,
+    error: str | None = None,
+) -> None:
+    """
+    Insert an operation result into the operations table.
+
+    Stores the result of a custom post-intent operation with all metadata
+    for historical tracking and cost analysis.
+
+    This function is idempotent - if an operation for the same (run_id, intent_id,
+    model_provider, model_name, operation_id) already exists, the insert is skipped
+    (due to UNIQUE constraint).
+
+    Args:
+        conn: Active SQLite database connection
+        run_id: Run identifier (foreign key to runs.run_id)
+        intent_id: Intent query identifier from config
+        model_provider: LLM provider used for operation (e.g., "openai")
+        model_name: Model identifier used (e.g., "gpt-4o-mini")
+        operation_id: Operation identifier from config
+        operation_description: Optional human-readable description
+        operation_prompt: Rendered prompt (with variables substituted)
+        result_text: LLM output for this operation
+        tokens_used_input: Input tokens consumed
+        tokens_used_output: Output tokens generated
+        cost_usd: Estimated cost in USD
+        timestamp_utc: ISO 8601 timestamp when operation executed
+        depends_on: List of operation IDs this depends on
+        execution_order: Order in which operation was executed
+        skipped: Whether operation was skipped (condition not met)
+        error: Error message if operation failed
+
+    Raises:
+        sqlite3.Error: If database operation fails
+
+    Example:
+        >>> insert_operation(
+        ...     conn,
+        ...     run_id="2025-11-05T10-00-00Z",
+        ...     intent_id="email-warmup",
+        ...     model_provider="openai",
+        ...     model_name="gpt-4o-mini",
+        ...     operation_id="content-gaps",
+        ...     operation_description="Identify content opportunities",
+        ...     operation_prompt="Analyze how to improve ranking...",
+        ...     result_text="Create blog posts about...",
+        ...     tokens_used_input=150,
+        ...     tokens_used_output=200,
+        ...     cost_usd=0.0005,
+        ...     timestamp_utc="2025-11-05T10:00:15Z",
+        ...     depends_on=[],
+        ...     execution_order=0,
+        ...     skipped=False
+        ... )
+        >>> conn.commit()
+
+    Security:
+        Uses parameterized query to prevent SQL injection.
+        Does NOT log result_text (may contain sensitive info).
+
+    Note:
+        Always call conn.commit() after insert to persist changes.
+        Uses INSERT OR IGNORE to make operation idempotent.
+    """
+    import json
+
+    # Convert depends_on list to JSON
+    depends_on_json = json.dumps(depends_on) if depends_on else None
+
+    # Convert boolean to integer for SQLite
+    skipped_int = 1 if skipped else 0
+
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO operations (
+            run_id,
+            intent_id,
+            model_provider,
+            model_name,
+            operation_id,
+            operation_description,
+            operation_prompt,
+            result_text,
+            tokens_used_input,
+            tokens_used_output,
+            cost_usd,
+            timestamp_utc,
+            depends_on,
+            execution_order,
+            skipped,
+            error
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            run_id,
+            intent_id,
+            model_provider,
+            model_name,
+            operation_id,
+            operation_description,
+            operation_prompt,
+            result_text,
+            tokens_used_input,
+            tokens_used_output,
+            cost_usd,
+            timestamp_utc,
+            depends_on_json,
+            execution_order,
+            skipped_int,
+            error,
+        ),
+    )
+
+    if skipped:
+        logger.debug(f"Inserted operation: {operation_id} (skipped)")
+    elif error:
+        logger.debug(f"Inserted operation: {operation_id} (error: {error})")
+    else:
+        logger.debug(
+            f"Inserted operation: {operation_id} "
+            f"(tokens={tokens_used_input + tokens_used_output}, cost=${cost_usd:.6f})"
+        )
 
 
 def update_run_cost(

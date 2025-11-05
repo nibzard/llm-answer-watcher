@@ -31,6 +31,7 @@ from pathlib import Path
 from ..utils.time import utc_timestamp
 from .layout import (
     get_error_filename,
+    get_operation_result_filename,
     get_parsed_answer_filename,
     get_raw_answer_filename,
     get_report_filename,
@@ -268,6 +269,62 @@ def write_error(
     logger.warning(
         f"Wrote error file: intent={intent_id}, provider={provider}, "
         f"model={model}, error={error_message}"
+    )
+
+
+def write_operation_result(
+    run_dir: str,
+    intent_id: str,
+    operation_id: str,
+    provider: str,
+    model: str,
+    data: dict,
+) -> None:
+    """
+    Write operation result JSON to run directory.
+
+    Creates operation result file with LLM output and metadata from custom
+    post-intent operation. Includes tokens, cost, dependencies, and execution details.
+
+    Args:
+        run_dir: Run directory path (from create_run_directory)
+        intent_id: Intent query identifier
+        operation_id: Operation identifier from config
+        provider: LLM provider name used for operation
+        model: Model identifier used for operation
+        data: Operation result data (OperationResult serialized to dict)
+
+    Raises:
+        OSError: If file cannot be written
+
+    Example:
+        >>> data = {
+        ...     "operation_id": "content-gaps",
+        ...     "result_text": "Create blog posts about...",
+        ...     "tokens_used_input": 150,
+        ...     "tokens_used_output": 200,
+        ...     "cost_usd": 0.0005,
+        ...     "timestamp_utc": "2025-11-05T10:00:15Z",
+        ...     "rendered_prompt": "Analyze how to improve ranking...",
+        ...     "skipped": False,
+        ...     "error": None
+        ... }
+        >>> write_operation_result(
+        ...     "./output/2025-11-05T10-00-00Z",
+        ...     "email-warmup", "content-gaps",
+        ...     "openai", "gpt-4o-mini",
+        ...     data
+        ... )
+
+    Note:
+        Uses get_operation_result_filename from layout module for consistent naming.
+    """
+    filename = get_operation_result_filename(intent_id, operation_id, provider, model)
+    filepath = os.path.join(run_dir, filename)
+    write_json(filepath, data)
+    logger.info(
+        f"Wrote operation result: intent={intent_id}, operation={operation_id}, "
+        f"provider={provider}, model={model}"
     )
 
 

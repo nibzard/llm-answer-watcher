@@ -41,16 +41,21 @@ from dataclasses import asdict, dataclass
 from ..config.schema import RuntimeConfig
 from ..exceptions import BudgetExceededError
 from ..extractor.parser import parse_answer
-from ..storage.db import insert_answer_raw, insert_mention, insert_run
+from ..storage.db import insert_answer_raw, insert_mention, insert_operation, insert_run
 from ..storage.writer import (
     create_run_directory,
     write_error,
+    write_operation_result,
     write_parsed_answer,
     write_raw_answer,
     write_run_meta,
 )
 from ..utils.time import run_id_from_timestamp, utc_timestamp
 from .models import build_client
+from .operation_executor import (
+    OperationContext,
+    execute_operations_with_dependencies,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -588,6 +593,104 @@ def run_all(
                 # Update success tracking
                 success_count += 1
                 total_cost_usd += cost_usd + extraction_result.extraction_cost_usd
+
+                # Execute operations if configured
+                operations_cost_usd = 0.0
+                if intent.operations or config.global_operations:
+                    logger.info(f"Executing operations for intent={intent.id}")
+
+                    # Combine intent-specific and global operations
+                    all_operations = list(intent.operations) + list(config.global_operations)
+
+                    # Build operation context
+                    operation_context = OperationContext(
+                        intent_data={
+                            "id": intent.id,
+                            "prompt": intent.prompt,
+                            "response": answer_text,
+                        },
+                        extraction_data={
+                            "my_brand": config.brands.mine[0] if config.brands.mine else "unknown",
+                            "my_brand_aliases": config.brands.mine,
+                            "competitors": config.brands.competitors,
+                            "competitors_mentioned": [
+                                m.normalized_name for m in extraction_result.competitor_mentions
+                            ],
+                            "my_rank": extraction_result.ranked_list[0].rank_position
+                            if extraction_result.ranked_list and extraction_result.appeared_mine
+                            else None,
+                            "my_mentions": [m.original_text for m in extraction_result.my_mentions],
+                            "competitor_mentions": [
+                                m.original_text for m in extraction_result.competitor_mentions
+                            ],
+                        },
+                        run_metadata={
+                            "run_id": run_id,
+                            "timestamp": timestamp_utc,
+                        },
+                        model_info={
+                            "provider": model_config.provider,
+                            "name": model_config.model_name,
+                        },
+                    )
+
+                    # Execute operations
+                    operation_results = execute_operations_with_dependencies(
+                        operations=all_operations,
+                        context=operation_context,
+                        runtime_config=config,
+                    )
+
+                    # Store operation results
+                    for execution_order, (op_id, op_result) in enumerate(operation_results.items()):
+                        operations_cost_usd += op_result.cost_usd
+
+                        # Write JSON artifact
+                        operation_data = asdict(op_result)
+                        write_operation_result(
+                            run_dir=run_dir,
+                            intent_id=intent.id,
+                            operation_id=op_id,
+                            provider=op_result.model_provider,
+                            model=op_result.model_name,
+                            data=operation_data,
+                        )
+
+                        # Insert into database
+                        try:
+                            operation = next((o for o in all_operations if o.id == op_id), None)
+                            with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
+                                insert_operation(
+                                    conn=conn,
+                                    run_id=run_id,
+                                    intent_id=intent.id,
+                                    model_provider=op_result.model_provider,
+                                    model_name=op_result.model_name,
+                                    operation_id=op_id,
+                                    operation_description=operation.description if operation else None,
+                                    operation_prompt=op_result.rendered_prompt,
+                                    result_text=op_result.result_text,
+                                    tokens_used_input=op_result.tokens_used_input,
+                                    tokens_used_output=op_result.tokens_used_output,
+                                    cost_usd=op_result.cost_usd,
+                                    timestamp_utc=op_result.timestamp_utc,
+                                    depends_on=operation.depends_on if operation else [],
+                                    execution_order=execution_order,
+                                    skipped=op_result.skipped,
+                                    error=op_result.error,
+                                )
+                                conn.commit()
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to insert operation into database: {e}",
+                                exc_info=True,
+                            )
+
+                    # Add operations cost to total
+                    total_cost_usd += operations_cost_usd
+                    logger.info(
+                        f"Completed {len(operation_results)} operations, cost=${operations_cost_usd:.6f}"
+                    )
 
                 # Log with extraction cost breakdown if applicable
                 if extraction_result.extraction_cost_usd > 0:

@@ -128,6 +128,7 @@ def estimate_run_cost(config: RuntimeConfig) -> dict:
         dict: Cost estimate with breakdown:
             - total_estimated_cost: Total estimated cost in USD
             - per_intent_costs: Dict mapping intent_id to estimated cost
+            - per_model_costs: List of dicts with per-model breakdown
             - total_queries: Total number of queries
             - buffer_percentage: Safety buffer applied (20%)
 
@@ -147,6 +148,7 @@ def estimate_run_cost(config: RuntimeConfig) -> dict:
 
     total_cost = 0.0
     per_intent_costs = {}
+    per_model_costs = []
 
     for intent in config.intents:
         intent_cost = 0.0
@@ -182,6 +184,40 @@ def estimate_run_cost(config: RuntimeConfig) -> dict:
         per_intent_costs[intent.id] = round(intent_cost, 6)
         total_cost += intent_cost
 
+    # Calculate per-model breakdown (cost across all intents)
+    for model in config.models:
+        # Get pricing for this model
+        try:
+            pricing = get_pricing(model.provider, model.model_name)
+            input_rate = pricing.input / 1_000_000
+            output_rate = pricing.output / 1_000_000
+        except (PricingNotAvailableError, Exception):
+            input_rate = 0.00000015
+            output_rate = 0.0000006
+
+        # Calculate cost per query
+        query_cost = (AVG_INPUT_TOKENS * input_rate) + (
+            AVG_OUTPUT_TOKENS * output_rate
+        )
+
+        # Add web search cost if tools enabled
+        if model.tools:
+            query_cost += 0.01
+
+        # Total cost for this model across all intents
+        model_total = query_cost * len(config.intents)
+
+        per_model_costs.append(
+            {
+                "provider": model.provider,
+                "model_name": model.model_name,
+                "cost_per_query": round(query_cost, 6),
+                "total_cost": round(model_total, 6),
+                "num_queries": len(config.intents),
+                "has_web_search": bool(model.tools),
+            }
+        )
+
     # Add safety buffer
     total_with_buffer = total_cost * (1 + BUFFER_PERCENTAGE)
 
@@ -189,6 +225,7 @@ def estimate_run_cost(config: RuntimeConfig) -> dict:
         "total_estimated_cost": round(total_with_buffer, 6),
         "total_queries": len(config.intents) * len(config.models),
         "per_intent_costs": per_intent_costs,
+        "per_model_costs": per_model_costs,
         "buffer_percentage": BUFFER_PERCENTAGE,
         "base_cost": round(total_cost, 6),
     }
@@ -373,6 +410,12 @@ def run_all(
                 f"model={model_config.model_name}"
             )
 
+            # Notify progress callback of query start (if supported)
+            if progress_callback and hasattr(progress_callback, "start_query"):
+                progress_callback.start_query(
+                    intent.id, model_config.provider, model_config.model_name
+                )
+
             try:
                 # Build LLM client for this model
                 client = build_client(
@@ -553,7 +596,11 @@ def run_all(
 
                 # Call progress callback if provided
                 if progress_callback:
-                    progress_callback()
+                    if hasattr(progress_callback, "complete_query"):
+                        progress_callback.complete_query(success=True)
+                    else:
+                        # Backward compatibility: call as function
+                        progress_callback()
 
             except Exception as e:
                 # Query failed - write error file and track
@@ -585,7 +632,11 @@ def run_all(
 
                 # Call progress callback if provided (even for errors)
                 if progress_callback:
-                    progress_callback()
+                    if hasattr(progress_callback, "complete_query"):
+                        progress_callback.complete_query(success=False)
+                    else:
+                        # Backward compatibility: call as function
+                        progress_callback()
 
     # Generate run metadata summary
     run_meta = {

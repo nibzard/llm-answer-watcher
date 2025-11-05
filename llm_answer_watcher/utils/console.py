@@ -540,3 +540,112 @@ def print_final_summary(
     )
 
     console.print(panel)
+
+
+def print_cost_breakdown(cost_estimate: dict, budget_limit: float | None = None) -> None:
+    """
+    Display detailed cost breakdown by model before execution.
+
+    Shows per-model cost estimates in a formatted table with totals and budget check.
+    Adapts to output mode (human-friendly table, JSON, or quiet tab-separated).
+
+    Args:
+        cost_estimate: Cost estimate dict from estimate_run_cost() with:
+            - per_model_costs: List of model cost breakdowns
+            - base_cost: Total cost before safety buffer
+            - total_estimated_cost: Total with safety buffer
+            - buffer_percentage: Safety buffer percentage
+        budget_limit: Optional budget limit in USD to compare against
+
+    Example:
+        >>> estimate = estimate_run_cost(config)
+        >>> print_cost_breakdown(estimate, budget_limit=1.0)
+        # Displays:
+        # Cost Estimation by Model
+        # ┌──────────┬─────────────┬────────┬───────────┬──────┐
+        # │ Provider │ Model       │ Queries│ Per Query │ Total│
+        # ├──────────┼─────────────┼────────┼───────────┼──────┤
+        # │ openai   │ gpt-4o-mini │ 3      │ $0.000375 │ $... │
+        # └──────────┴─────────────┴────────┴───────────┴──────┘
+    """
+    if output_mode.is_agent():
+        # JSON mode: add cost breakdown to buffer
+        output_mode.add_json("cost_breakdown", cost_estimate)
+        if budget_limit is not None:
+            output_mode.add_json("budget_limit_usd", budget_limit)
+            output_mode.add_json(
+                "within_budget", cost_estimate["total_estimated_cost"] <= budget_limit
+            )
+        output_mode.flush_json()
+        return
+
+    if output_mode.quiet:
+        # Quiet mode: tab-separated totals
+        print(
+            f"{cost_estimate['total_estimated_cost']:.6f}\t"
+            f"{cost_estimate['total_queries']}\t"
+            f"{cost_estimate['base_cost']:.6f}"
+        )
+        return
+
+    # Human-friendly table
+    console = Console()
+
+    # Create cost breakdown table
+    table = Table(
+        title="Cost Estimation by Model",
+        box=box.ROUNDED,
+        show_header=True,
+        header_style="bold cyan",
+    )
+
+    table.add_column("Provider", style="yellow", no_wrap=True)
+    table.add_column("Model", style="cyan", no_wrap=False)
+    table.add_column("Queries", justify="right", style="blue")
+    table.add_column("Per Query", justify="right", style="green")
+    table.add_column("Total", justify="right", style="bold green")
+    table.add_column("Web Search", justify="center", style="magenta")
+
+    # Add rows for each model
+    for model_info in cost_estimate.get("per_model_costs", []):
+        web_search_icon = "\u2713" if model_info.get("has_web_search") else "\u2717"
+        table.add_row(
+            model_info["provider"],
+            model_info["model_name"],
+            str(model_info["num_queries"]),
+            f"${model_info['cost_per_query']:.6f}",
+            f"${model_info['total_cost']:.6f}",
+            web_search_icon,
+        )
+
+    console.print(table)
+    console.print()
+
+    # Print totals
+    console.print(
+        f"[bold]Subtotal:[/bold] ${cost_estimate['base_cost']:.6f} "
+        f"({cost_estimate['total_queries']} queries)"
+    )
+    buffer_pct = int(cost_estimate["buffer_percentage"] * 100)
+    console.print(
+        f"[bold]Safety buffer ({buffer_pct}%):[/bold] "
+        f"${cost_estimate['total_estimated_cost'] - cost_estimate['base_cost']:.6f}"
+    )
+    console.print(
+        f"[bold cyan]Total estimated cost:[/bold cyan] "
+        f"${cost_estimate['total_estimated_cost']:.6f}"
+    )
+
+    # Budget check
+    if budget_limit is not None:
+        console.print()
+        if cost_estimate["total_estimated_cost"] <= budget_limit:
+            console.print(
+                f"[bold green]\u2713 Within budget limit:[/bold green] ${budget_limit:.2f}"
+            )
+        else:
+            console.print(
+                f"[bold red]\u2717 Exceeds budget limit:[/bold red] ${budget_limit:.2f} "
+                f"(over by ${cost_estimate['total_estimated_cost'] - budget_limit:.6f})"
+            )
+    console.print()

@@ -333,9 +333,27 @@ def list_available_models() -> list[dict[str, Any]]:
 
     # Add overrides
     for provider, provider_models in overrides.items():
-        if provider == "tools":
+        # Skip special keys (tools, comments, metadata)
+        if provider.startswith("_") or provider == "tools":
             continue
+
+        # Skip if provider_models is not a dict (malformed data)
+        if not isinstance(provider_models, dict):
+            continue
+
         for model, pricing in provider_models.items():
+            # Skip metadata/comment keys
+            if model.startswith("_"):
+                continue
+
+            # Skip if pricing is not a dict (malformed data)
+            if not isinstance(pricing, dict):
+                continue
+
+            # Skip if required fields are missing
+            if "input" not in pricing or "output" not in pricing:
+                continue
+
             models.append(
                 {
                     "provider": provider,

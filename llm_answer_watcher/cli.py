@@ -1324,8 +1324,10 @@ def prices_show(
             )
 
         console.print(table)
-        raise typer.Exit(0)
 
+    except typer.Exit:
+        # Re-raise typer.Exit without catching it
+        raise
     except Exception as e:
         if format == "json":
             print(json.dumps({"error": str(e)}))

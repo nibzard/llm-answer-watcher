@@ -32,7 +32,7 @@ from ..utils.time import utc_timestamp
 logger = logging.getLogger(__name__)
 
 # Current schema version - increment when migrations are added
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 
 def init_db_if_needed(db_path: str) -> None:
@@ -190,9 +190,11 @@ def apply_migrations(
                 _migrate_to_v2(conn)
             elif target_version == 3:
                 _migrate_to_v3(conn)
+            elif target_version == 4:
+                _migrate_to_v4(conn)
             # Future migrations go here:
-            # elif target_version == 4:
-            #     _migrate_to_v4(conn)
+            # elif target_version == 5:
+            #     _migrate_to_v5(conn)
             else:
                 raise ValueError(f"No migration defined for version {target_version}")
 
@@ -535,6 +537,83 @@ def _migrate_to_v3(conn: sqlite3.Connection) -> None:
     """)
 
     logger.debug("Added sentiment/intent classification support (schema v3 part 2)")
+
+
+def _migrate_to_v4(conn: sqlite3.Connection) -> None:
+    """
+    Migrate database schema to version 4.
+
+    Adds intent classification caching to avoid redundant API calls for identical queries.
+    This optimization reduces costs and latency for static query sets.
+
+    Creates:
+    - intent_classification_cache table: Stores classification results by query hash
+    - Cache lookup prevents re-classifying identical query text
+    - Timestamp tracking for TTL support and LRU eviction
+
+    Cache design:
+    - query_hash: SHA256 of normalized query text (primary key, ensures uniqueness)
+    - query_text: Original query for debugging/validation
+    - Classification fields: intent_type, buyer_stage, urgency_signal, confidence, reasoning
+    - cached_at: When result was first cached (for TTL-based expiration)
+    - last_accessed_at: Most recent cache hit (for LRU eviction strategies)
+
+    Args:
+        conn: Active SQLite database connection in transaction
+
+    Raises:
+        sqlite3.Error: If table creation or index creation fails
+
+    Note:
+        This migration is called automatically by apply_migrations().
+        Do NOT call directly - use apply_migrations() instead.
+
+        Cache hits avoid LLM API calls entirely, providing 0-cost classifications
+        for repeated queries. Particularly valuable for static query sets where
+        queries don't change between runs.
+    """
+    # Create intent classification cache table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS intent_classification_cache (
+            query_hash TEXT PRIMARY KEY,
+            query_text TEXT NOT NULL,
+            intent_type TEXT NOT NULL CHECK(intent_type IN (
+                'transactional',
+                'informational',
+                'navigational',
+                'commercial_investigation'
+            )),
+            buyer_stage TEXT NOT NULL CHECK(buyer_stage IN (
+                'awareness',
+                'consideration',
+                'decision'
+            )),
+            urgency_signal TEXT NOT NULL CHECK(urgency_signal IN (
+                'high',
+                'medium',
+                'low'
+            )),
+            classification_confidence REAL NOT NULL,
+            reasoning TEXT,
+            extraction_cost_usd REAL DEFAULT 0.0,
+            cached_at TEXT NOT NULL,
+            last_accessed_at TEXT NOT NULL
+        )
+    """)
+
+    # Index for timestamp-based queries (TTL cleanup, if implemented)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_intent_cache_cached_at
+        ON intent_classification_cache(cached_at)
+    """)
+
+    # Index for last access time (LRU eviction, if implemented)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_intent_cache_last_accessed
+        ON intent_classification_cache(last_accessed_at)
+    """)
+
+    logger.debug("Created intent_classification_cache table and indexes (schema v4)")
 
 
 # ============================================================================
@@ -920,6 +999,180 @@ def insert_intent_classification(
     logger.debug(
         f"Inserted intent classification: {intent_id} -> {intent_type}/{buyer_stage}/{urgency_signal} "
         f"(confidence={classification_confidence:.2f})"
+    )
+
+
+def lookup_intent_classification_cache(
+    conn: sqlite3.Connection, query_hash: str
+) -> dict | None:
+    """
+    Look up cached intent classification result by query hash.
+
+    Checks the intent_classification_cache table for a previously classified
+    identical query. If found, updates last_accessed_at timestamp to track
+    cache usage (useful for LRU eviction).
+
+    Args:
+        conn: Active SQLite database connection
+        query_hash: SHA256 hash of normalized query text
+
+    Returns:
+        dict with classification data if cache hit, None if cache miss
+        Cache hit dict contains:
+        - intent_type: str
+        - buyer_stage: str
+        - urgency_signal: str
+        - classification_confidence: float
+        - reasoning: str | None
+        - extraction_cost_usd: float
+        - query_text: str (for validation)
+
+    Example:
+        >>> query_hash = compute_query_hash("What are the best email warmup tools?")
+        >>> cached = lookup_intent_classification_cache(conn, query_hash)
+        >>> if cached:
+        ...     print(f"Cache hit: {cached['intent_type']}")
+        ... else:
+        ...     print("Cache miss - need to classify")
+
+    Note:
+        Updates last_accessed_at timestamp on cache hit to track usage.
+        This enables LRU-based cache eviction strategies.
+    """
+    cursor = conn.execute(
+        """
+        SELECT
+            query_text,
+            intent_type,
+            buyer_stage,
+            urgency_signal,
+            classification_confidence,
+            reasoning,
+            extraction_cost_usd
+        FROM intent_classification_cache
+        WHERE query_hash = ?
+        """,
+        (query_hash,),
+    )
+
+    row = cursor.fetchone()
+
+    if row is None:
+        return None
+
+    # Update last_accessed_at timestamp for LRU tracking
+    conn.execute(
+        """
+        UPDATE intent_classification_cache
+        SET last_accessed_at = ?
+        WHERE query_hash = ?
+        """,
+        (utc_timestamp(), query_hash),
+    )
+
+    # Return cached result
+    return {
+        "query_text": row[0],
+        "intent_type": row[1],
+        "buyer_stage": row[2],
+        "urgency_signal": row[3],
+        "classification_confidence": row[4],
+        "reasoning": row[5],
+        "extraction_cost_usd": row[6],
+    }
+
+
+def store_intent_classification_cache(
+    conn: sqlite3.Connection,
+    query_hash: str,
+    query_text: str,
+    intent_type: str,
+    buyer_stage: str,
+    urgency_signal: str,
+    classification_confidence: float,
+    reasoning: str | None = None,
+    extraction_cost_usd: float = 0.0,
+) -> None:
+    """
+    Store intent classification result in cache for future lookups.
+
+    Caches the classification result keyed by query hash to avoid redundant
+    API calls for identical queries. Sets both cached_at and last_accessed_at
+    to current timestamp.
+
+    This function is idempotent - if the same query_hash already exists,
+    the insert is skipped (due to PRIMARY KEY constraint on query_hash).
+
+    Args:
+        conn: Active SQLite database connection
+        query_hash: SHA256 hash of normalized query text (unique key)
+        query_text: Original query text for debugging/validation
+        intent_type: Classified intent type
+        buyer_stage: Classified buyer journey stage
+        urgency_signal: Classified urgency level
+        classification_confidence: Confidence score (0.0-1.0)
+        reasoning: Optional classification explanation
+        extraction_cost_usd: Original classification API cost
+
+    Raises:
+        sqlite3.Error: If database operation fails
+
+    Example:
+        >>> query_hash = compute_query_hash("What are the best email warmup tools?")
+        >>> store_intent_classification_cache(
+        ...     conn,
+        ...     query_hash=query_hash,
+        ...     query_text="What are the best email warmup tools?",
+        ...     intent_type="transactional",
+        ...     buyer_stage="decision",
+        ...     urgency_signal="high",
+        ...     classification_confidence=0.95,
+        ...     reasoning="Query contains buying intent",
+        ...     extraction_cost_usd=0.00011
+        ... )
+        >>> conn.commit()
+
+    Security:
+        Uses parameterized query to prevent SQL injection.
+
+    Note:
+        Always call conn.commit() after insert to persist changes.
+        Uses INSERT OR IGNORE to make operation idempotent.
+    """
+    timestamp = utc_timestamp()
+
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO intent_classification_cache (
+            query_hash,
+            query_text,
+            intent_type,
+            buyer_stage,
+            urgency_signal,
+            classification_confidence,
+            reasoning,
+            extraction_cost_usd,
+            cached_at,
+            last_accessed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            query_hash,
+            query_text,
+            intent_type,
+            buyer_stage,
+            urgency_signal,
+            classification_confidence,
+            reasoning,
+            extraction_cost_usd,
+            timestamp,
+            timestamp,
+        ),
+    )
+
+    logger.debug(
+        f"Cached intent classification for query hash {query_hash[:16]}...: "
+        f"{intent_type}/{buyer_stage}/{urgency_signal}"
     )
 
 

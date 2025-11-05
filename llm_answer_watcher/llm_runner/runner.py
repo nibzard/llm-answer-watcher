@@ -427,6 +427,7 @@ def run_all(
                     query=intent.prompt,
                     extraction_settings=config.extraction_settings,
                     intent_id=intent.id,
+                    db_path=config.run_settings.sqlite_db_path,
                 )
 
                 # Store classification in database

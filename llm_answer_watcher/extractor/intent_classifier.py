@@ -36,18 +36,52 @@ Example:
     'high'
 """
 
+import hashlib
 import json
 import logging
+import sqlite3
 from dataclasses import dataclass
 
 from ..config.schema import RuntimeExtractionSettings
 from ..llm_runner.models import LLMResponse, build_client
+from ..storage.db import lookup_intent_classification_cache, store_intent_classification_cache
+from ..utils.time import utc_timestamp
 from .function_schemas import (
     CLASSIFY_QUERY_INTENT_FUNCTION,
     validate_intent_classification_response,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def compute_query_hash(query: str) -> str:
+    """
+    Compute SHA256 hash of normalized query text for cache key.
+
+    Normalizes the query by stripping whitespace and converting to lowercase
+    to ensure consistent cache keys for semantically identical queries.
+
+    Args:
+        query: User query text
+
+    Returns:
+        64-character hexadecimal SHA256 hash string
+
+    Example:
+        >>> compute_query_hash("What are the best email warmup tools?")
+        '5d41402abc4b2a76b9719d911017c592...'
+        >>> compute_query_hash("  What are the best email warmup tools?  ")
+        '5d41402abc4b2a76b9719d911017c592...'  # Same hash (normalized)
+
+    Note:
+        Normalization ensures cache hits for queries that differ only in
+        whitespace or case. This maximizes cache effectiveness.
+    """
+    # Normalize: strip whitespace, lowercase
+    normalized = query.strip().lower()
+
+    # Compute SHA256 hash
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -169,42 +203,63 @@ def classify_intent(
     query: str,
     extraction_settings: RuntimeExtractionSettings,
     intent_id: str,
+    db_path: str,
 ) -> IntentClassificationResult:
     """
-    Classify user query intent using function calling.
+    Classify user query intent using function calling with caching.
 
-    This is the main entry point for intent classification. It calls the
-    extraction model with structured output requirements, validates the
-    result, and returns classification data.
+    This is the main entry point for intent classification. It checks the cache
+    first to avoid redundant API calls, then calls the extraction model with
+    structured output requirements if needed, validates the result, stores it
+    in cache, and returns classification data.
+
+    Caching behavior:
+    - Cache key: SHA256 hash of normalized query text
+    - Cache hit: Returns cached result with 0 API cost (no LLM call)
+    - Cache miss: Calls LLM, stores result in cache, returns result
+    - Cache persists across runs in SQLite database
 
     Args:
         query: User query to classify
         extraction_settings: Extraction model config and settings
         intent_id: Intent ID for logging context
+        db_path: Path to SQLite database for cache storage
 
     Returns:
         IntentClassificationResult with classification data
+        Note: extraction_cost_usd will be 0.0 for cache hits
 
     Raises:
         RuntimeError: If classification fails
         ValueError: If extraction settings are invalid
 
     Example:
-        >>> result = classify_intent(
+        >>> # First call - cache miss, calls LLM
+        >>> result1 = classify_intent(
         ...     query="What are the best email warmup tools to buy now?",
         ...     extraction_settings=settings,
-        ...     intent_id="email-warmup"
+        ...     intent_id="email-warmup",
+        ...     db_path="./output/watcher.db"
         ... )
-        >>> result.intent_type
-        'transactional'
-        >>> result.buyer_stage
-        'decision'
-        >>> result.urgency_signal
-        'high'
+        >>> result1.extraction_cost_usd
+        0.00011  # LLM call cost
+
+        >>> # Second call with same query - cache hit, no LLM call
+        >>> result2 = classify_intent(
+        ...     query="What are the best email warmup tools to buy now?",
+        ...     extraction_settings=settings,
+        ...     intent_id="email-warmup-2",
+        ...     db_path="./output/watcher.db"
+        ... )
+        >>> result2.extraction_cost_usd
+        0.0  # Cache hit, no cost!
 
     Note:
         This function requires extraction_settings.extraction_model to be configured.
         If extraction_model is None, raises ValueError.
+
+        Cache is based on query text only, not intent_id. Multiple intents with
+        identical queries will share the same cached classification.
     """
     # Validate extraction settings
     if extraction_settings.extraction_model is None:
@@ -212,6 +267,36 @@ def classify_intent(
             "Intent classification requires extraction_model to be configured. "
             "Set extraction_settings.extraction_model in config."
         )
+
+    # Compute query hash for cache lookup
+    query_hash = compute_query_hash(query)
+
+    # Check cache first
+    try:
+        with sqlite3.connect(db_path) as conn:
+            cached_result = lookup_intent_classification_cache(conn, query_hash)
+
+            if cached_result is not None:
+                logger.info(
+                    f"Intent classification cache HIT for {intent_id}: "
+                    f"{cached_result['intent_type']}/{cached_result['buyer_stage']}/{cached_result['urgency_signal']} "
+                    f"(confidence={cached_result['classification_confidence']:.2f}, saved=${cached_result['extraction_cost_usd']:.6f})"
+                )
+
+                return IntentClassificationResult(
+                    intent_type=cached_result["intent_type"],
+                    buyer_stage=cached_result["buyer_stage"],
+                    urgency_signal=cached_result["urgency_signal"],
+                    classification_confidence=cached_result["classification_confidence"],
+                    reasoning=cached_result["reasoning"],
+                    extraction_cost_usd=0.0,  # Cache hit = 0 cost
+                )
+
+            logger.debug(f"Intent classification cache MISS for {intent_id} (query_hash={query_hash[:16]}...)")
+
+    except Exception as e:
+        logger.warning(f"Cache lookup failed for {intent_id}: {e}. Proceeding with LLM call.")
+        # Continue to LLM call on cache lookup failure
 
     # Build extraction client
     extraction_model = extraction_settings.extraction_model
@@ -246,6 +331,26 @@ def classify_intent(
             f"{function_result['intent_type']}/{function_result['buyer_stage']}/{function_result['urgency_signal']} "
             f"(confidence={function_result['classification_confidence']:.2f})"
         )
+
+        # Store result in cache for future lookups
+        try:
+            with sqlite3.connect(db_path) as conn:
+                store_intent_classification_cache(
+                    conn=conn,
+                    query_hash=query_hash,
+                    query_text=query,
+                    intent_type=function_result["intent_type"],
+                    buyer_stage=function_result["buyer_stage"],
+                    urgency_signal=function_result["urgency_signal"],
+                    classification_confidence=function_result["classification_confidence"],
+                    reasoning=function_result.get("reasoning"),
+                    extraction_cost_usd=response.cost_usd,
+                )
+                conn.commit()
+                logger.debug(f"Stored classification result in cache for query_hash={query_hash[:16]}...")
+        except Exception as cache_error:
+            logger.warning(f"Failed to cache classification result for {intent_id}: {cache_error}")
+            # Don't fail the classification if caching fails - just log warning
 
         return IntentClassificationResult(
             intent_type=function_result["intent_type"],

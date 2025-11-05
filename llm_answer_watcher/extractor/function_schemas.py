@@ -29,14 +29,13 @@ Example:
     ... )
 """
 
-# OpenAI function calling schema for brand mention extraction
+# OpenAI Responses API function schema for brand mention extraction
+# NOTE: This uses the Responses API format (internally-tagged)
+# NOT the Chat Completions API format (externally-tagged with nested "function" key)
 EXTRACT_BRAND_MENTIONS_FUNCTION = {
     "type": "function",
-    "function": {
-        "name": "extract_brand_mentions",
-        "description": """
-Extract all brand/product mentions from the given text answer, along with their
-rank/position if the answer presents them in a ranked or ordered format.
+    "name": "extract_brand_mentions",
+    "description": """Extract all brand/product mentions from the given text answer, along with their rank/position if the answer presents them in a ranked or ordered format.
 
 CRITICAL INSTRUCTIONS:
 - Include EVERY brand/product mentioned, even if briefly
@@ -48,52 +47,49 @@ CRITICAL INSTRUCTIONS:
   * "medium": Brand mentioned as an option or alternative
   * "low": Brand mentioned in passing or tangentially
 - Normalize brand names to their canonical form (e.g., "hubspot" -> "HubSpot")
-- Extract context snippets showing where each brand was mentioned
-""",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "brands_mentioned": {
-                    "type": "array",
-                    "description": "List of all brands/products mentioned in the answer",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string",
-                                "description": "Canonical brand name (e.g., 'HubSpot', 'Instantly', 'Lemwarm')",
-                            },
-                            "rank": {
-                                "anyOf": [
-                                    {"type": "integer", "minimum": 1},
-                                    {"type": "null"},
-                                ],
-                                "description": "Position in ranking (1=best, 2=second, etc.). Null if no clear ranking.",
-                            },
-                            "confidence": {
-                                "type": "string",
-                                "enum": ["high", "medium", "low"],
-                                "description": "Confidence level for this mention based on explicitness",
-                            },
-                            "context_snippet": {
-                                "type": "string",
-                                "description": "Brief excerpt (max 100 chars) from answer showing where brand was mentioned",
-                                "maxLength": 100,
-                            },
+- Extract context snippets showing where each brand was mentioned""",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "brands_mentioned": {
+                "type": "array",
+                "description": "List of all brands/products mentioned in the answer",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Canonical brand name (e.g., 'HubSpot', 'Instantly', 'Lemwarm')",
                         },
-                        "required": ["name", "confidence", "context_snippet"],
-                        "additionalProperties": False,
+                        "rank": {
+                            "anyOf": [
+                                {"type": "integer", "minimum": 1},
+                                {"type": "null"},
+                            ],
+                            "description": "Position in ranking (1=best, 2=second, etc.). Null if no clear ranking.",
+                        },
+                        "confidence": {
+                            "type": "string",
+                            "enum": ["high", "medium", "low"],
+                            "description": "Confidence level for this mention based on explicitness",
+                        },
+                        "context_snippet": {
+                            "type": "string",
+                            "description": "Brief excerpt (max 100 chars) from answer showing where brand was mentioned",
+                            "maxLength": 100,
+                        },
                     },
-                },
-                "extraction_notes": {
-                    "type": "string",
-                    "description": "Optional notes about the extraction (e.g., 'No clear ranking', 'Brands as equals')",
+                    "required": ["name", "confidence", "context_snippet"],
+                    "additionalProperties": False,
                 },
             },
-            "required": ["brands_mentioned"],
-            "additionalProperties": False,
+            "extraction_notes": {
+                "type": "string",
+                "description": "Optional notes about the extraction (e.g., 'No clear ranking', 'Brands as equals')",
+            },
         },
-        "strict": True,  # Enable OpenAI Structured Outputs for schema adherence
+        "required": ["brands_mentioned"],
+        "additionalProperties": False,
     },
 }
 

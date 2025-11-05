@@ -40,8 +40,15 @@ from dataclasses import asdict, dataclass
 
 from ..config.schema import RuntimeConfig
 from ..exceptions import BudgetExceededError
+from ..extractor.intent_classifier import classify_intent
 from ..extractor.parser import parse_answer
-from ..storage.db import insert_answer_raw, insert_mention, insert_operation, insert_run
+from ..storage.db import (
+    insert_answer_raw,
+    insert_intent_classification,
+    insert_mention,
+    insert_operation,
+    insert_run,
+)
 from ..storage.writer import (
     create_run_directory,
     write_error,
@@ -408,6 +415,60 @@ def run_all(
 
     # Execute queries for all (intent, model) combinations
     for intent in config.intents:
+        # Classify intent before running queries (if enabled)
+        intent_classification_cost = 0.0
+        if (
+            config.extraction_settings
+            and config.extraction_settings.enable_intent_classification
+        ):
+            try:
+                logger.info(f"Classifying intent: {intent.id}")
+                classification_result = classify_intent(
+                    query=intent.prompt,
+                    extraction_settings=config.extraction_settings,
+                    intent_id=intent.id,
+                    db_path=config.run_settings.sqlite_db_path,
+                )
+
+                # Store classification in database
+                try:
+                    with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
+                        insert_intent_classification(
+                            conn=conn,
+                            run_id=run_id,
+                            intent_id=intent.id,
+                            intent_type=classification_result.intent_type,
+                            buyer_stage=classification_result.buyer_stage,
+                            urgency_signal=classification_result.urgency_signal,
+                            classification_confidence=classification_result.classification_confidence,
+                            timestamp_utc=utc_timestamp(),
+                            reasoning=classification_result.reasoning,
+                            extraction_cost_usd=classification_result.extraction_cost_usd,
+                        )
+                        conn.commit()
+                    logger.info(
+                        f"Intent classification stored: {intent.id} -> "
+                        f"{classification_result.intent_type}/{classification_result.buyer_stage}/"
+                        f"{classification_result.urgency_signal} "
+                        f"(confidence={classification_result.classification_confidence:.2f})"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to insert intent classification into database: {e}",
+                        exc_info=True,
+                    )
+
+                # Track classification cost
+                intent_classification_cost = classification_result.extraction_cost_usd
+                total_cost_usd += intent_classification_cost
+
+            except Exception as e:
+                logger.warning(
+                    f"Intent classification failed for {intent.id}: {e}",
+                    exc_info=True,
+                )
+                # Continue execution - classification is not critical
+
         for model_config in config.models:
             logger.info(
                 f"Processing: intent={intent.id}, provider={model_config.provider}, "
@@ -582,6 +643,8 @@ def run_all(
                                 is_mine=is_mine,
                                 rank_position=rank_position,
                                 match_type="exact",  # Default match type
+                                sentiment=mention.sentiment,
+                                mention_context=mention.mention_context,
                             )
                             conn.commit()
                     except Exception as e:

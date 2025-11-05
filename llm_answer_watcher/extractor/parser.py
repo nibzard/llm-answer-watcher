@@ -213,6 +213,8 @@ def parse_answer(
                     match_position=0,  # Not applicable for function calling
                     match_type="exact",  # Function calling provides exact brand names
                     fuzzy_score=None,
+                    sentiment=brand_data.get("sentiment"),
+                    mention_context=brand_data.get("mention_context"),
                 )
 
                 if brand_category == "mine":

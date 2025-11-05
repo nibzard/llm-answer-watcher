@@ -111,7 +111,7 @@ def test_init_db_creates_schema_version_table(tmp_path):
 
 
 def test_init_db_creates_all_tables(tmp_path):
-    """Test that all 4 tables are created (runs, answers_raw, mentions, schema_version)."""
+    """Test that all tables are created (runs, answers_raw, mentions, operations, intent_classifications, intent_classification_cache, schema_version)."""
     db_path = tmp_path / "test.db"
     init_db_if_needed(str(db_path))
 
@@ -121,12 +121,20 @@ def test_init_db_creates_all_tables(tmp_path):
         )
         tables = [row[0] for row in cursor.fetchall()]
 
-    expected_tables = ["answers_raw", "mentions", "runs", "schema_version"]
+    expected_tables = [
+        "answers_raw",
+        "intent_classification_cache",
+        "intent_classifications",
+        "mentions",
+        "operations",
+        "runs",
+        "schema_version",
+    ]
     assert sorted(tables) == sorted(expected_tables)
 
 
 def test_init_db_creates_all_indexes(tmp_path):
-    """Test that all 6 indexes are created."""
+    """Test that all indexes are created."""
     db_path = tmp_path / "test.db"
     init_db_if_needed(str(db_path))
 
@@ -143,6 +151,17 @@ def test_init_db_creates_all_indexes(tmp_path):
         "idx_mentions_brand",
         "idx_mentions_mine",
         "idx_mentions_rank",
+        "idx_mentions_sentiment",
+        "idx_mentions_context",
+        "idx_intent_classifications_type",
+        "idx_intent_classifications_buyer_stage",
+        "idx_intent_classifications_urgency",
+        "idx_operations_run",
+        "idx_operations_intent",
+        "idx_operations_timestamp",
+        "idx_operations_operation_id",
+        "idx_intent_cache_cached_at",
+        "idx_intent_cache_last_accessed",
     ]
     assert sorted(indexes) == sorted(expected_indexes)
 
@@ -180,7 +199,7 @@ def test_get_schema_version_after_migration(tmp_path):
         version = get_schema_version(conn)
 
     assert version == CURRENT_SCHEMA_VERSION
-    assert version == 2  # Updated for eval_db schema addition
+    assert version == 4  # Updated for intent classification caching
 
 
 def test_get_schema_version_with_multiple_versions(tmp_path):
@@ -283,17 +302,25 @@ def test_migration_is_atomic_on_failure(tmp_path):
         apply_migrations(conn, 0, 1)
         assert get_schema_version(conn) == 1
 
-        # Apply v2 migration (current schema)
+        # Apply v2 migration
         apply_migrations(conn, 1, 2)
         assert get_schema_version(conn) == 2
+
+        # Apply v3 migration
+        apply_migrations(conn, 2, 3)
+        assert get_schema_version(conn) == 3
+
+        # Apply v4 migration (current schema)
+        apply_migrations(conn, 3, 4)
+        assert get_schema_version(conn) == 4
 
         # Try to apply invalid migration (version 99 doesn't exist)
         # This should fail and not change the schema version
         with pytest.raises(sqlite3.Error, match="Failed to migrate"):
-            apply_migrations(conn, 2, 99)
+            apply_migrations(conn, 4, 99)
 
-        # Should still be at version 2 (migration failed before v99)
-        assert get_schema_version(conn) == 2
+        # Should still be at version 4 (migration failed before v99)
+        assert get_schema_version(conn) == 4
 
 
 def test_cannot_downgrade_schema(tmp_path):

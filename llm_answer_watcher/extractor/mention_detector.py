@@ -40,6 +40,8 @@ class BrandMention:
         match_position: Character offset where brand was found in text
         match_type: How the mention was matched - "exact" or "fuzzy"
         fuzzy_score: Similarity score if fuzzy matched (0-100), None if exact
+        sentiment: Sentiment of mention ("positive", "neutral", "negative", None)
+        mention_context: Context classification (None for regex extraction)
     """
 
     original_text: str
@@ -48,6 +50,8 @@ class BrandMention:
     match_position: int
     match_type: str = "exact"
     fuzzy_score: float | None = None
+    sentiment: str | None = None
+    mention_context: str | None = None
 
     def __post_init__(self):
         """Validate brand_category and match_type are valid."""

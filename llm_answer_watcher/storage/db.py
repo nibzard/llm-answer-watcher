@@ -381,40 +381,34 @@ def _migrate_to_v3(conn: sqlite3.Connection) -> None:
     """
     Migrate database schema to version 3.
 
-    Adds operations support by creating the operations table:
-    - operations: Store custom operation results with metadata
+    Adds two major feature sets:
 
-    This enables tracking of post-intent operations that perform
-    additional analysis on LLM responses (content gaps, action items, etc.).
+    1. Operations support (custom post-intent operations):
+       - operations table: Store custom operation results with metadata
+       - Enables tracking of post-intent operations that perform additional
+         analysis on LLM responses (content gaps, action items, etc.)
 
-    Table structure:
-    - run_id: Foreign key to runs table
-    - intent_id: Which intent this operation ran for
-    - model_provider: Model provider used for operation
-    - model_name: Specific model used
-    - operation_id: Operation identifier (from config)
-    - operation_description: Human-readable description
-    - operation_prompt: Rendered prompt (with variables substituted)
-    - result_text: LLM output for this operation
-    - tokens_used_input: Input tokens consumed
-    - tokens_used_output: Output tokens generated
-    - cost_usd: Estimated cost for this operation
-    - timestamp_utc: When operation executed
-    - depends_on: JSON array of dependency operation IDs
-    - execution_order: Order in which operation was executed
-    - skipped: Whether operation was skipped (condition not met)
-    - error: Error message if operation failed
+    2. Sentiment/context analysis and intent classification:
+       - Adds sentiment and mention_context columns to mentions table
+       - Creates intent_classifications table for query intent metadata
+       - Enables per-mention sentiment tagging (positive/neutral/negative)
+       - Context classification (primary_recommendation, alternative_listing, etc.)
+       - Query intent classification (transactional, informational, navigational)
+       - Buyer journey stage tracking (awareness, consideration, decision)
 
     Args:
         conn: Active SQLite database connection in transaction
 
     Raises:
-        sqlite3.Error: If table creation or index creation fails
+        sqlite3.Error: If table alteration or creation fails
 
     Note:
         This migration is called automatically by apply_migrations().
         Do NOT call directly - use apply_migrations() instead.
+
+        Existing rows in mentions table will have NULL values for new columns.
     """
+    # ==== PART 1: Operations Support ====
     # Create operations table
     conn.execute("""
         CREATE TABLE IF NOT EXISTS operations (
@@ -461,7 +455,86 @@ def _migrate_to_v3(conn: sqlite3.Connection) -> None:
         ON operations(operation_id)
     """)
 
-    logger.debug("Created operations table and indexes (schema v3)")
+    logger.debug("Created operations table and indexes (schema v3 part 1)")
+
+    # ==== PART 2: Sentiment/Intent Classification Support ====
+    # Add sentiment and context columns to mentions table
+    conn.execute("""
+        ALTER TABLE mentions
+        ADD COLUMN sentiment TEXT CHECK(sentiment IN ('positive', 'neutral', 'negative') OR sentiment IS NULL)
+    """)
+
+    conn.execute("""
+        ALTER TABLE mentions
+        ADD COLUMN mention_context TEXT CHECK(mention_context IN (
+            'primary_recommendation',
+            'alternative_listing',
+            'competitor_negative',
+            'competitor_neutral',
+            'passing_reference'
+        ) OR mention_context IS NULL)
+    """)
+
+    # Create index for sentiment filtering
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_mentions_sentiment
+        ON mentions(sentiment)
+    """)
+
+    # Create index for mention context filtering
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_mentions_context
+        ON mentions(mention_context)
+    """)
+
+    # Create intent_classifications table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS intent_classifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT NOT NULL,
+            intent_id TEXT NOT NULL,
+            intent_type TEXT NOT NULL CHECK(intent_type IN (
+                'transactional',
+                'informational',
+                'navigational',
+                'commercial_investigation'
+            )),
+            buyer_stage TEXT NOT NULL CHECK(buyer_stage IN (
+                'awareness',
+                'consideration',
+                'decision'
+            )),
+            urgency_signal TEXT NOT NULL CHECK(urgency_signal IN (
+                'high',
+                'medium',
+                'low'
+            )),
+            classification_confidence REAL NOT NULL,
+            reasoning TEXT,
+            extraction_cost_usd REAL DEFAULT 0.0,
+            timestamp_utc TEXT NOT NULL,
+            FOREIGN KEY (run_id) REFERENCES runs(run_id),
+            UNIQUE(run_id, intent_id)
+        )
+    """)
+
+    # Create indexes for intent classification queries
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_intent_classifications_type
+        ON intent_classifications(intent_type)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_intent_classifications_buyer_stage
+        ON intent_classifications(buyer_stage)
+    """)
+
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_intent_classifications_urgency
+        ON intent_classifications(urgency_signal)
+    """)
+
+    logger.debug("Added sentiment/intent classification support (schema v3 part 2)")
 
 
 # ============================================================================
@@ -658,6 +731,8 @@ def insert_mention(
     first_position: int | None = None,
     rank_position: int | None = None,
     match_type: str = "exact",
+    sentiment: str | None = None,
+    mention_context: str | None = None,
 ) -> None:
     """
     Insert a brand mention into the mentions table.
@@ -682,6 +757,10 @@ def insert_mention(
         first_position: Character position of first occurrence in text (0-indexed)
         rank_position: Rank/position in ordered list (1-indexed, None if not ranked)
         match_type: Type of match ("exact", "fuzzy", "llm_assisted")
+        sentiment: Sentiment of mention ("positive", "neutral", "negative", None)
+        mention_context: Context classification ("primary_recommendation",
+            "alternative_listing", "competitor_negative", "competitor_neutral",
+            "passing_reference", None)
 
     Raises:
         sqlite3.Error: If database operation fails
@@ -726,8 +805,10 @@ def insert_mention(
             is_mine,
             first_position,
             rank_position,
-            match_type
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            match_type,
+            sentiment,
+            mention_context
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             run_id,
@@ -741,10 +822,104 @@ def insert_mention(
             first_position,
             rank_position,
             match_type,
+            sentiment,
+            mention_context,
         ),
     )
     logger.debug(
         f"Inserted mention: {normalized_name} (is_mine={is_mine}, rank={rank_position})"
+    )
+
+
+def insert_intent_classification(
+    conn: sqlite3.Connection,
+    run_id: str,
+    intent_id: str,
+    intent_type: str,
+    buyer_stage: str,
+    urgency_signal: str,
+    classification_confidence: float,
+    timestamp_utc: str,
+    reasoning: str | None = None,
+    extraction_cost_usd: float = 0.0,
+) -> None:
+    """
+    Insert an intent classification into the intent_classifications table.
+
+    Records the classification result for a user query, including intent type,
+    buyer journey stage, and urgency signals. This enables filtering and
+    prioritization of high-value mentions.
+
+    This function is idempotent - if a classification for the same (run_id, intent_id)
+    already exists, the insert is skipped (due to UNIQUE constraint).
+
+    Args:
+        conn: Active SQLite database connection
+        run_id: Run identifier (foreign key to runs.run_id)
+        intent_id: Intent query identifier from config
+        intent_type: Type of intent ("transactional", "informational",
+            "navigational", "commercial_investigation")
+        buyer_stage: Buyer journey stage ("awareness", "consideration", "decision")
+        urgency_signal: Urgency level ("high", "medium", "low")
+        classification_confidence: Confidence score (0.0-1.0)
+        timestamp_utc: ISO 8601 timestamp when classification was performed
+        reasoning: Optional explanation of classification decision
+        extraction_cost_usd: Cost of classification call in USD
+
+    Raises:
+        sqlite3.Error: If database operation fails
+
+    Example:
+        >>> insert_intent_classification(
+        ...     conn,
+        ...     run_id="2025-11-02T08-00-00Z",
+        ...     intent_id="email-warmup",
+        ...     intent_type="transactional",
+        ...     buyer_stage="decision",
+        ...     urgency_signal="high",
+        ...     classification_confidence=0.92,
+        ...     timestamp_utc="2025-11-02T08:00:01Z",
+        ...     reasoning="Query contains 'buy now' and 'best' indicators",
+        ...     extraction_cost_usd=0.00012
+        ... )
+        >>> conn.commit()
+
+    Security:
+        Uses parameterized query to prevent SQL injection.
+
+    Note:
+        Always call conn.commit() after insert to persist changes.
+        Uses INSERT OR IGNORE to make operation idempotent.
+    """
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO intent_classifications (
+            run_id,
+            intent_id,
+            intent_type,
+            buyer_stage,
+            urgency_signal,
+            classification_confidence,
+            reasoning,
+            extraction_cost_usd,
+            timestamp_utc
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            run_id,
+            intent_id,
+            intent_type,
+            buyer_stage,
+            urgency_signal,
+            classification_confidence,
+            reasoning,
+            extraction_cost_usd,
+            timestamp_utc,
+        ),
+    )
+    logger.debug(
+        f"Inserted intent classification: {intent_id} -> {intent_type}/{buyer_stage}/{urgency_signal} "
+        f"(confidence={classification_confidence:.2f})"
     )
 
 

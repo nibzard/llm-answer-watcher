@@ -379,6 +379,8 @@ def resolve_extraction_settings(
         method=extraction_config.method,
         fallback_to_regex=extraction_config.fallback_to_regex,
         min_confidence=extraction_config.min_confidence,
+        enable_sentiment_analysis=extraction_config.enable_sentiment_analysis,
+        enable_intent_classification=extraction_config.enable_intent_classification,
     )
 
 

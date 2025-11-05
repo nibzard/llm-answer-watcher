@@ -151,6 +151,8 @@ class ExtractionSettings(BaseModel):
         method: Extraction method - "function_calling", "regex", or "hybrid"
         fallback_to_regex: If true, fall back to regex when function calling fails
         min_confidence: Minimum confidence threshold (0.0-1.0) for accepting results
+        enable_sentiment_analysis: Extract sentiment/context for each brand mention (default: True)
+        enable_intent_classification: Classify user query intent before extraction (default: True)
 
     Example:
         # Optimized for cost and latency
@@ -168,6 +170,8 @@ class ExtractionSettings(BaseModel):
     method: Literal["function_calling", "regex", "hybrid"] = "function_calling"
     fallback_to_regex: bool = True
     min_confidence: float = 0.7
+    enable_sentiment_analysis: bool = True
+    enable_intent_classification: bool = True
 
     @field_validator("min_confidence")
     @classmethod
@@ -789,12 +793,16 @@ class RuntimeExtractionSettings(BaseModel):
         method: Extraction method ("function_calling", "regex", "hybrid")
         fallback_to_regex: Whether to fall back to regex on errors
         min_confidence: Minimum confidence threshold (0.0-1.0)
+        enable_sentiment_analysis: Extract sentiment/context for each brand mention
+        enable_intent_classification: Classify user query intent before extraction
     """
 
     extraction_model: RuntimeExtractionModel
     method: Literal["function_calling", "regex", "hybrid"]
     fallback_to_regex: bool
     min_confidence: float
+    enable_sentiment_analysis: bool
+    enable_intent_classification: bool
 
 
 class RuntimeOperation(BaseModel):

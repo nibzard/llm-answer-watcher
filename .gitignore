@@ -84,3 +84,4 @@ config/pricing_cache.json
 
 # Claude Code session files (optional - uncomment if you don't want to track)
 # .claude/session/
+site/

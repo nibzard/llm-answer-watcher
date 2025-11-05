@@ -8,7 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Comprehensive MkDocs documentation with Material theme
+- **Sentiment Analysis**: Analyze tone (positive/neutral/negative) and context of each brand mention
+- **Intent Classification**: Classify user queries by intent type, buyer journey stage, and urgency signals
+  - Intent types: transactional, informational, navigational, commercial_investigation
+  - Buyer stages: awareness, consideration, decision
+  - Urgency signals: high, medium, low
+  - Confidence scoring and reasoning explanations
+- New database tables and columns for sentiment and intent data
+  - `mentions` table: `sentiment` and `mention_context` columns
+  - `intent_classifications` table with query hash caching
+  - 5 new indexes for filtering by sentiment, context, intent type, buyer stage, and urgency
+- Configuration options: `enable_sentiment_analysis` and `enable_intent_classification` (both default true)
+- Comprehensive MkDocs documentation with Material theme (60+ pages)
 - Post-intent operations for dynamic workflows
 - Function calling support for improved extraction accuracy
 - Brand visibility score in reports
@@ -16,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Improved test coverage to 100% for core modules
 - Enhanced error messages for better debugging
+- Function calling extraction schema expanded with sentiment/context fields
+
+### Cost Impact
+- Intent classification: ~$0.00012 per query (one-time per unique query, cached)
+- Sentiment extraction: ~33% increase per extraction call (integrated into function calling)
 
 ## [0.1.0] - 2025-11-05
 

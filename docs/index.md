@@ -41,6 +41,12 @@ Works with **6+ LLM providers**: OpenAI, Anthropic, Mistral, X.AI Grok, Google G
 ### 📈 Intelligent Rank Extraction
 Automatically detects where your brand appears in ranked lists using pattern-based extraction and optional LLM-assisted ranking.
 
+### 🎭 Sentiment Analysis & Intent Classification
+- **Sentiment Analysis**: Analyze the tone (positive/neutral/negative) and context of each brand mention
+- **Intent Classification**: Determine user intent type, buyer journey stage, and urgency signals
+- **Prioritization**: Focus on high-value queries with ready-to-buy intent
+- **ROI Tracking**: Understand which mentions drive real business value
+
 ### 💰 Dynamic Pricing & Budget Protection
 - Real-time pricing from [llm-prices.com](https://www.llm-prices.com)
 - Pre-run cost estimation

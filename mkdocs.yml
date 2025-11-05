@@ -147,6 +147,7 @@ nav:
           - Brand Mention Detection: user-guide/features/brand-detection.md
           - Rank Extraction: user-guide/features/rank-extraction.md
           - Function Calling: user-guide/features/function-calling.md
+          - Sentiment Analysis & Intent Classification: user-guide/features/sentiment-analysis.md
           - Historical Tracking: user-guide/features/historical-tracking.md
           - Cost Management: user-guide/features/cost-management.md
           - HTML Reports: user-guide/features/html-reports.md

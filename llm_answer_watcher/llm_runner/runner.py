@@ -501,6 +501,7 @@ def run_all(
                     provider=model_config.provider,
                     model_name=model_config.model_name,
                     timestamp_utc=raw_record.timestamp_utc,
+                    extraction_settings=config.extraction_settings,  # Enable function calling if configured
                 )
 
                 # Write parsed answer JSON
@@ -534,6 +535,7 @@ def run_all(
                     ],
                     "rank_extraction_method": extraction_result.rank_extraction_method,
                     "rank_confidence": extraction_result.rank_confidence,
+                    "extraction_cost_usd": extraction_result.extraction_cost_usd,
                 }
 
                 write_parsed_answer(
@@ -586,13 +588,25 @@ def run_all(
 
                 # Update success tracking
                 success_count += 1
-                total_cost_usd += cost_usd
+                total_cost_usd += cost_usd + extraction_result.extraction_cost_usd
 
-                logger.info(
-                    f"Success: intent={intent.id}, provider={model_config.provider}, "
-                    f"model={model_config.model_name}, cost=${cost_usd:.6f}, "
-                    f"appeared_mine={extraction_result.appeared_mine}"
-                )
+                # Log with extraction cost breakdown if applicable
+                if extraction_result.extraction_cost_usd > 0:
+                    logger.info(
+                        f"Success: intent={intent.id}, provider={model_config.provider}, "
+                        f"model={model_config.model_name}, "
+                        f"answer_cost=${cost_usd:.6f}, "
+                        f"extraction_cost=${extraction_result.extraction_cost_usd:.6f}, "
+                        f"total=${cost_usd + extraction_result.extraction_cost_usd:.6f}, "
+                        f"appeared_mine={extraction_result.appeared_mine}, "
+                        f"extraction_method={extraction_result.rank_extraction_method}"
+                    )
+                else:
+                    logger.info(
+                        f"Success: intent={intent.id}, provider={model_config.provider}, "
+                        f"model={model_config.model_name}, cost=${cost_usd:.6f}, "
+                        f"appeared_mine={extraction_result.appeared_mine}"
+                    )
 
                 # Call progress callback if provided
                 if progress_callback:

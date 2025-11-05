@@ -8,10 +8,13 @@ Pydantic v2 field validators for comprehensive validation.
 Models:
     ModelConfig: LLM model configuration (provider, model_name, env_api_key)
     RunSettings: Runtime settings (output paths, models, feature flags)
+    ExtractionModelConfig: Extraction model configuration (project-level)
+    ExtractionSettings: Extraction method configuration (function calling vs regex)
     Brands: Brand alias collections (mine vs competitors)
     Intent: Buyer-intent query configuration
     WatcherConfig: Root configuration model (validates entire YAML)
     RuntimeModel: Resolved model configuration with API key
+    RuntimeExtractionModel: Resolved extraction model with API key
     RuntimeConfig: Runtime configuration with resolved API keys
 """
 
@@ -95,6 +98,83 @@ class BudgetConfig(BaseModel):
         """Validate budget values are positive if specified."""
         if v is not None and v <= 0:
             raise ValueError(f"Budget value must be positive, got: {v}")
+        return v
+
+
+class ExtractionModelConfig(BaseModel):
+    """
+    Extraction model configuration (project-level).
+
+    Defines which model performs structured extraction from LLM answers.
+    Separate from answer-generating models for cost/latency optimization.
+
+    Attributes:
+        provider: LLM provider name (openai, anthropic, google, mistral)
+        model_name: Specific model identifier (e.g., "gpt-5-nano")
+        env_api_key: Environment variable name containing the API key
+        system_prompt: Optional relative path to system prompt JSON
+    """
+
+    provider: Literal["openai", "anthropic", "google", "mistral"]
+    model_name: str
+    env_api_key: str
+    system_prompt: str | None = None
+
+    @field_validator("model_name")
+    @classmethod
+    def validate_model_name(cls, v: str) -> str:
+        """Validate model_name is non-empty."""
+        if not v or v.isspace():
+            raise ValueError("model_name cannot be empty")
+        return v
+
+    @field_validator("env_api_key")
+    @classmethod
+    def validate_env_api_key(cls, v: str) -> str:
+        """Validate env_api_key is non-empty."""
+        if not v or v.isspace():
+            raise ValueError("env_api_key cannot be empty")
+        return v
+
+
+class ExtractionSettings(BaseModel):
+    """
+    Extraction configuration (project-level).
+
+    Controls HOW brand mentions are extracted from LLM answers.
+    Function calling uses structured output for higher accuracy and lower latency.
+
+    Attributes:
+        extraction_model: Model configuration for extraction (e.g., gpt-5-nano)
+        method: Extraction method - "function_calling", "regex", or "hybrid"
+        fallback_to_regex: If true, fall back to regex when function calling fails
+        min_confidence: Minimum confidence threshold (0.0-1.0) for accepting results
+
+    Example:
+        # Optimized for cost and latency
+        extraction_settings:
+          extraction_model:
+            provider: "openai"
+            model_name: "gpt-5-nano"
+            env_api_key: "OPENAI_API_KEY"
+          method: "function_calling"
+          fallback_to_regex: true
+          min_confidence: 0.7
+    """
+
+    extraction_model: ExtractionModelConfig
+    method: Literal["function_calling", "regex", "hybrid"] = "function_calling"
+    fallback_to_regex: bool = True
+    min_confidence: float = 0.7
+
+    @field_validator("min_confidence")
+    @classmethod
+    def validate_confidence(cls, v: float) -> float:
+        """Validate min_confidence is between 0.0 and 1.0."""
+        if not 0.0 <= v <= 1.0:
+            raise ValueError(
+                f"min_confidence must be between 0.0 and 1.0, got: {v}"
+            )
         return v
 
 
@@ -292,11 +372,13 @@ class WatcherConfig(BaseModel):
 
     Attributes:
         run_settings: Runtime settings (output paths, models, feature flags)
+        extraction_settings: Optional extraction settings (defaults to regex with first model)
         brands: Brand alias collections (mine vs competitors)
         intents: List of buyer-intent queries to monitor
     """
 
     run_settings: RunSettings
+    extraction_settings: ExtractionSettings | None = None
     brands: Brands
     intents: list[Intent]
 
@@ -378,6 +460,77 @@ class RuntimeModel(BaseModel):
         return v
 
 
+class RuntimeExtractionModel(BaseModel):
+    """
+    Resolved extraction model configuration with API key.
+
+    Created at runtime after loading API keys from environment variables
+    and resolving system prompts. Used for structured extraction.
+
+    Attributes:
+        provider: LLM provider name (openai, anthropic, mistral, google)
+        model_name: Specific model identifier (e.g., "gpt-5-nano")
+        api_key: Resolved API key from environment (NEVER log this)
+        system_prompt: Resolved system prompt text
+    """
+
+    provider: str
+    model_name: str
+    api_key: str
+    system_prompt: str = "You are a brand mention extraction assistant."
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, v: str) -> str:
+        """Validate provider is non-empty."""
+        if not v or v.isspace():
+            raise ValueError("provider cannot be empty")
+        return v
+
+    @field_validator("model_name")
+    @classmethod
+    def validate_model_name(cls, v: str) -> str:
+        """Validate model_name is non-empty."""
+        if not v or v.isspace():
+            raise ValueError("model_name cannot be empty")
+        return v
+
+    @field_validator("api_key")
+    @classmethod
+    def validate_api_key(cls, v: str) -> str:
+        """Validate API key is non-empty."""
+        if not v or v.isspace():
+            raise ValueError("API key cannot be empty")
+        return v
+
+    @field_validator("system_prompt")
+    @classmethod
+    def validate_system_prompt(cls, v: str) -> str:
+        """Validate system prompt is non-empty."""
+        if not v or v.isspace():
+            raise ValueError("System prompt cannot be empty")
+        return v
+
+
+class RuntimeExtractionSettings(BaseModel):
+    """
+    Runtime extraction settings with resolved extraction model.
+
+    Created by config.loader after resolving API keys and system prompts.
+
+    Attributes:
+        extraction_model: Resolved extraction model configuration
+        method: Extraction method ("function_calling", "regex", "hybrid")
+        fallback_to_regex: Whether to fall back to regex on errors
+        min_confidence: Minimum confidence threshold (0.0-1.0)
+    """
+
+    extraction_model: RuntimeExtractionModel
+    method: Literal["function_calling", "regex", "hybrid"]
+    fallback_to_regex: bool
+    min_confidence: float
+
+
 class RuntimeConfig(BaseModel):
     """
     Runtime configuration with resolved API keys.
@@ -387,12 +540,14 @@ class RuntimeConfig(BaseModel):
 
     Attributes:
         run_settings: Runtime settings from config
+        extraction_settings: Extraction settings with resolved model (optional)
         brands: Brand aliases from config
         intents: Intent queries from config
         models: Resolved model configurations with API keys
     """
 
     run_settings: RunSettings
+    extraction_settings: RuntimeExtractionSettings | None = None
     brands: Brands
     intents: list[Intent]
     models: list[RuntimeModel]

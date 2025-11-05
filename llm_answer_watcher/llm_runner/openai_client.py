@@ -398,25 +398,70 @@ class OpenAIClient:
         Extract answer text from OpenAI Responses API response.
 
         When tools are used, the output array may contain multiple items
-        (e.g., web_search results, then the text response). This method
-        iterates through all output items to find the text response.
+        (e.g., web_search results, function_call, then the text response).
+        This method iterates through all output items to find either:
+        1. Function call (formatted as special JSON for function_extractor)
+        2. Text response (for normal queries)
 
         Args:
             data: Parsed JSON response from OpenAI Responses API
 
         Returns:
-            str: The assistant's message content
+            str: The assistant's message content or formatted function call
 
         Raises:
             RuntimeError: If response structure is invalid or missing required fields
         """
+        import json
+
         try:
             # Responses API uses 'output' instead of 'choices'
             output = data.get("output")
             if not output or not isinstance(output, list) or len(output) == 0:
                 raise RuntimeError("OpenAI response missing 'output' array")
 
-            # Iterate through output items to find the text response
+            # First pass: Check for function_call items
+            # Function calls take precedence over text responses
+            for output_item in output:
+                if not isinstance(output_item, dict):
+                    continue
+
+                item_type = output_item.get("type")
+
+                # Handle function_call type (OpenAI Responses API format)
+                if item_type == "function_call":
+                    function_name = output_item.get("name")
+                    arguments_str = output_item.get("arguments", "{}")
+
+                    # Parse arguments JSON
+                    try:
+                        arguments = (
+                            json.loads(arguments_str)
+                            if isinstance(arguments_str, str)
+                            else arguments_str
+                        )
+                    except json.JSONDecodeError:
+                        logger.warning(
+                            f"Failed to parse function arguments: {arguments_str}"
+                        )
+                        arguments = {}
+
+                    # Format as special JSON for function_extractor to parse
+                    function_call_data = {
+                        "_function_call": {
+                            "name": function_name,
+                            "arguments": arguments,
+                            "call_id": output_item.get("call_id"),
+                        }
+                    }
+
+                    logger.debug(
+                        f"Detected function call: {function_name} with {len(arguments)} args"
+                    )
+
+                    return json.dumps(function_call_data)
+
+            # Second pass: Look for regular text response
             # When tools are used, output may contain: [web_search, message, ...]
             for output_item in output:
                 if not isinstance(output_item, dict):

@@ -25,6 +25,24 @@ run_settings:
 
   use_llm_rank_extraction: false
 
+# Extraction settings (optional - enables function calling for better accuracy)
+# If not specified, defaults to regex-based extraction (backward compatible)
+extraction_settings:
+  extraction_model:
+    provider: "openai"
+    model_name: "gpt-5-nano"  # Fast + cheap model optimized for extraction
+    env_api_key: "OPENAI_API_KEY"
+    system_prompt: "openai/extraction-default"  # Specialized extraction prompt
+
+  # Extraction method: function_calling (recommended), regex, or hybrid
+  method: "function_calling"
+
+  # Fall back to regex if function calling fails
+  fallback_to_regex: true
+
+  # Minimum confidence threshold (0.0-1.0) for accepting function results
+  min_confidence: 0.7
+
 brands:
   mine:
     - "Lemwarm"

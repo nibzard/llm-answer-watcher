@@ -26,7 +26,13 @@ from llm_answer_watcher.exceptions import (
 )
 from llm_answer_watcher.system_prompts import get_provider_default, load_prompt
 
-from .schema import RuntimeConfig, RuntimeModel, WatcherConfig
+from .schema import (
+    RuntimeConfig,
+    RuntimeExtractionModel,
+    RuntimeExtractionSettings,
+    RuntimeModel,
+    WatcherConfig,
+)
 
 
 def load_config(config_path: str | Path) -> RuntimeConfig:
@@ -117,9 +123,26 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
             f"Failed to resolve API keys from {config_path}: {e}"
         ) from e
 
+    # Resolve extraction settings if present
+    resolved_extraction_settings = None
+    if watcher_config.extraction_settings:
+        try:
+            resolved_extraction_settings = resolve_extraction_settings(
+                watcher_config
+            )
+        except APIKeyMissingError:
+            raise
+        except ConfigValidationError:
+            raise
+        except Exception as e:
+            raise ConfigValidationError(
+                f"Failed to resolve extraction settings from {config_path}: {e}"
+            ) from e
+
     # Build RuntimeConfig with resolved API keys
     return RuntimeConfig(
         run_settings=watcher_config.run_settings,
+        extraction_settings=resolved_extraction_settings,
         brands=watcher_config.brands,
         intents=watcher_config.intents,
         models=resolved_models,
@@ -230,3 +253,112 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
         resolved_models.append(runtime_model)
 
     return resolved_models
+
+
+def resolve_extraction_settings(
+    config: WatcherConfig,
+) -> RuntimeExtractionSettings:
+    """
+    Resolve extraction settings with API keys and system prompts.
+
+    Takes ExtractionSettings from WatcherConfig and resolves:
+    1. env_api_key reference to actual API key from environment
+    2. system_prompt reference to actual prompt text from JSON files
+
+    Args:
+        config: Validated WatcherConfig with extraction settings
+
+    Returns:
+        RuntimeExtractionSettings with resolved API key and system prompt
+
+    Raises:
+        APIKeyMissingError: If required environment variable is not set
+        ConfigValidationError: If provider is unsupported or system prompt cannot be loaded
+
+    Example:
+        >>> # Assuming OPENAI_API_KEY is set
+        >>> config = WatcherConfig(extraction_settings=...)
+        >>> settings = resolve_extraction_settings(config)
+        >>> settings.extraction_model.api_key  # Contains actual key
+        'sk-proj-...'
+
+    Security:
+        - NEVER logs API keys
+        - Fails fast if environment variable is missing
+    """
+    if not config.extraction_settings:
+        raise ConfigValidationError(
+            "extraction_settings is None - cannot resolve extraction settings"
+        )
+
+    extraction_config = config.extraction_settings
+    model_config = extraction_config.extraction_model
+
+    # List of implemented providers
+    IMPLEMENTED_PROVIDERS = {"openai", "anthropic", "mistral", "grok", "google"}
+
+    # Validate provider is implemented
+    if model_config.provider not in IMPLEMENTED_PROVIDERS:
+        raise ConfigValidationError(
+            f"Unknown provider '{model_config.provider}' for extraction model. "
+            f"Supported providers: {', '.join(sorted(IMPLEMENTED_PROVIDERS))}."
+        )
+
+    # Get environment variable name from config
+    env_var_name = model_config.env_api_key
+
+    # Resolve to actual API key value
+    api_key = os.environ.get(env_var_name)
+
+    # Fail fast if environment variable is not set
+    if not api_key:
+        raise APIKeyMissingError(
+            f"Environment variable ${env_var_name} not set "
+            f"(required for extraction model {model_config.provider}/{model_config.model_name}). "
+            f"Please set it in your environment or .env file."
+        )
+
+    # Validate API key is not just whitespace
+    if api_key.isspace():
+        raise APIKeyMissingError(
+            f"Environment variable ${env_var_name} is empty or whitespace "
+            f"(required for extraction model {model_config.provider}/{model_config.model_name})"
+        )
+
+    # Resolve system prompt from JSON file
+    try:
+        if model_config.system_prompt:
+            # Use specified system prompt
+            prompt_obj = load_prompt(model_config.system_prompt)
+        else:
+            # Fall back to extraction default or provider default
+            try:
+                # Try extraction-specific prompt first
+                prompt_obj = load_prompt(f"{model_config.provider}/extraction-default")
+            except Exception:
+                # Fall back to provider default
+                prompt_obj = get_provider_default(model_config.provider)
+
+        system_prompt_text = prompt_obj.prompt
+
+    except Exception as e:
+        raise ConfigValidationError(
+            f"Failed to load system prompt for extraction model "
+            f"{model_config.provider}/{model_config.model_name}: {e}"
+        ) from e
+
+    # Build RuntimeExtractionModel with resolved API key and prompt
+    runtime_extraction_model = RuntimeExtractionModel(
+        provider=model_config.provider,
+        model_name=model_config.model_name,
+        api_key=api_key,
+        system_prompt=system_prompt_text,
+    )
+
+    # Build RuntimeExtractionSettings
+    return RuntimeExtractionSettings(
+        extraction_model=runtime_extraction_model,
+        method=extraction_config.method,
+        fallback_to_regex=extraction_config.fallback_to_regex,
+        min_confidence=extraction_config.min_confidence,
+    )

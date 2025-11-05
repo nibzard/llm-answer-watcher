@@ -12,7 +12,7 @@ Tests various budget scenarios:
 import pytest
 
 from llm_answer_watcher.config.schema import (
-    Budget,
+    BudgetConfig,
     Brands,
     Intent,
     ModelConfig,
@@ -103,7 +103,7 @@ class TestPerRunBudget:
     def test_under_budget_passes(self, base_config, monkeypatch):
         """Config under budget should pass validation."""
         # Set high budget
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_run_usd=1.0,  # High limit
         )
@@ -116,7 +116,7 @@ class TestPerRunBudget:
     def test_over_budget_raises_error(self, base_config, monkeypatch):
         """Config over budget should raise BudgetExceededError."""
         # Set very low budget
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_run_usd=0.0001,  # Very low limit
         )
@@ -137,7 +137,7 @@ class TestPerRunBudget:
         estimate = estimate_run_cost(base_config)
 
         # Set budget to exact estimated cost
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_run_usd=estimate["total_estimated_cost"],
         )
@@ -148,7 +148,7 @@ class TestPerRunBudget:
     def test_budget_disabled_always_passes(self, base_config):
         """When budget is disabled, should always pass."""
         # Set disabled budget with low limit
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=False,
             max_per_run_usd=0.0001,
         )
@@ -180,7 +180,7 @@ class TestPerIntentBudget:
         max_intent_cost = max(estimate["per_intent_costs"].values())
 
         # Set budget slightly higher than max intent
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_intent_usd=max_intent_cost * 1.5,
         )
@@ -196,7 +196,7 @@ class TestPerIntentBudget:
         max_intent_cost = max(estimate["per_intent_costs"].values())
 
         # Set budget lower than max intent
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_intent_usd=max_intent_cost * 0.5,
         )
@@ -215,7 +215,7 @@ class TestPerIntentBudget:
         max_intent_cost = max(estimate["per_intent_costs"].values())
 
         # Set both budgets - per_run is fine, per_intent is too low
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_run_usd=1.0,  # High enough
             max_per_intent_usd=max_intent_cost * 0.5,  # Too low
@@ -236,7 +236,7 @@ class TestWarningThresholds:
         estimate = estimate_run_cost(base_config)
 
         # Set warning threshold that will be exceeded
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_run_usd=1.0,
             warn_threshold=0.0001,  # Very low threshold
@@ -256,7 +256,7 @@ class TestWarningThresholds:
         estimate = estimate_run_cost(base_config)
 
         # Set high warning threshold
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_run_usd=1.0,
             warn_threshold=0.999,  # 99.9% - won't be exceeded
@@ -277,7 +277,7 @@ class TestEdgeCases:
 
     def test_zero_budget_raises_error(self, base_config):
         """Zero budget should raise error."""
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_run_usd=0.0,
         )
@@ -289,7 +289,7 @@ class TestEdgeCases:
 
     def test_negative_budget_raises_error(self, base_config):
         """Negative budget should raise error."""
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_run_usd=-0.01,
         )
@@ -301,7 +301,7 @@ class TestEdgeCases:
 
     def test_very_large_budget_passes(self, base_config):
         """Very large budget should pass."""
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_run_usd=999999.99,
         )
@@ -320,7 +320,7 @@ class TestEdgeCases:
         assert estimate["total_queries"] == 1
 
         # Set budget for single query
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_run_usd=estimate["total_estimated_cost"],
         )
@@ -342,7 +342,7 @@ class TestEdgeCases:
         # Budget should scale with number of queries
         base_estimate_cost = estimate["total_estimated_cost"]
 
-        base_config.run_settings.budget = Budget(
+        base_config.run_settings.budget = BudgetConfig(
             enabled=True,
             max_per_run_usd=base_estimate_cost * 0.5,  # Too low
         )

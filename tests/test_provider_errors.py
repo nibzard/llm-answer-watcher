@@ -30,13 +30,17 @@ class TestOpenAIErrorHandling:
             method="POST",
             url="https://api.openai.com/v1/chat/completions",
             status_code=429,
-            json={"error": {"message": "Rate limit exceeded", "type": "rate_limit_error"}},
+            json={
+                "error": {"message": "Rate limit exceeded", "type": "rate_limit_error"}
+            },
         )
         httpx_mock.add_response(
             method="POST",
             url="https://api.openai.com/v1/chat/completions",
             status_code=429,
-            json={"error": {"message": "Rate limit exceeded", "type": "rate_limit_error"}},
+            json={
+                "error": {"message": "Rate limit exceeded", "type": "rate_limit_error"}
+            },
         )
         httpx_mock.add_response(
             method="POST",
@@ -44,8 +48,14 @@ class TestOpenAIErrorHandling:
             status_code=200,
             json={
                 "id": "test-id",
-                "choices": [{"message": {"content": "Success after retries"}, "index": 0}],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                "choices": [
+                    {"message": {"content": "Success after retries"}, "index": 0}
+                ],
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "total_tokens": 15,
+                },
             },
         )
 
@@ -95,8 +105,14 @@ class TestOpenAIErrorHandling:
             status_code=200,
             json={
                 "id": "test-id",
-                "choices": [{"message": {"content": "Success after timeout"}, "index": 0}],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                "choices": [
+                    {"message": {"content": "Success after timeout"}, "index": 0}
+                ],
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "total_tokens": 15,
+                },
             },
         )
 
@@ -129,7 +145,10 @@ class TestOpenAIErrorHandling:
         with pytest.raises(Exception) as exc_info:
             client.generate_answer("test prompt")
 
-        assert "choices" in str(exc_info.value).lower() or "usage" in str(exc_info.value).lower()
+        assert (
+            "choices" in str(exc_info.value).lower()
+            or "usage" in str(exc_info.value).lower()
+        )
 
     def test_connection_error_retries(self, httpx_mock):
         """Connection errors should trigger retries."""
@@ -145,8 +164,17 @@ class TestOpenAIErrorHandling:
             status_code=200,
             json={
                 "id": "test-id",
-                "choices": [{"message": {"content": "Success after connection error"}, "index": 0}],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                "choices": [
+                    {
+                        "message": {"content": "Success after connection error"},
+                        "index": 0,
+                    }
+                ],
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "total_tokens": 15,
+                },
             },
         )
 
@@ -170,7 +198,9 @@ class TestAnthropicErrorHandling:
             method="POST",
             url="https://api.anthropic.com/v1/messages",
             status_code=429,
-            json={"error": {"message": "Rate limit exceeded", "type": "rate_limit_error"}},
+            json={
+                "error": {"message": "Rate limit exceeded", "type": "rate_limit_error"}
+            },
         )
         httpx_mock.add_response(
             method="POST",
@@ -198,7 +228,9 @@ class TestAnthropicErrorHandling:
             method="POST",
             url="https://api.anthropic.com/v1/messages",
             status_code=401,
-            json={"error": {"message": "Invalid API key", "type": "authentication_error"}},
+            json={
+                "error": {"message": "Invalid API key", "type": "authentication_error"}
+            },
         )
 
         client = AnthropicClient(
@@ -210,7 +242,10 @@ class TestAnthropicErrorHandling:
         with pytest.raises(Exception) as exc_info:
             client.generate_answer("test prompt")
 
-        assert "401" in str(exc_info.value) or "authentication" in str(exc_info.value).lower()
+        assert (
+            "401" in str(exc_info.value)
+            or "authentication" in str(exc_info.value).lower()
+        )
 
 
 class TestMistralErrorHandling:
@@ -231,7 +266,11 @@ class TestMistralErrorHandling:
             json={
                 "id": "test-id",
                 "choices": [{"message": {"content": "Success"}, "index": 0}],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "total_tokens": 15,
+                },
             },
         )
 
@@ -263,7 +302,11 @@ class TestGrokErrorHandling:
             json={
                 "id": "test-id",
                 "choices": [{"message": {"content": "Success"}, "index": 0}],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "total_tokens": 15,
+                },
             },
         )
 
@@ -294,7 +337,11 @@ class TestGeminiErrorHandling:
             status_code=200,
             json={
                 "candidates": [{"content": {"parts": [{"text": "Success"}]}}],
-                "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "totalTokenCount": 15},
+                "usageMetadata": {
+                    "promptTokenCount": 10,
+                    "candidatesTokenCount": 5,
+                    "totalTokenCount": 15,
+                },
             },
         )
 
@@ -352,7 +399,9 @@ class TestRetryLogicIntegration:
         with pytest.raises(Exception) as exc_info:
             client.generate_answer("test prompt")
 
-        assert "429" in str(exc_info.value) or "rate limit" in str(exc_info.value).lower()
+        assert (
+            "429" in str(exc_info.value) or "rate limit" in str(exc_info.value).lower()
+        )
 
     def test_500_error_retries(self, httpx_mock):
         """Server error (500) should trigger retries."""
@@ -369,7 +418,11 @@ class TestRetryLogicIntegration:
             json={
                 "id": "test-id",
                 "choices": [{"message": {"content": "Success after 500"}, "index": 0}],
-                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                "usage": {
+                    "prompt_tokens": 10,
+                    "completion_tokens": 5,
+                    "total_tokens": 15,
+                },
             },
         )
 

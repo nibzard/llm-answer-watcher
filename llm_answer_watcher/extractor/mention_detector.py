@@ -311,7 +311,9 @@ def detect_mentions(
 
     # Find all matches
     all_matches: list[BrandMention] = []
-    seen_brands: dict[str, BrandMention] = {}  # Track first occurrence by normalized_name (case-insensitive)
+    seen_brands: dict[
+        str, BrandMention
+    ] = {}  # Track first occurrence by normalized_name (case-insensitive)
 
     for _alias, primary_name, category, pattern in brand_patterns:
         # Find all occurrences of this alias
@@ -350,12 +352,12 @@ def detect_mentions(
     # Fuzzy matching (optional) - only if threshold > 0 and no exact match found
     if fuzzy_threshold > 0:
         # Split text into words for fuzzy matching
-        words = re.findall(r'\b\w+\b', answer_text)
+        words = re.findall(r"\b\w+\b", answer_text)
         all_brands = [(name, name, "mine") for name in our_brands] + [
             (name, name, "competitor") for name in competitor_brands
         ]
 
-        for word_match in re.finditer(r'\b\w+\b', answer_text):
+        for word_match in re.finditer(r"\b\w+\b", answer_text):
             word = word_match.group(0)
             word_position = word_match.start()
 

@@ -949,7 +949,7 @@ class TestRunCommandFlags:
         # Note: quiet_logs is set based on output format (agent/quiet modes)
         mock_setup_logging.assert_called_once()
         call_kwargs = mock_setup_logging.call_args.kwargs
-        assert call_kwargs['verbose'] is True
+        assert call_kwargs["verbose"] is True
 
     @patch("llm_answer_watcher.cli.load_config")
     def test_run_verbose_shows_traceback_on_error(

@@ -44,8 +44,10 @@ from dataclasses import dataclass
 
 from ..config.schema import RuntimeExtractionSettings
 from ..llm_runner.models import LLMResponse, build_client
-from ..storage.db import lookup_intent_classification_cache, store_intent_classification_cache
-from ..utils.time import utc_timestamp
+from ..storage.db import (
+    lookup_intent_classification_cache,
+    store_intent_classification_cache,
+)
 from .function_schemas import (
     CLASSIFY_QUERY_INTENT_FUNCTION,
     validate_intent_classification_response,
@@ -287,15 +289,21 @@ def classify_intent(
                     intent_type=cached_result["intent_type"],
                     buyer_stage=cached_result["buyer_stage"],
                     urgency_signal=cached_result["urgency_signal"],
-                    classification_confidence=cached_result["classification_confidence"],
+                    classification_confidence=cached_result[
+                        "classification_confidence"
+                    ],
                     reasoning=cached_result["reasoning"],
                     extraction_cost_usd=0.0,  # Cache hit = 0 cost
                 )
 
-            logger.debug(f"Intent classification cache MISS for {intent_id} (query_hash={query_hash[:16]}...)")
+            logger.debug(
+                f"Intent classification cache MISS for {intent_id} (query_hash={query_hash[:16]}...)"
+            )
 
     except Exception as e:
-        logger.warning(f"Cache lookup failed for {intent_id}: {e}. Proceeding with LLM call.")
+        logger.warning(
+            f"Cache lookup failed for {intent_id}: {e}. Proceeding with LLM call."
+        )
         # Continue to LLM call on cache lookup failure
 
     # Build extraction client
@@ -342,14 +350,20 @@ def classify_intent(
                     intent_type=function_result["intent_type"],
                     buyer_stage=function_result["buyer_stage"],
                     urgency_signal=function_result["urgency_signal"],
-                    classification_confidence=function_result["classification_confidence"],
+                    classification_confidence=function_result[
+                        "classification_confidence"
+                    ],
                     reasoning=function_result.get("reasoning"),
                     extraction_cost_usd=response.cost_usd,
                 )
                 conn.commit()
-                logger.debug(f"Stored classification result in cache for query_hash={query_hash[:16]}...")
+                logger.debug(
+                    f"Stored classification result in cache for query_hash={query_hash[:16]}..."
+                )
         except Exception as cache_error:
-            logger.warning(f"Failed to cache classification result for {intent_id}: {cache_error}")
+            logger.warning(
+                f"Failed to cache classification result for {intent_id}: {cache_error}"
+            )
             # Don't fail the classification if caching fails - just log warning
 
         return IntentClassificationResult(
@@ -365,6 +379,4 @@ def classify_intent(
         logger.error(
             f"Intent classification failed for {intent_id}: {e}", exc_info=True
         )
-        raise RuntimeError(
-            f"Intent classification failed for {intent_id}: {e}"
-        ) from e
+        raise RuntimeError(f"Intent classification failed for {intent_id}: {e}") from e

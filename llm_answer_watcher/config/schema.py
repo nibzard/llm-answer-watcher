@@ -70,9 +70,7 @@ class ModelConfig(BaseModel):
         """Validate tool_choice is one of allowed values."""
         allowed = {"auto", "required", "none"}
         if v not in allowed:
-            raise ValueError(
-                f"tool_choice must be one of {allowed}, got: {v}"
-            )
+            raise ValueError(f"tool_choice must be one of {allowed}, got: {v}")
         return v
 
 
@@ -178,9 +176,7 @@ class ExtractionSettings(BaseModel):
     def validate_confidence(cls, v: float) -> float:
         """Validate min_confidence is between 0.0 and 1.0."""
         if not 0.0 <= v <= 1.0:
-            raise ValueError(
-                f"min_confidence must be between 0.0 and 1.0, got: {v}"
-            )
+            raise ValueError(f"min_confidence must be between 0.0 and 1.0, got: {v}")
         return v
 
 
@@ -664,11 +660,10 @@ class WatcherConfig(BaseModel):
         # Check for cycles starting from each operation
         visited: set[str] = set()
         for op_id in all_operations:
-            if op_id not in visited:
-                if has_cycle(op_id, visited, set()):
-                    raise ValueError(
-                        f"Circular dependency detected involving operation '{op_id}'"
-                    )
+            if op_id not in visited and has_cycle(op_id, visited, set()):
+                raise ValueError(
+                    f"Circular dependency detected involving operation '{op_id}'"
+                )
 
         return self
 

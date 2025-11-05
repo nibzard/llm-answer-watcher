@@ -168,7 +168,9 @@ class TestExportMentionsCommand:
         assert len(data) == 2
         assert data[0]["brand"] == "MyBrand"
 
-    def test_export_mentions_invalid_extension(self, cli_runner, populated_db, tmp_path):
+    def test_export_mentions_invalid_extension(
+        self, cli_runner, populated_db, tmp_path
+    ):
         """Export with invalid extension should fail."""
         output_file = tmp_path / "mentions.txt"
 
@@ -335,7 +337,9 @@ class TestCostsShowCommand:
         )
 
         assert result.exit_code == EXIT_SUCCESS
-        assert "openai" in result.output.lower() or "no cost data" in result.output.lower()
+        assert (
+            "openai" in result.output.lower() or "no cost data" in result.output.lower()
+        )
 
     def test_costs_show_week_success(self, cli_runner, populated_db):
         """Costs show with week period should succeed."""

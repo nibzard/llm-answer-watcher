@@ -480,7 +480,9 @@ class TestCalculateWebSearchCost:
         expected_total = expected_tool + expected_content
 
         assert result["tool_call_cost_usd"] == expected_tool
-        assert result["content_cost_usd"] == pytest.approx(expected_content, abs=0.000001)
+        assert result["content_cost_usd"] == pytest.approx(
+            expected_content, abs=0.000001
+        )
         assert result["fixed_tokens"] == 8000
         assert result["total_cost_usd"] == pytest.approx(expected_total, abs=0.000001)
 

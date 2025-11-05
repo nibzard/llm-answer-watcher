@@ -147,7 +147,9 @@ class TestBuildClient:
 
     def test_build_client_anthropic_success(self):
         """Test building Anthropic client successfully."""
-        client = build_client("anthropic", "claude-3-5-haiku-20241022", "sk-ant-test", TEST_SYSTEM_PROMPT)
+        client = build_client(
+            "anthropic", "claude-3-5-haiku-20241022", "sk-ant-test", TEST_SYSTEM_PROMPT
+        )
 
         assert isinstance(client, AnthropicClient)
         assert client.model_name == "claude-3-5-haiku-20241022"
@@ -155,7 +157,9 @@ class TestBuildClient:
 
     def test_build_client_anthropic_different_model(self):
         """Test building Anthropic client with different model."""
-        client = build_client("anthropic", "claude-3-5-sonnet-20241022", "sk-ant-prod", TEST_SYSTEM_PROMPT)
+        client = build_client(
+            "anthropic", "claude-3-5-sonnet-20241022", "sk-ant-prod", TEST_SYSTEM_PROMPT
+        )
 
         assert isinstance(client, AnthropicClient)
         assert client.model_name == "claude-3-5-sonnet-20241022"
@@ -163,7 +167,9 @@ class TestBuildClient:
 
     def test_build_client_mistral_success(self):
         """Test building Mistral client successfully."""
-        client = build_client("mistral", "mistral-large-latest", "mistral-key", TEST_SYSTEM_PROMPT)
+        client = build_client(
+            "mistral", "mistral-large-latest", "mistral-key", TEST_SYSTEM_PROMPT
+        )
 
         assert isinstance(client, MistralClient)
         assert client.model_name == "mistral-large-latest"
@@ -171,7 +177,9 @@ class TestBuildClient:
 
     def test_build_client_mistral_different_model(self):
         """Test building Mistral client with different model."""
-        client = build_client("mistral", "mistral-small-latest", "mistral-prod", TEST_SYSTEM_PROMPT)
+        client = build_client(
+            "mistral", "mistral-small-latest", "mistral-prod", TEST_SYSTEM_PROMPT
+        )
 
         assert isinstance(client, MistralClient)
         assert client.model_name == "mistral-small-latest"
@@ -206,7 +214,9 @@ class TestBuildClient:
             build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
         # Verify error message lists supported providers
-        with pytest.raises(ValueError, match="Supported providers: openai, anthropic, mistral, grok"):
+        with pytest.raises(
+            ValueError, match="Supported providers: openai, anthropic, mistral, grok"
+        ):
             build_client("gemini", "gemini-pro", "gemini-key", TEST_SYSTEM_PROMPT)
 
     def test_build_client_empty_provider(self):

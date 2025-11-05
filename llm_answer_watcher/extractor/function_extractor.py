@@ -39,7 +39,10 @@ from dataclasses import dataclass
 
 from ..config.schema import Brands, RuntimeExtractionSettings
 from ..llm_runner.models import LLMResponse, build_client
-from .function_schemas import EXTRACT_BRAND_MENTIONS_FUNCTION, validate_function_response
+from .function_schemas import (
+    EXTRACT_BRAND_MENTIONS_FUNCTION,
+    validate_function_response,
+)
 from .mention_detector import detect_mentions
 
 logger = logging.getLogger(__name__)
@@ -122,9 +125,7 @@ def build_extraction_prompt(
         if our_brands:
             brand_context += f"\n- Our brands: {', '.join(our_brands)}"
         if competitor_brands:
-            brand_context += (
-                f"\n- Known competitors: {', '.join(competitor_brands)}"
-            )
+            brand_context += f"\n- Known competitors: {', '.join(competitor_brands)}"
         brand_context += (
             "\n\nNote: The answer may mention brands NOT in these lists. "
             "Extract ALL brands mentioned, not just those listed above."
@@ -323,7 +324,6 @@ def extract_with_function_calling(
                 fallback_used=True,
                 extraction_cost_usd=0.0,  # No cost for regex
             )
-        else:
-            raise RuntimeError(
-                f"Function calling extraction failed for {intent_id}: {e}"
-            ) from e
+        raise RuntimeError(
+            f"Function calling extraction failed for {intent_id}: {e}"
+        ) from e

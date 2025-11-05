@@ -2235,7 +2235,10 @@ class TestVisibilityScores:
                     {
                         "my_mentions": [
                             {"original_text": "Warmly", "normalized_name": "warmly"},
-                            {"original_text": "Warmly.io", "normalized_name": "warmly.io"},
+                            {
+                                "original_text": "Warmly.io",
+                                "normalized_name": "warmly.io",
+                            },
                         ],
                         "competitor_mentions": [],
                         "ranked_list": [],
@@ -2278,7 +2281,10 @@ class TestVisibilityScores:
                         "my_mentions": [],
                         "competitor_mentions": [
                             {"original_text": "HubSpot", "normalized_name": "hubspot"},
-                            {"original_text": "Instantly", "normalized_name": "instantly"},
+                            {
+                                "original_text": "Instantly",
+                                "normalized_name": "instantly",
+                            },
                         ],
                         "ranked_list": [],
                     },
@@ -2384,7 +2390,11 @@ class TestVisibilityScores:
                         ],
                         "competitor_mentions": [],
                         "ranked_list": [
-                            {"brand_name": "warmly", "rank_position": 1, "confidence": 1.0}
+                            {
+                                "brand_name": "warmly",
+                                "rank_position": 1,
+                                "confidence": 1.0,
+                            }
                         ],
                     },
                     {
@@ -2393,7 +2403,11 @@ class TestVisibilityScores:
                         ],
                         "competitor_mentions": [],
                         "ranked_list": [
-                            {"brand_name": "WARMLY", "rank_position": 2, "confidence": 1.0}
+                            {
+                                "brand_name": "WARMLY",
+                                "rank_position": 2,
+                                "confidence": 1.0,
+                            }
                         ],
                     },
                 ],
@@ -2466,12 +2480,27 @@ class TestVisibilityScores:
                         ],
                         "competitor_mentions": [
                             {"original_text": "HubSpot", "normalized_name": "hubspot"},
-                            {"original_text": "Instantly", "normalized_name": "instantly"},
+                            {
+                                "original_text": "Instantly",
+                                "normalized_name": "instantly",
+                            },
                         ],
                         "ranked_list": [
-                            {"brand_name": "Warmly", "rank_position": 1, "confidence": 1.0},
-                            {"brand_name": "HubSpot", "rank_position": 2, "confidence": 1.0},
-                            {"brand_name": "Instantly", "rank_position": 3, "confidence": 1.0},
+                            {
+                                "brand_name": "Warmly",
+                                "rank_position": 1,
+                                "confidence": 1.0,
+                            },
+                            {
+                                "brand_name": "HubSpot",
+                                "rank_position": 2,
+                                "confidence": 1.0,
+                            },
+                            {
+                                "brand_name": "Instantly",
+                                "rank_position": 3,
+                                "confidence": 1.0,
+                            },
                         ],
                     },
                     {
@@ -2480,7 +2509,11 @@ class TestVisibilityScores:
                             {"original_text": "HubSpot", "normalized_name": "hubspot"}
                         ],
                         "ranked_list": [
-                            {"brand_name": "HubSpot", "rank_position": 1, "confidence": 1.0}
+                            {
+                                "brand_name": "HubSpot",
+                                "rank_position": 1,
+                                "confidence": 1.0,
+                            }
                         ],
                     },
                     {
@@ -2491,8 +2524,16 @@ class TestVisibilityScores:
                             {"original_text": "HubSpot", "normalized_name": "hubspot"}
                         ],
                         "ranked_list": [
-                            {"brand_name": "Warmly", "rank_position": 2, "confidence": 0.9},
-                            {"brand_name": "HubSpot", "rank_position": 1, "confidence": 1.0},
+                            {
+                                "brand_name": "Warmly",
+                                "rank_position": 2,
+                                "confidence": 0.9,
+                            },
+                            {
+                                "brand_name": "HubSpot",
+                                "rank_position": 1,
+                                "confidence": 1.0,
+                            },
                         ],
                     },
                 ],
@@ -2515,7 +2556,9 @@ class TestVisibilityScores:
         assert hubspot["appearance_count"] == 3
         assert hubspot["visibility_percentage"] == 100
         assert hubspot["times_ranked"] == 3
-        assert hubspot["average_rank"] == 1.3  # (2 + 1 + 1) / 3 = 1.333... rounded to 1.3
+        assert (
+            hubspot["average_rank"] == 1.3
+        )  # (2 + 1 + 1) / 3 = 1.333... rounded to 1.3
 
         # Instantly: appeared in 1/3 queries = 33%
         instantly = scores["competitor_brands"][1]

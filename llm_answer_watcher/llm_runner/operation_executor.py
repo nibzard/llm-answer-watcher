@@ -179,12 +179,18 @@ def render_template(template: str, context: OperationContext) -> str:
     rendered = rendered.replace("{brand:mine}", my_brand)
     rendered = rendered.replace("{brand:mine_all}", ", ".join(my_brand_aliases))
     rendered = rendered.replace("{brand:competitors}", ", ".join(competitors))
-    rendered = rendered.replace("{competitors:mentioned}", ", ".join(competitors_mentioned))
+    rendered = rendered.replace(
+        "{competitors:mentioned}", ", ".join(competitors_mentioned)
+    )
 
     # Intent variables
     rendered = rendered.replace("{intent:id}", context.intent_data.get("id", ""))
-    rendered = rendered.replace("{intent:prompt}", context.intent_data.get("prompt", ""))
-    rendered = rendered.replace("{intent:response}", context.intent_data.get("response", ""))
+    rendered = rendered.replace(
+        "{intent:prompt}", context.intent_data.get("prompt", "")
+    )
+    rendered = rendered.replace(
+        "{intent:response}", context.intent_data.get("response", "")
+    )
 
     # Rank and mention variables
     my_rank = context.extraction_data.get("my_rank")
@@ -194,15 +200,21 @@ def render_template(template: str, context: OperationContext) -> str:
     my_mentions = context.extraction_data.get("my_mentions", [])
     competitor_mentions = context.extraction_data.get("competitor_mentions", [])
     rendered = rendered.replace("{mentions:mine}", ", ".join(my_mentions))
-    rendered = rendered.replace("{mentions:competitors}", ", ".join(competitor_mentions))
+    rendered = rendered.replace(
+        "{mentions:competitors}", ", ".join(competitor_mentions)
+    )
 
     # Model variables
-    rendered = rendered.replace("{model:provider}", context.model_info.get("provider", ""))
+    rendered = rendered.replace(
+        "{model:provider}", context.model_info.get("provider", "")
+    )
     rendered = rendered.replace("{model:name}", context.model_info.get("name", ""))
 
     # Run metadata variables
     rendered = rendered.replace("{run:id}", context.run_metadata.get("run_id", ""))
-    rendered = rendered.replace("{run:timestamp}", context.run_metadata.get("timestamp", ""))
+    rendered = rendered.replace(
+        "{run:timestamp}", context.run_metadata.get("timestamp", "")
+    )
 
     # Operation chaining variables
     for op_id, op_result in context.operation_results.items():
@@ -252,18 +264,17 @@ def evaluate_condition(condition: str, context: OperationContext) -> bool:
         left_val = int(left)
         right_val = int(right)
 
-        if op == "==":
-            return left_val == right_val
-        elif op == "!=":
-            return left_val != right_val
-        elif op == ">":
-            return left_val > right_val
-        elif op == "<":
-            return left_val < right_val
-        elif op == ">=":
-            return left_val >= right_val
-        elif op == "<=":
-            return left_val <= right_val
+        # Use operator mapping to reduce return statements
+        comparisons = {
+            "==": lambda left, right: left == right,
+            "!=": lambda left, right: left != right,
+            ">": lambda left, right: left > right,
+            "<": lambda left, right: left < right,
+            ">=": lambda left, right: left >= right,
+            "<=": lambda left, right: left <= right,
+        }
+        if op in comparisons:
+            return comparisons[op](left_val, right_val)
 
     # Handle string contains checks
     if " contains " in rendered:
@@ -331,23 +342,22 @@ def execute_operation(
         )
 
     # Evaluate condition if specified
-    if operation.condition:
-        if not evaluate_condition(operation.condition, context):
-            logger.info(
-                f"Operation '{operation.id}' condition not met, skipping: {operation.condition}"
-            )
-            return OperationResult(
-                operation_id=operation.id,
-                result_text="",
-                tokens_used_input=0,
-                tokens_used_output=0,
-                cost_usd=0.0,
-                timestamp_utc=utc_timestamp(),
-                model_provider="",
-                model_name="",
-                rendered_prompt="",
-                skipped=True,
-            )
+    if operation.condition and not evaluate_condition(operation.condition, context):
+        logger.info(
+            f"Operation '{operation.id}' condition not met, skipping: {operation.condition}"
+        )
+        return OperationResult(
+            operation_id=operation.id,
+            result_text="",
+            tokens_used_input=0,
+            tokens_used_output=0,
+            cost_usd=0.0,
+            timestamp_utc=utc_timestamp(),
+            model_provider="",
+            model_name="",
+            rendered_prompt="",
+            skipped=True,
+        )
 
     # Render template
     rendered_prompt = render_template(operation.prompt, context)

@@ -195,7 +195,9 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=GROK_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Test response"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Test response"}}
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
@@ -264,7 +266,9 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=GROK_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": large_content}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": large_content}}
+                ],
                 "usage": {"total_tokens": 50000},
             },
         )
@@ -304,7 +308,9 @@ class TestPromptLengthValidation:
             method="POST",
             url=GROK_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Test response"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Test response"}}
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
@@ -324,7 +330,9 @@ class TestPromptLengthValidation:
             method="POST",
             url=GROK_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Test response"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Test response"}}
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
@@ -440,7 +448,9 @@ class TestGenerateAnswerRetryableErrors:
             url=GROK_API_URL,
             status_code=200,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Success after retry"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Success after retry"}}
+                ],
                 "usage": {"total_tokens": 50},
             },
         )
@@ -467,7 +477,9 @@ class TestGenerateAnswerRetryableErrors:
             url=GROK_API_URL,
             status_code=200,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Success"}},],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Success"}},
+                ],
                 "usage": {"total_tokens": 30},
             },
         )

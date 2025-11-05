@@ -73,7 +73,7 @@ def export_mentions_csv(
             intent_id,
             model_provider,
             model_name,
-            brand,
+            brand_name,
             normalized_name,
             is_mine,
             rank_position,
@@ -122,7 +122,7 @@ def export_mentions_csv(
                         "intent_id",
                         "model_provider",
                         "model_name",
-                        "brand",
+                        "brand_name",
                         "normalized_name",
                         "is_mine",
                         "rank_position",
@@ -181,7 +181,7 @@ def export_mentions_json(
             intent_id,
             model_provider,
             model_name,
-            brand,
+            brand_name,
             normalized_name,
             is_mine,
             rank_position,
@@ -262,9 +262,6 @@ def export_runs_csv(
             timestamp_utc,
             total_intents,
             total_models,
-            total_queries,
-            success_count,
-            error_count,
             total_cost_usd
         FROM runs
         WHERE 1=1
@@ -303,9 +300,6 @@ def export_runs_csv(
                         "timestamp_utc",
                         "total_intents",
                         "total_models",
-                        "total_queries",
-                        "success_count",
-                        "error_count",
                         "total_cost_usd",
                     ]
 
@@ -351,9 +345,6 @@ def export_runs_json(
             timestamp_utc,
             total_intents,
             total_models,
-            total_queries,
-            success_count,
-            error_count,
             total_cost_usd
         FROM runs
         WHERE 1=1

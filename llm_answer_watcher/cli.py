@@ -972,6 +972,9 @@ def export_mentions(
         success(f"Exported {count} mentions to {output}")
         raise typer.Exit(EXIT_SUCCESS)
 
+    except typer.Exit:
+        # Re-raise typer.Exit to avoid catching it in generic Exception handler
+        raise
     except Exception as e:
         error(f"Export failed: {e}")
         raise typer.Exit(EXIT_DB_ERROR)
@@ -1037,6 +1040,9 @@ def export_runs(
         success(f"Exported {count} runs to {output}")
         raise typer.Exit(EXIT_SUCCESS)
 
+    except typer.Exit:
+        # Re-raise typer.Exit to avoid catching it in generic Exception handler
+        raise
     except Exception as e:
         error(f"Export failed: {e}")
         raise typer.Exit(EXIT_DB_ERROR)
@@ -1224,6 +1230,9 @@ def costs_show(
 
         raise typer.Exit(EXIT_SUCCESS)
 
+    except typer.Exit:
+        # Re-raise typer.Exit to avoid catching it in generic Exception handler
+        raise
     except sqlite3.Error as e:
         error(f"Database error: {e}")
         raise typer.Exit(EXIT_DB_ERROR)
@@ -1372,9 +1381,7 @@ def prices_refresh(
 
     try:
         if format != "json":
-            with spinner(
-                "Refreshing pricing from llm-prices.com...", format != "json"
-            ):
+            with spinner("Refreshing pricing from llm-prices.com..."):
                 result = refresh_pricing(force=force)
         else:
             result = refresh_pricing(force=force)
@@ -1401,6 +1408,9 @@ def prices_refresh(
 
         raise typer.Exit(0)
 
+    except typer.Exit:
+        # Re-raise typer.Exit to avoid catching it in generic Exception handler
+        raise
     except Exception as e:
         if format == "json":
             print(json.dumps({"status": "error", "error": str(e)}))

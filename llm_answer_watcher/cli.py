@@ -47,7 +47,13 @@ from rich.traceback import install as install_rich_traceback
 
 from llm_answer_watcher.config.loader import load_config
 from llm_answer_watcher.evals.runner import run_eval_suite
-from llm_answer_watcher.llm_runner.runner import run_all
+from llm_answer_watcher.exceptions import (
+    APIKeyMissingError,
+    ConfigFileNotFoundError,
+    ConfigValidationError,
+    DatabaseError,
+)
+from llm_answer_watcher.llm_runner.runner import estimate_run_cost, run_all
 from llm_answer_watcher.report.generator import write_report
 from llm_answer_watcher.storage.db import init_db_if_needed
 from llm_answer_watcher.storage.eval_db import (
@@ -61,6 +67,7 @@ from llm_answer_watcher.utils.console import (
     info,
     output_mode,
     print_banner,
+    print_cost_breakdown,
     print_final_summary,
     print_summary_table,
     spinner,
@@ -260,10 +267,13 @@ def run(
             f"{len(runtime_config.models)} models"
         )
 
-    except FileNotFoundError as e:
+    except ConfigFileNotFoundError as e:
         error(f"Configuration file not found: {e}")
         raise typer.Exit(EXIT_CONFIG_ERROR)
-    except ValueError as e:
+    except APIKeyMissingError as e:
+        error(f"API key missing: {e}")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+    except ConfigValidationError as e:
         error(f"Configuration validation failed: {e}")
         if verbose:
             import traceback
@@ -297,16 +307,28 @@ def run(
     total_queries = len(runtime_config.intents) * len(runtime_config.models)
     info(f"Will execute {total_queries} queries")
 
-    # Estimate cost and confirm if expensive (human mode only, unless --yes)
+    # Estimate cost with detailed breakdown
+    with spinner("Estimating costs..."):
+        cost_estimate = estimate_run_cost(runtime_config)
+
+    # Get budget limit if configured
+    budget_limit = None
+    if (
+        hasattr(runtime_config.run_settings, "budget")
+        and runtime_config.run_settings.budget
+        and runtime_config.run_settings.budget.get("enabled")
+    ):
+        budget_limit = runtime_config.run_settings.budget.get("max_per_run_usd")
+
+    # Display detailed cost breakdown
+    if output_mode.is_human() or total_queries > 5:
+        print_cost_breakdown(cost_estimate, budget_limit)
+
+    # Confirm if expensive (human mode only, unless --yes)
     if output_mode.is_human() and not yes:
-        # Rough estimate: average $0.002 per query
-        estimated_cost = total_queries * 0.002
+        estimated_cost = cost_estimate["total_estimated_cost"]
 
         if total_queries > 10 or estimated_cost > 0.10:
-            warning(
-                f"This will execute {total_queries} queries "
-                f"(estimated cost: ${estimated_cost:.4f})"
-            )
             if not typer.confirm("Continue?"):
                 info("Cancelled by user")
                 raise typer.Exit(EXIT_SUCCESS)
@@ -317,15 +339,59 @@ def run(
         progress = create_progress_bar()
 
         with progress:
-            # Add task in human mode
+            # Add tasks in human mode with nested progress
             if output_mode.is_human():
-                task = progress.add_task(
-                    f"Querying LLMs ({total_queries} total)", total=total_queries
+                # Main task for overall progress
+                main_task = progress.add_task(
+                    f"[bold cyan]Overall Progress[/bold cyan]", total=total_queries
                 )
 
-                # Define progress callback
-                def progress_callback():
-                    progress.advance(task)
+                # Track current query task
+                current_task = None
+                current_task_info = {}
+
+                # Define progress callback with nested progress support
+                class ProgressTracker:
+                    def __init__(self):
+                        self.completed = 0
+
+                    def start_query(self, intent_id: str, provider: str, model: str):
+                        """Called when a new query starts."""
+                        nonlocal current_task, current_task_info
+
+                        # Remove previous task if exists
+                        if current_task is not None:
+                            progress.remove_task(current_task)
+
+                        # Create new nested task
+                        current_task_info = {
+                            "intent_id": intent_id,
+                            "provider": provider,
+                            "model": model
+                        }
+                        current_task = progress.add_task(
+                            f"  └─ [yellow]{intent_id}[/yellow] × [cyan]{provider}/{model}[/cyan]",
+                            total=1,
+                            start=False
+                        )
+                        progress.start_task(current_task)
+
+                    def complete_query(self, success: bool = True):
+                        """Called when a query completes."""
+                        nonlocal current_task
+
+                        # Update current task
+                        if current_task is not None:
+                            progress.update(current_task, completed=1)
+                            progress.remove_task(current_task)
+                            current_task = None
+
+                        # Advance main progress
+                        progress.advance(main_task)
+                        self.completed += 1
+
+                progress_tracker = ProgressTracker()
+                progress_callback = progress_tracker
 
             else:
                 # No progress updates in agent/quiet modes
@@ -828,6 +894,346 @@ def eval(
     raise typer.Exit(EXIT_SUCCESS)  # All tests passed and thresholds met
 
 
+# Create export command subapp
+export_app = typer.Typer(help="Export data to CSV or JSON")
+app.add_typer(export_app, name="export")
+
+
+@export_app.command("mentions")
+def export_mentions(
+    output: Path = typer.Option(
+        ...,
+        "--output",
+        "-o",
+        help="Output file path (extension determines format: .csv or .json)",
+    ),
+    db: Path = typer.Option(
+        "./output/watcher.db",
+        "--db",
+        help="Path to SQLite database",
+        exists=True,
+    ),
+    run_id: str = typer.Option(
+        None,
+        "--run-id",
+        help="Filter by specific run ID",
+    ),
+    days: int = typer.Option(
+        None,
+        "--days",
+        help="Include only last N days of data",
+    ),
+    format: str = typer.Option(
+        "text",
+        "--format",
+        "-f",
+        help="CLI output format: 'text' or 'json'",
+    ),
+):
+    """
+    Export brand mentions to CSV or JSON.
+
+    The output format is determined by the file extension:
+    - .csv: Comma-separated values for Excel/Google Sheets
+    - .json: JSON array for programmatic processing
+
+    Examples:
+      # Export all mentions to CSV
+      llm-answer-watcher export mentions --output mentions.csv
+
+      # Export last 30 days to JSON
+      llm-answer-watcher export mentions --output mentions.json --days 30
+
+      # Export specific run
+      llm-answer-watcher export mentions --output run.csv --run-id 2025-11-05T10-00-00Z
+    """
+    from llm_answer_watcher.storage.exporter import (
+        export_mentions_csv,
+        export_mentions_json,
+    )
+
+    output_mode.format = format
+
+    # Determine format from file extension
+    file_ext = output.suffix.lower()
+    if file_ext not in [".csv", ".json"]:
+        error("Output file must have .csv or .json extension")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+
+    try:
+        with spinner(f"Exporting mentions to {output}..."):
+            if file_ext == ".csv":
+                count = export_mentions_csv(
+                    str(output), str(db), run_id=run_id, days=days
+                )
+            else:  # .json
+                count = export_mentions_json(
+                    str(output), str(db), run_id=run_id, days=days
+                )
+
+        success(f"Exported {count} mentions to {output}")
+        raise typer.Exit(EXIT_SUCCESS)
+
+    except Exception as e:
+        error(f"Export failed: {e}")
+        raise typer.Exit(EXIT_DB_ERROR)
+
+
+@export_app.command("runs")
+def export_runs(
+    output: Path = typer.Option(
+        ...,
+        "--output",
+        "-o",
+        help="Output file path (extension determines format: .csv or .json)",
+    ),
+    db: Path = typer.Option(
+        "./output/watcher.db",
+        "--db",
+        help="Path to SQLite database",
+        exists=True,
+    ),
+    days: int = typer.Option(
+        None,
+        "--days",
+        help="Include only last N days of data",
+    ),
+    format: str = typer.Option(
+        "text",
+        "--format",
+        "-f",
+        help="CLI output format: 'text' or 'json'",
+    ),
+):
+    """
+    Export run summaries to CSV or JSON.
+
+    The output format is determined by the file extension:
+    - .csv: Comma-separated values for Excel/Google Sheets
+    - .json: JSON array for programmatic processing
+
+    Examples:
+      # Export all runs to CSV
+      llm-answer-watcher export runs --output runs.csv
+
+      # Export last 90 days to JSON
+      llm-answer-watcher export runs --output runs.json --days 90
+    """
+    from llm_answer_watcher.storage.exporter import export_runs_csv, export_runs_json
+
+    output_mode.format = format
+
+    # Determine format from file extension
+    file_ext = output.suffix.lower()
+    if file_ext not in [".csv", ".json"]:
+        error("Output file must have .csv or .json extension")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+
+    try:
+        with spinner(f"Exporting runs to {output}..."):
+            if file_ext == ".csv":
+                count = export_runs_csv(str(output), str(db), days=days)
+            else:  # .json
+                count = export_runs_json(str(output), str(db), days=days)
+
+        success(f"Exported {count} runs to {output}")
+        raise typer.Exit(EXIT_SUCCESS)
+
+    except Exception as e:
+        error(f"Export failed: {e}")
+        raise typer.Exit(EXIT_DB_ERROR)
+
+
+# Create costs command subapp for cost analytics
+costs_app = typer.Typer(help="Analyze historical costs")
+app.add_typer(costs_app, name="costs")
+
+
+@costs_app.command("show")
+def costs_show(
+    db: Path = typer.Option(
+        "./output/watcher.db",
+        "--db",
+        help="Path to SQLite database",
+        exists=True,
+    ),
+    period: str = typer.Option(
+        "month",
+        "--period",
+        help="Time period: 'week', 'month', 'quarter', or 'all'",
+    ),
+    format: str = typer.Option(
+        "text",
+        "--format",
+        "-f",
+        help="Output format: 'text' or 'json'",
+    ),
+):
+    """
+    Show cost breakdown by provider and model.
+
+    Displays historical cost analytics with breakdown by provider/model,
+    total costs, and per-query averages.
+
+    Examples:
+      # Show costs for current month
+      llm-answer-watcher costs show
+
+      # Show costs for last quarter
+      llm-answer-watcher costs show --period quarter
+
+      # Show all-time costs
+      llm-answer-watcher costs show --period all
+
+      # JSON output
+      llm-answer-watcher costs show --format json
+    """
+    import sqlite3
+    from datetime import datetime, timedelta
+
+    from rich.console import Console
+    from rich.table import Table
+
+    output_mode.format = format
+
+    # Calculate date filter based on period
+    days_map = {
+        "week": 7,
+        "month": 30,
+        "quarter": 90,
+        "all": None,
+    }
+
+    if period not in days_map:
+        error(f"Invalid period: {period}. Must be 'week', 'month', 'quarter', or 'all'")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+
+    days = days_map[period]
+
+    try:
+        with spinner("Analyzing costs..."):
+            with sqlite3.connect(str(db)) as conn:
+                conn.row_factory = sqlite3.Row
+
+                # Build query with date filter
+                query = """
+                    SELECT
+                        model_provider,
+                        model_name,
+                        COUNT(*) as query_count,
+                        SUM(estimated_cost_usd) as total_cost,
+                        AVG(estimated_cost_usd) as avg_cost_per_query,
+                        MIN(timestamp_utc) as first_query,
+                        MAX(timestamp_utc) as last_query
+                    FROM answers_raw
+                    WHERE 1=1
+                """
+                params = []
+
+                if days:
+                    cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+                    query += " AND timestamp_utc >= ?"
+                    params.append(cutoff)
+
+                query += """
+                    GROUP BY model_provider, model_name
+                    ORDER BY total_cost DESC
+                """
+
+                cursor = conn.cursor()
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+
+                # Calculate totals
+                total_queries = sum(row["query_count"] for row in rows)
+                total_cost = sum(row["total_cost"] for row in rows)
+
+        if not rows:
+            warning(f"No cost data found for period: {period}")
+            raise typer.Exit(EXIT_SUCCESS)
+
+        # JSON output
+        if output_mode.is_agent():
+            costs_data = {
+                "period": period,
+                "total_queries": total_queries,
+                "total_cost_usd": round(total_cost, 6),
+                "average_cost_per_query": round(total_cost / total_queries, 6)
+                if total_queries > 0
+                else 0.0,
+                "breakdown": [
+                    {
+                        "provider": row["model_provider"],
+                        "model": row["model_name"],
+                        "queries": row["query_count"],
+                        "total_cost": round(row["total_cost"], 6),
+                        "avg_cost": round(row["avg_cost_per_query"], 6),
+                        "percent_of_total": round(
+                            (row["total_cost"] / total_cost * 100) if total_cost > 0 else 0,
+                            2,
+                        ),
+                    }
+                    for row in rows
+                ],
+            }
+            output_mode.add_json("cost_analytics", costs_data)
+            output_mode.flush_json()
+            raise typer.Exit(EXIT_SUCCESS)
+
+        # Human-friendly table
+        console = Console()
+
+        # Period title
+        period_title = {
+            "week": "Last 7 Days",
+            "month": "Last 30 Days",
+            "quarter": "Last 90 Days",
+            "all": "All Time",
+        }[period]
+
+        table = Table(
+            title=f"Cost Breakdown - {period_title}",
+            show_header=True,
+            header_style="bold cyan",
+        )
+
+        table.add_column("Provider", style="yellow", no_wrap=True)
+        table.add_column("Model", style="cyan")
+        table.add_column("Queries", justify="right", style="blue")
+        table.add_column("Total Cost", justify="right", style="green")
+        table.add_column("Per Query", justify="right", style="green")
+        table.add_column("% of Total", justify="right", style="magenta")
+
+        for row in rows:
+            percent = (row["total_cost"] / total_cost * 100) if total_cost > 0 else 0
+            table.add_row(
+                row["model_provider"],
+                row["model_name"],
+                str(row["query_count"]),
+                f"${row['total_cost']:.6f}",
+                f"${row['avg_cost_per_query']:.6f}",
+                f"{percent:.1f}%",
+            )
+
+        console.print(table)
+        console.print()
+
+        # Summary
+        console.print(f"[bold]Total Queries:[/bold] {total_queries}")
+        console.print(f"[bold]Total Cost:[/bold] ${total_cost:.6f}")
+        avg_cost = total_cost / total_queries if total_queries > 0 else 0
+        console.print(f"[bold]Average Cost per Query:[/bold] ${avg_cost:.6f}")
+
+        raise typer.Exit(EXIT_SUCCESS)
+
+    except sqlite3.Error as e:
+        error(f"Database error: {e}")
+        raise typer.Exit(EXIT_DB_ERROR)
+    except Exception as e:
+        error(f"Cost analysis failed: {e}")
+        raise typer.Exit(EXIT_DB_ERROR)
+
+
 # Create prices command subapp
 prices_app = typer.Typer(help="Manage LLM pricing data")
 app.add_typer(prices_app, name="prices")
@@ -918,8 +1324,10 @@ def prices_show(
             )
 
         console.print(table)
-        raise typer.Exit(0)
 
+    except typer.Exit:
+        # Re-raise typer.Exit without catching it
+        raise
     except Exception as e:
         if format == "json":
             print(json.dumps({"error": str(e)}))

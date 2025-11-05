@@ -211,7 +211,7 @@ def parse_answer(
                     normalized_name=brand_name,
                     brand_category=brand_category,
                     match_position=0,  # Not applicable for function calling
-                    match_type="function_calling",
+                    match_type="exact",  # Function calling provides exact brand names
                     fuzzy_score=None,
                 )
 

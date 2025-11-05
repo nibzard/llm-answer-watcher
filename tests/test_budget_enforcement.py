@@ -12,8 +12,8 @@ Tests various budget scenarios:
 import pytest
 
 from llm_answer_watcher.config.schema import (
-    BudgetConfig,
     Brands,
+    BudgetConfig,
     Intent,
     ModelConfig,
     RunSettings,
@@ -375,9 +375,9 @@ class TestBudgetWithDifferentModels:
         per_model = estimate["per_model_costs"]
         assert len(per_model) == 2
         # gpt-4 should cost more than gpt-4o-mini
-        gpt4_cost = next(m["cost_per_query"] for m in per_model if "gpt-4" == m["model_name"])
+        gpt4_cost = next(m["cost_per_query"] for m in per_model if m["model_name"] == "gpt-4")
         gpt4o_mini_cost = next(
-            m["cost_per_query"] for m in per_model if "gpt-4o-mini" == m["model_name"]
+            m["cost_per_query"] for m in per_model if m["model_name"] == "gpt-4o-mini"
         )
         assert gpt4_cost > gpt4o_mini_cost
 

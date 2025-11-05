@@ -12,6 +12,7 @@ This test module validates all eval database functionality including:
 
 import json
 import sqlite3
+from datetime import UTC
 
 import pytest
 
@@ -483,7 +484,7 @@ class TestEvalDatabaseQueryOperations:
 
     def test_get_metric_trend_single_day(self, tmp_path):
         """Test get_metric_trend with data for single day."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         db_path = tmp_path / "test_eval.db"
         init_eval_db_if_needed(str(db_path))
@@ -508,7 +509,7 @@ class TestEvalDatabaseQueryOperations:
             trend = get_metric_trend(conn, "mention_precision", days=7)
 
         # Note: insert_eval_run uses current timestamp, not run_id date
-        expected_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        expected_date = datetime.now(UTC).strftime("%Y-%m-%d")
 
         assert len(trend) == 1
         assert trend[0]["date"] == expected_date

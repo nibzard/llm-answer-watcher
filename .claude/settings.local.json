@@ -9,7 +9,8 @@
       "Bash(gh pr checks:*)",
       "Bash(gh pr:*)",
       "Bash(git merge:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(gh run:*)"
     ],
     "deny": [],
     "ask": []

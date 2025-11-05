@@ -13,18 +13,13 @@ Tests cover:
 """
 
 import json
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 import pytest
 
 from llm_answer_watcher.utils.pricing import (
-    CACHE_FILE,
-    OVERRIDES_FILE,
-    ModelPricing,
     PricingNotAvailableError,
-    ToolPricing,
     get_pricing,
     get_tool_pricing,
     list_available_models,
@@ -81,7 +76,7 @@ class TestGetPricing:
 
         # Create fresh cache (within 24 hours)
         cache_data = {
-            "cached_at": datetime.now(timezone.utc).isoformat(),
+            "cached_at": datetime.now(UTC).isoformat(),
             "updated_at": "2025-11-04",
             "prices": [
                 {
@@ -168,7 +163,7 @@ class TestGetPricing:
         cache_file.parent.mkdir(parents=True, exist_ok=True)
 
         cache_data = {
-            "cached_at": datetime.now(timezone.utc).isoformat(),
+            "cached_at": datetime.now(UTC).isoformat(),
             "updated_at": "2025-11-04",
             "prices": [
                 {
@@ -225,7 +220,7 @@ class TestGetPricing:
         cache_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Create expired cache (25 hours ago)
-        expired_time = datetime.now(timezone.utc) - timedelta(hours=25)
+        expired_time = datetime.now(UTC) - timedelta(hours=25)
         cache_data = {
             "cached_at": expired_time.isoformat(),
             "updated_at": "2025-11-03",
@@ -355,7 +350,7 @@ class TestRefreshPricing:
 
         # Fresh cache
         cache_data = {
-            "cached_at": datetime.now(timezone.utc).isoformat(),
+            "cached_at": datetime.now(UTC).isoformat(),
             "updated_at": "2025-11-04",
             "prices": [{"id": "gpt-4o", "vendor": "openai"}],
         }
@@ -397,7 +392,7 @@ class TestListAvailableModels:
         cache_file.parent.mkdir(parents=True, exist_ok=True)
 
         cache_data = {
-            "cached_at": datetime.now(timezone.utc).isoformat(),
+            "cached_at": datetime.now(UTC).isoformat(),
             "updated_at": "2025-11-04",
             "prices": [
                 {
@@ -484,7 +479,7 @@ class TestCacheExpiration:
         cache_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Cache from 12 hours ago
-        cache_time = datetime.now(timezone.utc) - timedelta(hours=12)
+        cache_time = datetime.now(UTC) - timedelta(hours=12)
         cache_data = {
             "cached_at": cache_time.isoformat(),
             "prices": [{"id": "test", "vendor": "openai"}],
@@ -506,7 +501,7 @@ class TestCacheExpiration:
         cache_file.parent.mkdir(parents=True, exist_ok=True)
 
         # Cache from 25 hours ago
-        cache_time = datetime.now(timezone.utc) - timedelta(hours=25)
+        cache_time = datetime.now(UTC) - timedelta(hours=25)
         cache_data = {
             "cached_at": cache_time.isoformat(),
             "prices": [{"id": "test", "vendor": "openai"}],

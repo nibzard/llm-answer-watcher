@@ -27,7 +27,7 @@ Example:
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -470,7 +470,7 @@ def _is_cache_expired(cached_at: str | None) -> bool:
 
     try:
         cached_time = datetime.fromisoformat(cached_at.replace("Z", "+00:00"))
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         age = now - cached_time
         expired = age > CACHE_DURATION
 

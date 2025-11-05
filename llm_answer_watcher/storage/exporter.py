@@ -26,8 +26,7 @@ import csv
 import json
 import logging
 import sqlite3
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +88,7 @@ def export_mentions_csv(
         params.append(run_id)
 
     if days:
-        cutoff_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        cutoff_date = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         query += " AND timestamp_utc >= ?"
         params.append(cutoff_date)
 
@@ -197,7 +196,7 @@ def export_mentions_json(
         params.append(run_id)
 
     if days:
-        cutoff_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        cutoff_date = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         query += " AND timestamp_utc >= ?"
         params.append(cutoff_date)
 
@@ -273,7 +272,7 @@ def export_runs_csv(
     params = []
 
     if days:
-        cutoff_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        cutoff_date = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         query += " AND timestamp_utc >= ?"
         params.append(cutoff_date)
 
@@ -362,7 +361,7 @@ def export_runs_json(
     params = []
 
     if days:
-        cutoff_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        cutoff_date = (datetime.now(UTC) - timedelta(days=days)).isoformat()
         query += " AND timestamp_utc >= ?"
         params.append(cutoff_date)
 

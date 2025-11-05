@@ -197,11 +197,10 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
                     f"Planned providers: {', '.join(sorted(PLANNED_PROVIDERS))}. "
                     f"Please use an implemented provider or check back in a future release."
                 )
-            else:
-                raise ConfigValidationError(
-                    f"Unknown provider '{model_config.provider}'. "
-                    f"Supported providers: {', '.join(sorted(IMPLEMENTED_PROVIDERS))}."
-                )
+            raise ConfigValidationError(
+                f"Unknown provider '{model_config.provider}'. "
+                f"Supported providers: {', '.join(sorted(IMPLEMENTED_PROVIDERS))}."
+            )
 
         # Get environment variable name from config
         env_var_name = model_config.env_api_key

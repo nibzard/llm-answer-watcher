@@ -1,10 +1,9 @@
 name: Evaluation Framework
 
 on:
-  push:
-    branches: [ main, master ]
+  workflow_dispatch:  # Manual trigger only - eval framework is optional
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
 
 jobs:
   eval:

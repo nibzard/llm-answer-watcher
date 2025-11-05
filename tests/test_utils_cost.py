@@ -11,6 +11,8 @@ Tests cover:
 
 import logging
 
+import pytest
+
 from llm_answer_watcher.utils.cost import PRICING, estimate_cost
 
 

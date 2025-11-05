@@ -38,7 +38,8 @@ import sqlite3
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 
-from ..config.schema import RuntimeConfig, RuntimeModel
+from ..config.schema import RuntimeConfig
+from ..exceptions import BudgetExceededError
 from ..extractor.parser import parse_answer
 from ..storage.db import insert_answer_raw, insert_mention, insert_run
 from ..storage.writer import (
@@ -102,12 +103,6 @@ class RawAnswerRecord:
     estimated_cost_usd: float
     web_search_results: list[dict] | None = None
     web_search_count: int = 0
-
-
-class BudgetExceededError(Exception):
-    """Raised when estimated cost exceeds budget limits."""
-
-    pass
 
 
 def estimate_run_cost(config: RuntimeConfig) -> dict:
@@ -260,14 +255,16 @@ def validate_budget(config: RuntimeConfig, cost_estimate: dict) -> None:
     per_intent_costs = cost_estimate["per_intent_costs"]
 
     # Check total run budget
-    if budget.max_per_run_usd is not None:
-        if total_cost > budget.max_per_run_usd:
-            raise BudgetExceededError(
-                f"Estimated run cost ${total_cost:.4f} exceeds max_per_run_usd "
-                f"budget of ${budget.max_per_run_usd:.2f}. "
-                f"Run would execute {cost_estimate['total_queries']} queries. "
-                f"Use --force to override or increase budget limit."
-            )
+    if budget.max_per_run_usd is not None and total_cost > budget.max_per_run_usd:
+        raise BudgetExceededError(
+            f"Estimated run cost ${total_cost:.4f} exceeds max_per_run_usd "
+            f"budget of ${budget.max_per_run_usd:.2f}. "
+            f"Run would execute {cost_estimate['total_queries']} queries. "
+            f"Use --force to override or increase budget limit.",
+            estimated_cost=total_cost,
+            budget_limit=budget.max_per_run_usd,
+            budget_type="per_run",
+        )
 
     # Check per-intent budget
     if budget.max_per_intent_usd is not None:
@@ -276,16 +273,18 @@ def validate_budget(config: RuntimeConfig, cost_estimate: dict) -> None:
                 raise BudgetExceededError(
                     f"Estimated cost for intent '{intent_id}' (${intent_cost:.4f}) "
                     f"exceeds max_per_intent_usd budget of ${budget.max_per_intent_usd:.2f}. "
-                    f"Use --force to override or increase budget limit."
+                    f"Use --force to override or increase budget limit.",
+                    estimated_cost=intent_cost,
+                    budget_limit=budget.max_per_intent_usd,
+                    budget_type="per_intent",
                 )
 
     # Check warning threshold
-    if budget.warn_threshold_usd is not None:
-        if total_cost > budget.warn_threshold_usd:
-            logger.warning(
-                f"⚠️  Estimated cost ${total_cost:.4f} exceeds warning threshold "
-                f"of ${budget.warn_threshold_usd:.2f}. Proceeding with execution."
-            )
+    if budget.warn_threshold_usd is not None and total_cost > budget.warn_threshold_usd:
+        logger.warning(
+            f"⚠️  Estimated cost ${total_cost:.4f} exceeds warning threshold "
+            f"of ${budget.warn_threshold_usd:.2f}. Proceeding with execution."
+        )
 
 
 def run_all(

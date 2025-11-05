@@ -535,8 +535,7 @@ def detect_web_search_version(model: str, tool_version: str | None = None) -> st
     if tool_version == "preview":
         if any(x in model_lower for x in ["o1", "o3", "o4"]):
             return "web_search_preview_reasoning"
-        else:
-            return "web_search_preview_non_reasoning"
+        return "web_search_preview_non_reasoning"
 
     # Default: standard web search
     return "web_search"

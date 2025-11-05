@@ -51,7 +51,6 @@ from llm_answer_watcher.exceptions import (
     APIKeyMissingError,
     ConfigFileNotFoundError,
     ConfigValidationError,
-    DatabaseError,
 )
 from llm_answer_watcher.llm_runner.runner import estimate_run_cost, run_all
 from llm_answer_watcher.report.generator import write_report
@@ -328,10 +327,9 @@ def run(
     if output_mode.is_human() and not yes:
         estimated_cost = cost_estimate["total_estimated_cost"]
 
-        if total_queries > 10 or estimated_cost > 0.10:
-            if not typer.confirm("Continue?"):
-                info("Cancelled by user")
-                raise typer.Exit(EXIT_SUCCESS)
+        if (total_queries > 10 or estimated_cost > 0.10) and not typer.confirm("Continue?"):
+            info("Cancelled by user")
+            raise typer.Exit(EXIT_SUCCESS)
 
     # Execute queries with progress tracking
     try:
@@ -343,7 +341,7 @@ def run(
             if output_mode.is_human():
                 # Main task for overall progress
                 main_task = progress.add_task(
-                    f"[bold cyan]Overall Progress[/bold cyan]", total=total_queries
+                    "[bold cyan]Overall Progress[/bold cyan]", total=total_queries
                 )
 
                 # Track current query task
@@ -370,7 +368,7 @@ def run(
                             "model": model
                         }
                         current_task = progress.add_task(
-                            f"  └─ [yellow]{intent_id}[/yellow] × [cyan]{provider}/{model}[/cyan]",
+                            f"  └─ [yellow]{intent_id}[/yellow] x [cyan]{provider}/{model}[/cyan]",
                             total=1,
                             start=False
                         )
@@ -1089,7 +1087,7 @@ def costs_show(
       llm-answer-watcher costs show --format json
     """
     import sqlite3
-    from datetime import datetime, timedelta
+    from datetime import UTC, datetime, timedelta
 
     from rich.console import Console
     from rich.table import Table
@@ -1131,7 +1129,7 @@ def costs_show(
                 params = []
 
                 if days:
-                    cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+                    cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
                     query += " AND timestamp_utc >= ?"
                     params.append(cutoff)
 
@@ -1366,7 +1364,6 @@ def prices_refresh(
       # JSON output
       llm-answer-watcher prices refresh --format json
     """
-    from rich.console import Console
 
     from llm_answer_watcher.utils.pricing import refresh_pricing
 
@@ -1394,7 +1391,7 @@ def prices_refresh(
                 f"(updated: {result['updated_at']})"
             )
         elif result["status"] == "skipped":
-            info(f"ℹ  {result['reason']}")
+            info(f"i  {result['reason']}")
             info(
                 f"   Cached {result['model_count']} models from {result['cached_at']}"
             )

@@ -11,8 +11,8 @@ Tests cover:
 import pytest
 
 from llm_answer_watcher.config.schema import (
-    BudgetConfig,
     Brands,
+    BudgetConfig,
     Intent,
     RunSettings,
     RuntimeConfig,

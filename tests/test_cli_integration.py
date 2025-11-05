@@ -10,13 +10,11 @@ Tests the newly added commands with various scenarios:
 
 import json
 import sqlite3
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 from typer.testing import CliRunner
 
-from llm_answer_watcher.cli import EXIT_CONFIG_ERROR, EXIT_DB_ERROR, EXIT_SUCCESS, app
+from llm_answer_watcher.cli import EXIT_CONFIG_ERROR, EXIT_SUCCESS, app
 
 
 @pytest.fixture

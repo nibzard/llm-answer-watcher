@@ -50,7 +50,7 @@ class TestOpenAIErrorHandling:
         )
 
         client = OpenAIClient(
-            model="gpt-4o-mini",
+            model_name="gpt-4o-mini",
             api_key="test-key",
             system_prompt="You are a helpful assistant",
         )
@@ -70,7 +70,7 @@ class TestOpenAIErrorHandling:
         )
 
         client = OpenAIClient(
-            model="gpt-4o-mini",
+            model_name="gpt-4o-mini",
             api_key="invalid-key",
             system_prompt="You are a helpful assistant",
         )
@@ -101,7 +101,7 @@ class TestOpenAIErrorHandling:
         )
 
         client = OpenAIClient(
-            model="gpt-4o-mini",
+            model_name="gpt-4o-mini",
             api_key="test-key",
             system_prompt="You are a helpful assistant",
         )
@@ -120,7 +120,7 @@ class TestOpenAIErrorHandling:
         )
 
         client = OpenAIClient(
-            model="gpt-4o-mini",
+            model_name="gpt-4o-mini",
             api_key="test-key",
             system_prompt="You are a helpful assistant",
         )
@@ -151,7 +151,7 @@ class TestOpenAIErrorHandling:
         )
 
         client = OpenAIClient(
-            model="gpt-4o-mini",
+            model_name="gpt-4o-mini",
             api_key="test-key",
             system_prompt="You are a helpful assistant",
         )
@@ -184,7 +184,7 @@ class TestAnthropicErrorHandling:
         )
 
         client = AnthropicClient(
-            model="claude-3-5-haiku-20241022",
+            model_name="claude-3-5-haiku-20241022",
             api_key="test-key",
             system_prompt="You are a helpful assistant",
         )
@@ -202,7 +202,7 @@ class TestAnthropicErrorHandling:
         )
 
         client = AnthropicClient(
-            model="claude-3-5-haiku-20241022",
+            model_name="claude-3-5-haiku-20241022",
             api_key="invalid-key",
             system_prompt="You are a helpful assistant",
         )
@@ -236,7 +236,7 @@ class TestMistralErrorHandling:
         )
 
         client = MistralClient(
-            model="mistral-large-latest",
+            model_name="mistral-large-latest",
             api_key="test-key",
             system_prompt="You are a helpful assistant",
         )
@@ -268,7 +268,7 @@ class TestGrokErrorHandling:
         )
 
         client = GrokClient(
-            model="grok-2-latest",
+            model_name="grok-2-latest",
             api_key="test-key",
             system_prompt="You are a helpful assistant",
         )
@@ -299,7 +299,7 @@ class TestGeminiErrorHandling:
         )
 
         client = GeminiClient(
-            model="gemini-2.0-flash-exp",
+            model_name="gemini-2.0-flash-exp",
             api_key="test-key",
             system_prompt="You are a helpful assistant",
         )
@@ -317,7 +317,7 @@ class TestGeminiErrorHandling:
         )
 
         client = GeminiClient(
-            model="gemini-2.0-flash-exp",
+            model_name="gemini-2.0-flash-exp",
             api_key="invalid-key",
             system_prompt="You are a helpful assistant",
         )
@@ -343,7 +343,7 @@ class TestRetryLogicIntegration:
             )
 
         client = OpenAIClient(
-            model="gpt-4o-mini",
+            model_name="gpt-4o-mini",
             api_key="test-key",
             system_prompt="You are a helpful assistant",
         )
@@ -374,7 +374,7 @@ class TestRetryLogicIntegration:
         )
 
         client = OpenAIClient(
-            model="gpt-4o-mini",
+            model_name="gpt-4o-mini",
             api_key="test-key",
             system_prompt="You are a helpful assistant",
         )

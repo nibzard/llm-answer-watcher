@@ -11,6 +11,7 @@ Tests cover:
 - Edge cases (empty responses, malformed JSON, missing fields)
 """
 
+import contextlib
 import logging
 
 import httpx
@@ -668,11 +669,9 @@ class TestLogging:
 
         client = MistralClient("mistral-large-latest", "secret-key", TEST_SYSTEM_PROMPT)
 
-        try:
-            # Will fail after retries
+        # Will fail after retries
+        with contextlib.suppress(Exception):
             client.generate_answer("Test")
-        except Exception:
-            pass
 
         # Should log error details but not API key
         assert "secret-key" not in caplog.text

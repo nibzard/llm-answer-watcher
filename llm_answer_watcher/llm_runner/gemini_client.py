@@ -355,12 +355,15 @@ class GeminiClient:
 
             # Check for safety ratings that blocked content
             finish_reason = candidate.get("finishReason")
-            if finish_reason and finish_reason != "STOP":
+            if (
+                finish_reason
+                and finish_reason != "STOP"
+                and finish_reason in ("SAFETY", "RECITATION", "PROHIBITED_CONTENT")
+            ):
                 # Content was blocked or had other issues
-                if finish_reason in ("SAFETY", "RECITATION", "PROHIBITED_CONTENT"):
-                    raise RuntimeError(
-                        f"Gemini API blocked content: finishReason={finish_reason}"
-                    )
+                raise RuntimeError(
+                    f"Gemini API blocked content: finishReason={finish_reason}"
+                )
 
             # Extract content from candidate
             content = candidate.get("content")

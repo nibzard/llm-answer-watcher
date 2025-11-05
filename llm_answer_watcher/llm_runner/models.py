@@ -170,6 +170,7 @@ def build_client(
     - "mistral": Mistral API (Mistral models)
     - "grok": X.AI Grok API (Grok models)
     - "google": Google Gemini API (Gemini models)
+    - "perplexity": Perplexity API (Sonar models)
 
     Args:
         provider: Provider identifier (lowercase string)
@@ -278,8 +279,22 @@ def build_client(
             tool_choice=tool_choice,
         )
 
+    if provider == "perplexity":
+        # Import here to avoid circular dependencies and keep imports lazy
+        from llm_answer_watcher.llm_runner.perplexity_client import (
+            PerplexityClient,
+        )
+
+        return PerplexityClient(
+            model_name=model_name,
+            api_key=api_key,
+            system_prompt=system_prompt,
+            tools=tools,
+            tool_choice=tool_choice,
+        )
+
     # Unknown provider - clear error message
     raise ValueError(
         f"Unsupported provider: '{provider}'. "
-        f"Supported providers: openai, anthropic, mistral, grok, google"
+        f"Supported providers: openai, anthropic, mistral, grok, google, perplexity"
     )

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **LLM Answer Watcher** is a production-ready CLI tool that monitors how large language models talk about brands versus competitors in buyer-intent queries. It asks LLMs specific questions (e.g., "best email warmup tools"), extracts structured signals (Did we appear? Who else appeared? In what rank?), and stores results in SQLite for historical tracking.
 
 **Key characteristics:**
-- **BYOK (Bring Your Own Keys)**: Users provide their own OpenAI/Anthropic/Mistral/Grok/Google API keys
+- **BYOK (Bring Your Own Keys)**: Users provide their own OpenAI/Anthropic/Mistral/Grok/Google/Perplexity API keys
 - **Local-first**: All data stored locally in SQLite and JSON files
 - **API-first mindset**: Internal contract designed to become HTTP API in Cloud product
 - **Dual-mode CLI**: Beautiful Rich output for humans, structured JSON for AI agents
@@ -91,7 +91,7 @@ class LLMClient(Protocol):
         ...
 
 def build_client(
-    provider: str,  # "openai", "anthropic", "google"
+    provider: str,  # "openai", "anthropic", "google", "perplexity"
     model_name: str,
     api_key: str,
     system_prompt: str,
@@ -99,7 +99,7 @@ def build_client(
     tool_choice: str = "auto",
 ) -> LLMClient:
     # Factory pattern for multi-provider support
-    # Currently supports: openai, anthropic, mistral, grok, google
+    # Currently supports: openai, anthropic, mistral, grok, google, perplexity
     ...
 ```
 

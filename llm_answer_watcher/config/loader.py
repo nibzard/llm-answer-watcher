@@ -19,6 +19,11 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
+from llm_answer_watcher.exceptions import (
+    APIKeyMissingError,
+    ConfigFileNotFoundError,
+    ConfigValidationError,
+)
 from llm_answer_watcher.system_prompts import get_provider_default, load_prompt
 
 from .schema import RuntimeConfig, RuntimeModel, WatcherConfig
@@ -41,10 +46,9 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
         RuntimeConfig with resolved API keys and validated configuration
 
     Raises:
-        FileNotFoundError: If config file doesn't exist at the specified path
-        ValueError: If YAML is invalid, config validation fails, or API keys
-                   are missing from environment
-        yaml.YAMLError: If YAML syntax is malformed (wrapped in ValueError)
+        ConfigFileNotFoundError: If config file doesn't exist at the specified path
+        ConfigValidationError: If YAML is invalid or config validation fails
+        APIKeyMissingError: If required API keys are missing from environment
 
     Example:
         >>> config = load_config("examples/watcher.config.yaml")
@@ -63,20 +67,24 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
 
     # Check file exists before attempting to read
     if not config_path.exists():
-        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        raise ConfigFileNotFoundError(f"Configuration file not found: {config_path}")
 
     # Load YAML content
     try:
         with config_path.open(encoding="utf-8") as f:
             raw_config = yaml.safe_load(f)
     except yaml.YAMLError as e:
-        raise ValueError(f"Invalid YAML syntax in {config_path}: {e}") from e
+        raise ConfigValidationError(
+            f"Invalid YAML syntax in {config_path}: {e}"
+        ) from e
     except Exception as e:
-        raise ValueError(f"Failed to read configuration file {config_path}: {e}") from e
+        raise ConfigValidationError(
+            f"Failed to read configuration file {config_path}: {e}"
+        ) from e
 
     # Handle empty YAML file
     if raw_config is None:
-        raise ValueError(f"Configuration file is empty: {config_path}")
+        raise ConfigValidationError(f"Configuration file is empty: {config_path}")
 
     # Validate configuration structure with Pydantic
     try:
@@ -89,7 +97,7 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
             msg = error["msg"]
             error_messages.append(f"  - {loc}: {msg}")
 
-        raise ValueError(
+        raise ConfigValidationError(
             f"Configuration validation failed in {config_path}:\n"
             + "\n".join(error_messages)
         ) from e
@@ -97,9 +105,17 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
     # Resolve API keys from environment variables
     try:
         resolved_models = resolve_api_keys(watcher_config)
-    except ValueError as e:
-        # Add context about which config file failed
-        raise ValueError(f"Failed to resolve API keys from {config_path}: {e}") from e
+    except APIKeyMissingError:
+        # Re-raise API key errors as-is
+        raise
+    except ConfigValidationError:
+        # Re-raise config validation errors as-is
+        raise
+    except Exception as e:
+        # Wrap unexpected errors
+        raise ConfigValidationError(
+            f"Failed to resolve API keys from {config_path}: {e}"
+        ) from e
 
     # Build RuntimeConfig with resolved API keys
     return RuntimeConfig(
@@ -125,8 +141,8 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
         List of RuntimeModel instances with resolved API keys and system prompts
 
     Raises:
-        ValueError: If any required environment variable is not set or
-                   if system prompt files cannot be loaded
+        APIKeyMissingError: If any required environment variable is not set
+        ConfigValidationError: If provider is unsupported or system prompt files cannot be loaded
 
     Example:
         >>> # Assuming OPENAI_API_KEY is set in environment
@@ -142,9 +158,9 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
         - Fails fast if environment variable is missing
         - API keys are only held in memory, never persisted
     """
-    # List of implemented providers
-    IMPLEMENTED_PROVIDERS = {"openai"}
-    PLANNED_PROVIDERS = {"anthropic", "mistral"}
+    # List of implemented providers (updated to include all current providers)
+    IMPLEMENTED_PROVIDERS = {"openai", "anthropic", "mistral", "grok", "google"}
+    PLANNED_PROVIDERS: set[str] = set()  # All planned providers are now implemented
 
     resolved_models: list[RuntimeModel] = []
 
@@ -152,17 +168,16 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
         # Validate provider is implemented
         if model_config.provider not in IMPLEMENTED_PROVIDERS:
             if model_config.provider in PLANNED_PROVIDERS:
-                raise ValueError(
+                raise ConfigValidationError(
                     f"Provider '{model_config.provider}' is not yet implemented. "
                     f"Currently supported providers: {', '.join(sorted(IMPLEMENTED_PROVIDERS))}. "
                     f"Planned providers: {', '.join(sorted(PLANNED_PROVIDERS))}. "
                     f"Please use an implemented provider or check back in a future release."
                 )
             else:
-                raise ValueError(
+                raise ConfigValidationError(
                     f"Unknown provider '{model_config.provider}'. "
-                    f"Supported providers: {', '.join(sorted(IMPLEMENTED_PROVIDERS))}. "
-                    f"Planned providers: {', '.join(sorted(PLANNED_PROVIDERS))}."
+                    f"Supported providers: {', '.join(sorted(IMPLEMENTED_PROVIDERS))}."
                 )
 
         # Get environment variable name from config
@@ -173,7 +188,7 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
 
         # Fail fast if environment variable is not set
         if not api_key:
-            raise ValueError(
+            raise APIKeyMissingError(
                 f"Environment variable ${env_var_name} not set "
                 f"(required for {model_config.provider}/{model_config.model_name}). "
                 f"Please set it in your environment or .env file."
@@ -181,7 +196,7 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
 
         # Validate API key is not just whitespace
         if api_key.isspace():
-            raise ValueError(
+            raise APIKeyMissingError(
                 f"Environment variable ${env_var_name} is empty or whitespace "
                 f"(required for {model_config.provider}/{model_config.model_name})"
             )
@@ -198,7 +213,7 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
             system_prompt_text = prompt_obj.prompt
 
         except Exception as e:
-            raise ValueError(
+            raise ConfigValidationError(
                 f"Failed to load system prompt for {model_config.provider}/{model_config.model_name}: {e}"
             ) from e
 

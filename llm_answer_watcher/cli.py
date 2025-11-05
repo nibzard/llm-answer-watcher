@@ -47,6 +47,12 @@ from rich.traceback import install as install_rich_traceback
 
 from llm_answer_watcher.config.loader import load_config
 from llm_answer_watcher.evals.runner import run_eval_suite
+from llm_answer_watcher.exceptions import (
+    APIKeyMissingError,
+    ConfigFileNotFoundError,
+    ConfigValidationError,
+    DatabaseError,
+)
 from llm_answer_watcher.llm_runner.runner import estimate_run_cost, run_all
 from llm_answer_watcher.report.generator import write_report
 from llm_answer_watcher.storage.db import init_db_if_needed
@@ -261,10 +267,13 @@ def run(
             f"{len(runtime_config.models)} models"
         )
 
-    except FileNotFoundError as e:
+    except ConfigFileNotFoundError as e:
         error(f"Configuration file not found: {e}")
         raise typer.Exit(EXIT_CONFIG_ERROR)
-    except ValueError as e:
+    except APIKeyMissingError as e:
+        error(f"API key missing: {e}")
+        raise typer.Exit(EXIT_CONFIG_ERROR)
+    except ConfigValidationError as e:
         error(f"Configuration validation failed: {e}")
         if verbose:
             import traceback

@@ -312,6 +312,8 @@ def extract_with_function_calling(
                         "context_snippet": answer_text[
                             mention.match_position : mention.match_position + 100
                         ],
+                        "sentiment": None,  # Regex can't determine sentiment
+                        "mention_context": None,  # Regex can't determine context
                     }
                     for mention in mentions
                 ],

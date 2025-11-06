@@ -232,9 +232,7 @@ def export_mentions_json(
         raise
 
 
-def export_runs_csv(
-    output_path: str, db_path: str, days: int | None = None
-) -> int:
+def export_runs_csv(output_path: str, db_path: str, days: int | None = None) -> int:
     """
     Export run summaries to CSV file.
 
@@ -320,9 +318,7 @@ def export_runs_csv(
         raise
 
 
-def export_runs_json(
-    output_path: str, db_path: str, days: int | None = None
-) -> int:
+def export_runs_json(output_path: str, db_path: str, days: int | None = None) -> int:
     """
     Export run summaries to JSON file.
 

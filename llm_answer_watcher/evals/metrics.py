@@ -203,9 +203,7 @@ def compute_completeness_metrics(
     my_brands_set = set(test_case.brands_mine)
     my_brands_mentioned = my_brands_set.intersection(actual_mentions_set)
     my_brands_coverage = (
-        len(my_brands_mentioned) / len(my_brands_set)
-        if my_brands_set
-        else 1.0
+        len(my_brands_mentioned) / len(my_brands_set) if my_brands_set else 1.0
     )
 
     # Check detection of ALL competitors (not just expected mentions)
@@ -213,17 +211,13 @@ def compute_completeness_metrics(
     competitors_set = set(test_case.brands_competitors)
     competitors_mentioned = competitors_set.intersection(actual_mentions_set)
     competitors_coverage = (
-        len(competitors_mentioned) / len(competitors_set)
-        if competitors_set
-        else 1.0
+        len(competitors_mentioned) / len(competitors_set) if competitors_set else 1.0
     )
 
     # Overall brand coverage (all brands, mine + competitors)
     all_brands = my_brands_set.union(competitors_set)
     all_mentioned = all_brands.intersection(actual_mentions_set)
-    overall_coverage = (
-        len(all_mentioned) / len(all_brands) if all_brands else 1.0
-    )
+    overall_coverage = len(all_mentioned) / len(all_brands) if all_brands else 1.0
 
     metrics = [
         EvalMetricScore(

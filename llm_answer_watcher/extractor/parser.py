@@ -85,7 +85,13 @@ class ExtractionResult:
 
     def __post_init__(self):
         """Validate rank_extraction_method."""
-        valid_methods = {"pattern", "llm", "function_calling", "regex_fallback", "hybrid"}
+        valid_methods = {
+            "pattern",
+            "llm",
+            "function_calling",
+            "regex_fallback",
+            "hybrid",
+        }
         if self.rank_extraction_method not in valid_methods:
             raise ValueError(
                 f"rank_extraction_method must be one of {valid_methods}, "
@@ -201,9 +207,7 @@ def parse_answer(
                 confidence_str = brand_data["confidence"]
 
                 # Determine if this is our brand or competitor
-                brand_category = (
-                    "mine" if brand_name in brands.mine else "competitor"
-                )
+                brand_category = "mine" if brand_name in brands.mine else "competitor"
 
                 # Create BrandMention
                 mention = BrandMention(
@@ -256,7 +260,10 @@ def parse_answer(
             )
 
             # Fall back to regex if hybrid mode or fallback enabled
-            if extraction_settings.method == "hybrid" or extraction_settings.fallback_to_regex:
+            if (
+                extraction_settings.method == "hybrid"
+                or extraction_settings.fallback_to_regex
+            ):
                 logger.info(f"Falling back to regex extraction for {intent_id}")
                 use_function_calling = False
             else:

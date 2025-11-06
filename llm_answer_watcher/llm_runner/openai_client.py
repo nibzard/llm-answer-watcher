@@ -174,7 +174,9 @@ class OpenAIClient:
 
         # Log initialization (never log api_key)
         tools_enabled = "with tools" if tools else "without tools"
-        logger.info(f"Initialized OpenAI client for model: {model_name} ({tools_enabled})")
+        logger.info(
+            f"Initialized OpenAI client for model: {model_name} ({tools_enabled})"
+        )
 
     @create_retry_decorator()
     def generate_answer(self, prompt: str) -> LLMResponse:
@@ -242,7 +244,10 @@ class OpenAIClient:
         payload = {
             "model": self.model_name,
             "input": [
-                {"role": "developer", "content": [{"type": "input_text", "text": self.system_prompt}]},
+                {
+                    "role": "developer",
+                    "content": [{"type": "input_text", "text": self.system_prompt}],
+                },
                 {"role": "user", "content": [{"type": "input_text", "text": prompt}]},
             ],
         }
@@ -258,7 +263,9 @@ class OpenAIClient:
         if self.tools:
             payload["tools"] = self.tools
             payload["tool_choice"] = self.tool_choice
-            logger.debug(f"Enabled tools: {self.tools} with tool_choice={self.tool_choice}")
+            logger.debug(
+                f"Enabled tools: {self.tools} with tool_choice={self.tool_choice}"
+            )
 
         # GPT-5 models don't support max_tokens parameter, but we generally don't use it anyway
         # This is just for documentation - no changes needed since we don't set max_tokens
@@ -533,7 +540,9 @@ class OpenAIClient:
         # Try both formats for compatibility
         total_tokens = usage.get("total_tokens", 0)
         prompt_tokens = usage.get("input_tokens") or usage.get("prompt_tokens", 0)
-        completion_tokens = usage.get("output_tokens") or usage.get("completion_tokens", 0)
+        completion_tokens = usage.get("output_tokens") or usage.get(
+            "completion_tokens", 0
+        )
 
         # Log the extracted values
         logger.info(
@@ -547,7 +556,9 @@ class OpenAIClient:
             int(completion_tokens) if completion_tokens else 0,
         )
 
-    def _extract_web_search_results(self, data: dict[str, Any]) -> tuple[list[dict] | None, int]:
+    def _extract_web_search_results(
+        self, data: dict[str, Any]
+    ) -> tuple[list[dict] | None, int]:
         """
         Extract web search results from OpenAI Responses API response.
 
@@ -568,8 +579,10 @@ class OpenAIClient:
                 return None, 0
 
             # Debug logging to understand response structure
-            output_types = [item.get("type") if isinstance(item, dict) else type(item).__name__
-                          for item in output]
+            output_types = [
+                item.get("type") if isinstance(item, dict) else type(item).__name__
+                for item in output
+            ]
             logger.debug(f"Response output types: {output_types}")
 
             web_search_results = []
@@ -586,13 +599,17 @@ class OpenAIClient:
                     searches = item.get("searches", [])
                     if searches:
                         web_search_results.extend(searches)
-                        logger.debug(f"Found {len(searches)} searches in '{item_type}' item")
+                        logger.debug(
+                            f"Found {len(searches)} searches in '{item_type}' item"
+                        )
 
                     # Also check for results field
                     results = item.get("results", [])
                     if results:
                         web_search_results.extend(results)
-                        logger.debug(f"Found {len(results)} results in '{item_type}' item")
+                        logger.debug(
+                            f"Found {len(results)} results in '{item_type}' item"
+                        )
 
                     # Store the entire item if no sub-items found
                     if not searches and not results:
@@ -603,7 +620,9 @@ class OpenAIClient:
                 if "search_results" in item:
                     search_results = item.get("search_results", [])
                     web_search_results.extend(search_results)
-                    logger.debug(f"Found search_results with {len(search_results)} results")
+                    logger.debug(
+                        f"Found search_results with {len(search_results)} results"
+                    )
 
             if not web_search_results:
                 logger.debug("No web search results found in response")

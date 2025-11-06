@@ -110,7 +110,9 @@ class TestEstimateRunCost:
 
         # With web search should be more expensive
         # (This test might need adjustment based on actual implementation)
-        assert estimate["total_estimated_cost"] >= estimate_without["total_estimated_cost"]
+        assert (
+            estimate["total_estimated_cost"] >= estimate_without["total_estimated_cost"]
+        )
 
     def test_estimate_single_intent_single_model(self, sample_config):
         """Test cost estimation with minimal configuration."""
@@ -174,7 +176,8 @@ class TestValidateBudget:
         """Test validation raises when max_per_run_usd exceeded."""
         # Set very low budget
         sample_config.run_settings.budget = BudgetConfig(
-            enabled=True, max_per_run_usd=0.0001  # Very low limit
+            enabled=True,
+            max_per_run_usd=0.0001,  # Very low limit
         )
 
         estimate = estimate_run_cost(sample_config)
@@ -190,7 +193,8 @@ class TestValidateBudget:
         """Test validation raises when max_per_intent_usd exceeded."""
         # Set low per-intent budget
         sample_config.run_settings.budget = BudgetConfig(
-            enabled=True, max_per_intent_usd=0.0001  # Very low per-intent limit
+            enabled=True,
+            max_per_intent_usd=0.0001,  # Very low per-intent limit
         )
 
         estimate = estimate_run_cost(sample_config)
@@ -209,7 +213,8 @@ class TestValidateBudget:
 
         # Set warning threshold that will be exceeded
         sample_config.run_settings.budget = BudgetConfig(
-            enabled=True, warn_threshold_usd=0.0001  # Very low threshold
+            enabled=True,
+            warn_threshold_usd=0.0001,  # Very low threshold
         )
 
         estimate = estimate_run_cost(sample_config)
@@ -218,7 +223,9 @@ class TestValidateBudget:
         validate_budget(sample_config, estimate)
 
         # Check warning was logged
-        assert any("warning threshold" in record.message.lower() for record in caplog.records)
+        assert any(
+            "warning threshold" in record.message.lower() for record in caplog.records
+        )
 
     def test_validate_all_budget_limits(self, sample_config):
         """Test validation with all budget limits configured."""

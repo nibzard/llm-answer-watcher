@@ -97,7 +97,13 @@ CRITICAL INSTRUCTIONS:
                             "description": "How the brand is positioned: primary_recommendation (top choice/main suggestion), alternative_listing (also consider/alternative option), competitor_negative (mentioned with criticism), competitor_neutral (mentioned as option without bias), passing_reference (brief/tangential mention)",
                         },
                     },
-                    "required": ["name", "confidence", "context_snippet", "sentiment", "mention_context"],
+                    "required": [
+                        "name",
+                        "confidence",
+                        "context_snippet",
+                        "sentiment",
+                        "mention_context",
+                    ],
                     "additionalProperties": False,
                 },
             },
@@ -255,11 +261,12 @@ def validate_function_response(function_result: dict) -> bool:
             )
 
         # Validate rank if present
-        if "rank" in mention and mention["rank"] is not None:
-            if not isinstance(mention["rank"], int) or mention["rank"] < 1:
-                raise ValueError(
-                    f"Brand mention {i} has invalid rank: {mention['rank']}"
-                )
+        if (
+            "rank" in mention
+            and mention["rank"] is not None
+            and (not isinstance(mention["rank"], int) or mention["rank"] < 1)
+        ):
+            raise ValueError(f"Brand mention {i} has invalid rank: {mention['rank']}")
 
     return True
 

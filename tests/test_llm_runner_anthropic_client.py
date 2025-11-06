@@ -480,7 +480,9 @@ class TestGenerateAnswerErrorHandling:
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
 
-        with pytest.raises(RuntimeError, match="Failed to parse Anthropic response JSON"):
+        with pytest.raises(
+            RuntimeError, match="Failed to parse Anthropic response JSON"
+        ):
             client.generate_answer("Test")
 
     def test_generate_answer_missing_content_field(self, httpx_mock):

@@ -18,12 +18,12 @@ import httpx
 import pytest
 from freezegun import freeze_time
 
+from llm_answer_watcher.llm_runner.models import LLMResponse
 from llm_answer_watcher.llm_runner.perplexity_client import (
     MAX_PROMPT_LENGTH,
     PERPLEXITY_API_URL,
     PerplexityClient,
 )
-from llm_answer_watcher.llm_runner.models import LLMResponse
 
 # Test system prompt for all tests
 TEST_SYSTEM_PROMPT = "You are a test assistant."
@@ -142,7 +142,9 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=PERPLEXITY_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Test response"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Test response"}}
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
@@ -194,7 +196,9 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=PERPLEXITY_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": large_content}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": large_content}}
+                ],
                 "usage": {"total_tokens": 50000},
             },
         )
@@ -234,7 +238,9 @@ class TestPromptLengthValidation:
             method="POST",
             url=PERPLEXITY_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Test response"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Test response"}}
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
@@ -254,7 +260,9 @@ class TestPromptLengthValidation:
             method="POST",
             url=PERPLEXITY_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Test response"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Test response"}}
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
@@ -364,7 +372,9 @@ class TestGenerateAnswerRetryableErrors:
             url=PERPLEXITY_API_URL,
             status_code=200,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Success after retry"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Success after retry"}}
+                ],
                 "usage": {"total_tokens": 50},
             },
         )
@@ -391,7 +401,9 @@ class TestGenerateAnswerRetryableErrors:
             url=PERPLEXITY_API_URL,
             status_code=200,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Success after retry"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Success after retry"}}
+                ],
                 "usage": {"total_tokens": 50},
             },
         )
@@ -456,7 +468,10 @@ class TestGenerateAnswerErrorHandling:
         httpx_mock.add_response(
             method="POST",
             url=PERPLEXITY_API_URL,
-            json={"choices": [{"finish_reason": "stop"}], "usage": {"total_tokens": 10}},
+            json={
+                "choices": [{"finish_reason": "stop"}],
+                "usage": {"total_tokens": 10},
+            },
         )
 
         client = PerplexityClient("sonar-pro", "pplx-test-key", TEST_SYSTEM_PROMPT)
@@ -508,7 +523,9 @@ class TestGenerateAnswerErrorHandling:
 
         client = PerplexityClient("sonar-pro", "pplx-test-key", TEST_SYSTEM_PROMPT)
 
-        with pytest.raises(RuntimeError, match="Failed to parse Perplexity response JSON"):
+        with pytest.raises(
+            RuntimeError, match="Failed to parse Perplexity response JSON"
+        ):
             client.generate_answer("Test")
 
     def test_generate_answer_connection_error(self, httpx_mock):
@@ -644,7 +661,9 @@ class TestLogging:
             },
         )
 
-        client = PerplexityClient("sonar-pro", "pplx-super-secret-key", TEST_SYSTEM_PROMPT)
+        client = PerplexityClient(
+            "sonar-pro", "pplx-super-secret-key", TEST_SYSTEM_PROMPT
+        )
         client.generate_answer("Test")
 
         # Should log model name

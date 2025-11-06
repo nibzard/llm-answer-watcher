@@ -327,7 +327,9 @@ def run(
     if output_mode.is_human() and not yes:
         estimated_cost = cost_estimate["total_estimated_cost"]
 
-        if (total_queries > 10 or estimated_cost > 0.10) and not typer.confirm("Continue?"):
+        if (total_queries > 10 or estimated_cost > 0.10) and not typer.confirm(
+            "Continue?"
+        ):
             info("Cancelled by user")
             raise typer.Exit(EXIT_SUCCESS)
 
@@ -365,12 +367,12 @@ def run(
                         current_task_info = {
                             "intent_id": intent_id,
                             "provider": provider,
-                            "model": model
+                            "model": model,
                         }
                         current_task = progress.add_task(
                             f"  └─ [yellow]{intent_id}[/yellow] x [cyan]{provider}/{model}[/cyan]",
                             total=1,
-                            start=False
+                            start=False,
                         )
                         progress.start_task(current_task)
 
@@ -1173,7 +1175,9 @@ def costs_show(
                         "total_cost": round(row["total_cost"], 6),
                         "avg_cost": round(row["avg_cost_per_query"], 6),
                         "percent_of_total": round(
-                            (row["total_cost"] / total_cost * 100) if total_cost > 0 else 0,
+                            (row["total_cost"] / total_cost * 100)
+                            if total_cost > 0
+                            else 0,
                             2,
                         ),
                     }
@@ -1317,9 +1321,7 @@ def prices_show(
 
         for model in models:
             cached = (
-                f"${model['input_cached']:.2f}"
-                if model.get("input_cached")
-                else "N/A"
+                f"${model['input_cached']:.2f}" if model.get("input_cached") else "N/A"
             )
             table.add_row(
                 model["provider"],
@@ -1399,11 +1401,11 @@ def prices_refresh(
             )
         elif result["status"] == "skipped":
             info(f"i  {result['reason']}")
-            info(
-                f"   Cached {result['model_count']} models from {result['cached_at']}"
-            )
+            info(f"   Cached {result['model_count']} models from {result['cached_at']}")
         else:
-            error(f"✗ Failed to refresh pricing: {result.get('error', 'Unknown error')}")
+            error(
+                f"✗ Failed to refresh pricing: {result.get('error', 'Unknown error')}"
+            )
             raise typer.Exit(1)
 
         raise typer.Exit(0)

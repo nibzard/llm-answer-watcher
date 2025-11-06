@@ -403,7 +403,9 @@ class MistralClient:
         try:
             error_data = response.json()
             # Try common error message formats
-            message = error_data.get("message") or error_data.get("error", {}).get("message")
+            message = error_data.get("message") or error_data.get("error", {}).get(
+                "message"
+            )
             if message:
                 return str(message)
             return "Unknown error"

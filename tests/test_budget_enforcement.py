@@ -375,7 +375,9 @@ class TestBudgetWithDifferentModels:
         per_model = estimate["per_model_costs"]
         assert len(per_model) == 2
         # gpt-4 should cost more than gpt-4o-mini
-        gpt4_cost = next(m["cost_per_query"] for m in per_model if m["model_name"] == "gpt-4")
+        gpt4_cost = next(
+            m["cost_per_query"] for m in per_model if m["model_name"] == "gpt-4"
+        )
         gpt4o_mini_cost = next(
             m["cost_per_query"] for m in per_model if m["model_name"] == "gpt-4o-mini"
         )

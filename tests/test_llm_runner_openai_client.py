@@ -141,7 +141,12 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test response"}]}],
+                "output": [
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Test response"}],
+                    }
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
@@ -175,7 +180,12 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test"}]}],
+                "output": [
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Test"}],
+                    }
+                ],
                 "usage": {"total_tokens": 10},
             },
         )
@@ -194,7 +204,12 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": ""}]}],
+                "output": [
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": ""}],
+                    }
+                ],
                 "usage": {"total_tokens": 10},
             },
         )
@@ -202,7 +217,9 @@ class TestGenerateAnswerSuccess:
         client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         # Empty text is skipped, so this raises RuntimeError for no text content
-        with pytest.raises(RuntimeError, match="OpenAI response contains no text content"):
+        with pytest.raises(
+            RuntimeError, match="OpenAI response contains no text content"
+        ):
             client.generate_answer("Test")
 
     def test_generate_answer_large_response(self, httpx_mock):
@@ -212,7 +229,12 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": large_content}]}],
+                "output": [
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": large_content}],
+                    }
+                ],
                 "usage": {"total_tokens": 50000},
             },
         )
@@ -252,7 +274,12 @@ class TestPromptLengthValidation:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test response"}]}],
+                "output": [
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Test response"}],
+                    }
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
@@ -272,7 +299,12 @@ class TestPromptLengthValidation:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test response"}]}],
+                "output": [
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Test response"}],
+                    }
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
@@ -382,7 +414,14 @@ class TestGenerateAnswerRetryableErrors:
             url=OPENAI_API_URL,
             status_code=200,
             json={
-                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Success after retry"}]}],
+                "output": [
+                    {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "output_text", "text": "Success after retry"}
+                        ],
+                    }
+                ],
                 "usage": {"total_tokens": 50},
             },
         )
@@ -409,7 +448,12 @@ class TestGenerateAnswerRetryableErrors:
             url=OPENAI_API_URL,
             status_code=200,
             json={
-                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Recovered"}]}],
+                "output": [
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Recovered"}],
+                    }
+                ],
                 "usage": {"total_tokens": 30},
             },
         )
@@ -487,7 +531,9 @@ class TestGenerateAnswerResponseParsing:
         client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         # Empty output item has no content, resulting in "no text content" error
-        with pytest.raises(RuntimeError, match="OpenAI response contains no text content"):
+        with pytest.raises(
+            RuntimeError, match="OpenAI response contains no text content"
+        ):
             client.generate_answer("Test")
 
     def test_generate_answer_missing_content(self, httpx_mock):
@@ -504,7 +550,9 @@ class TestGenerateAnswerResponseParsing:
         client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
 
         # Missing content field results in "no text content" error
-        with pytest.raises(RuntimeError, match="OpenAI response contains no text content"):
+        with pytest.raises(
+            RuntimeError, match="OpenAI response contains no text content"
+        ):
             client.generate_answer("Test")
 
     def test_generate_answer_missing_usage(self, httpx_mock, caplog):
@@ -514,7 +562,14 @@ class TestGenerateAnswerResponseParsing:
         httpx_mock.add_response(
             method="POST",
             url=OPENAI_API_URL,
-            json={"output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test"}]}]},  # No 'usage'
+            json={
+                "output": [
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Test"}],
+                    }
+                ]
+            },  # No 'usage'
         )
 
         client = OpenAIClient("gpt-4o-mini", "sk-test123", TEST_SYSTEM_PROMPT)
@@ -549,7 +604,12 @@ class TestGenerateAnswerLogging:
             method="POST",
             url=OPENAI_API_URL,
             json={
-                "output": [{"role": "assistant", "content": [{"type": "output_text", "text": "Test"}]}],
+                "output": [
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "Test"}],
+                    }
+                ],
                 "usage": {"total_tokens": 10},
             },
         )

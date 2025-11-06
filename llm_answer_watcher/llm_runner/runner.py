@@ -203,9 +203,7 @@ def estimate_run_cost(config: RuntimeConfig) -> dict:
             output_rate = 0.0000006
 
         # Calculate cost per query
-        query_cost = (AVG_INPUT_TOKENS * input_rate) + (
-            AVG_OUTPUT_TOKENS * output_rate
-        )
+        query_cost = (AVG_INPUT_TOKENS * input_rate) + (AVG_OUTPUT_TOKENS * output_rate)
 
         # Add web search cost if tools enabled
         if model.tools:
@@ -663,7 +661,9 @@ def run_all(
                     logger.info(f"Executing operations for intent={intent.id}")
 
                     # Combine intent-specific and global operations
-                    all_operations = list(intent.operations) + list(config.global_operations)
+                    all_operations = list(intent.operations) + list(
+                        config.global_operations
+                    )
 
                     # Build operation context
                     operation_context = OperationContext(
@@ -673,18 +673,25 @@ def run_all(
                             "response": answer_text,
                         },
                         extraction_data={
-                            "my_brand": config.brands.mine[0] if config.brands.mine else "unknown",
+                            "my_brand": config.brands.mine[0]
+                            if config.brands.mine
+                            else "unknown",
                             "my_brand_aliases": config.brands.mine,
                             "competitors": config.brands.competitors,
                             "competitors_mentioned": [
-                                m.normalized_name for m in extraction_result.competitor_mentions
+                                m.normalized_name
+                                for m in extraction_result.competitor_mentions
                             ],
                             "my_rank": extraction_result.ranked_list[0].rank_position
-                            if extraction_result.ranked_list and extraction_result.appeared_mine
+                            if extraction_result.ranked_list
+                            and extraction_result.appeared_mine
                             else None,
-                            "my_mentions": [m.original_text for m in extraction_result.my_mentions],
+                            "my_mentions": [
+                                m.original_text for m in extraction_result.my_mentions
+                            ],
                             "competitor_mentions": [
-                                m.original_text for m in extraction_result.competitor_mentions
+                                m.original_text
+                                for m in extraction_result.competitor_mentions
                             ],
                         },
                         run_metadata={
@@ -705,7 +712,9 @@ def run_all(
                     )
 
                     # Store operation results
-                    for execution_order, (op_id, op_result) in enumerate(operation_results.items()):
+                    for execution_order, (op_id, op_result) in enumerate(
+                        operation_results.items()
+                    ):
                         operations_cost_usd += op_result.cost_usd
 
                         # Write JSON artifact
@@ -721,8 +730,12 @@ def run_all(
 
                         # Insert into database
                         try:
-                            operation = next((o for o in all_operations if o.id == op_id), None)
-                            with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
+                            operation = next(
+                                (o for o in all_operations if o.id == op_id), None
+                            )
+                            with sqlite3.connect(
+                                config.run_settings.sqlite_db_path
+                            ) as conn:
                                 insert_operation(
                                     conn=conn,
                                     run_id=run_id,
@@ -730,14 +743,18 @@ def run_all(
                                     model_provider=op_result.model_provider,
                                     model_name=op_result.model_name,
                                     operation_id=op_id,
-                                    operation_description=operation.description if operation else None,
+                                    operation_description=operation.description
+                                    if operation
+                                    else None,
                                     operation_prompt=op_result.rendered_prompt,
                                     result_text=op_result.result_text,
                                     tokens_used_input=op_result.tokens_used_input,
                                     tokens_used_output=op_result.tokens_used_output,
                                     cost_usd=op_result.cost_usd,
                                     timestamp_utc=op_result.timestamp_utc,
-                                    depends_on=operation.depends_on if operation else [],
+                                    depends_on=operation.depends_on
+                                    if operation
+                                    else [],
                                     execution_order=execution_order,
                                     skipped=op_result.skipped,
                                     error=op_result.error,

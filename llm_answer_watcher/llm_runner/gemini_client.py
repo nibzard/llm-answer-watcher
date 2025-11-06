@@ -220,9 +220,7 @@ class GeminiClient:
                     "parts": [{"text": prompt}],
                 }
             ],
-            "systemInstruction": {
-                "parts": [{"text": self.system_prompt}]
-            },
+            "systemInstruction": {"parts": [{"text": self.system_prompt}]},
             "generationConfig": {
                 "temperature": 0.7,  # Default temperature for consistency
             },
@@ -345,7 +343,11 @@ class GeminiClient:
         try:
             # Gemini API uses 'candidates' array
             candidates = data.get("candidates")
-            if not candidates or not isinstance(candidates, list) or len(candidates) == 0:
+            if (
+                not candidates
+                or not isinstance(candidates, list)
+                or len(candidates) == 0
+            ):
                 raise RuntimeError("Gemini response missing 'candidates' array")
 
             # Get first candidate

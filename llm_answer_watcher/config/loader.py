@@ -81,9 +81,7 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
         with config_path.open(encoding="utf-8") as f:
             raw_config = yaml.safe_load(f)
     except yaml.YAMLError as e:
-        raise ConfigValidationError(
-            f"Invalid YAML syntax in {config_path}: {e}"
-        ) from e
+        raise ConfigValidationError(f"Invalid YAML syntax in {config_path}: {e}") from e
     except Exception as e:
         raise ConfigValidationError(
             f"Failed to read configuration file {config_path}: {e}"
@@ -128,9 +126,7 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
     resolved_extraction_settings = None
     if watcher_config.extraction_settings:
         try:
-            resolved_extraction_settings = resolve_extraction_settings(
-                watcher_config
-            )
+            resolved_extraction_settings = resolve_extraction_settings(watcher_config)
         except APIKeyMissingError:
             raise
         except ConfigValidationError:

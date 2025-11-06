@@ -542,7 +542,9 @@ def print_final_summary(
     console.print(panel)
 
 
-def print_cost_breakdown(cost_estimate: dict, budget_limit: float | None = None) -> None:
+def print_cost_breakdown(
+    cost_estimate: dict, budget_limit: float | None = None
+) -> None:
     """
     Display detailed cost breakdown by model before execution.
 

@@ -34,7 +34,9 @@ class TestMistralClientInit:
 
     def test_init_success(self):
         """Test successful client initialization."""
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         assert client.model_name == "mistral-large-latest"
         assert client.api_key == "test-api-key"
@@ -119,7 +121,9 @@ class TestGenerateAnswerSuccess:
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         response = client.generate_answer("What are the best CRM tools?")
 
         # Verify response structure
@@ -142,12 +146,16 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=MISTRAL_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Test response"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Test response"}}
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         client.generate_answer("Test prompt")
 
         # Verify request was made
@@ -179,7 +187,9 @@ class TestGenerateAnswerSuccess:
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         client.generate_answer("Test")
 
         # Verify Authorization header
@@ -194,12 +204,16 @@ class TestGenerateAnswerSuccess:
             method="POST",
             url=MISTRAL_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": large_content}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": large_content}}
+                ],
                 "usage": {"total_tokens": 50000},
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         response = client.generate_answer("Generate large text")
 
         assert response.answer_text == large_content
@@ -211,14 +225,18 @@ class TestGenerateAnswerValidation:
 
     def test_generate_answer_empty_prompt(self, httpx_mock):
         """Test that empty prompt raises ValueError."""
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
             client.generate_answer("")
 
     def test_generate_answer_whitespace_prompt(self, httpx_mock):
         """Test that whitespace-only prompt raises ValueError."""
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
             client.generate_answer("   \n\t  ")
@@ -234,12 +252,16 @@ class TestPromptLengthValidation:
             method="POST",
             url=MISTRAL_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Test response"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Test response"}}
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         # Test with a reasonable prompt (< 100k chars)
         prompt = "What are the best email warmup tools?" * 100  # ~4000 chars
         response = client.generate_answer(prompt)
@@ -254,12 +276,16 @@ class TestPromptLengthValidation:
             method="POST",
             url=MISTRAL_API_URL,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Test response"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Test response"}}
+                ],
                 "usage": {"total_tokens": 100},
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         prompt = "a" * MAX_PROMPT_LENGTH
         response = client.generate_answer(prompt)
 
@@ -268,7 +294,9 @@ class TestPromptLengthValidation:
 
     def test_generate_answer_rejects_over_limit_prompt(self):
         """Prompts over max length should raise ValueError."""
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         prompt = "a" * (MAX_PROMPT_LENGTH + 1)
 
         with pytest.raises(ValueError, match=r"Prompt exceeds maximum length"):
@@ -276,7 +304,9 @@ class TestPromptLengthValidation:
 
     def test_generate_answer_rejects_very_long_prompt(self):
         """Very long prompts should raise ValueError with correct count."""
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         prompt = "a" * (MAX_PROMPT_LENGTH * 2)
 
         with pytest.raises(ValueError, match=r"200,000 characters"):
@@ -284,7 +314,9 @@ class TestPromptLengthValidation:
 
     def test_generate_answer_error_message_shows_actual_length(self):
         """Error message should show actual received length."""
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         prompt = "a" * (MAX_PROMPT_LENGTH + 5000)
 
         with pytest.raises(ValueError) as exc_info:
@@ -308,7 +340,9 @@ class TestGenerateAnswerNonRetryableErrors:
             json={"message": "Invalid API key"},
         )
 
-        client = MistralClient("mistral-large-latest", "invalid-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "invalid-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(RuntimeError, match="non-retryable"):
             client.generate_answer("Test")
@@ -325,7 +359,9 @@ class TestGenerateAnswerNonRetryableErrors:
             json={"message": "Invalid request format"},
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(RuntimeError, match="non-retryable"):
             client.generate_answer("Test")
@@ -339,7 +375,9 @@ class TestGenerateAnswerNonRetryableErrors:
             json={"message": "Endpoint not found"},
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(RuntimeError, match="non-retryable"):
             client.generate_answer("Test")
@@ -364,12 +402,16 @@ class TestGenerateAnswerRetryableErrors:
             url=MISTRAL_API_URL,
             status_code=200,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Success after retry"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Success after retry"}}
+                ],
                 "usage": {"total_tokens": 50},
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         response = client.generate_answer("Test")
 
         assert response.answer_text == "Success after retry"
@@ -391,12 +433,16 @@ class TestGenerateAnswerRetryableErrors:
             url=MISTRAL_API_URL,
             status_code=200,
             json={
-                "choices": [{"message": {"role": "assistant", "content": "Success after retry"}}],
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Success after retry"}}
+                ],
                 "usage": {"total_tokens": 50},
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         response = client.generate_answer("Test")
 
         assert response.answer_text == "Success after retry"
@@ -413,7 +459,9 @@ class TestGenerateAnswerRetryableErrors:
                 json={"message": "Service unavailable"},
             )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(httpx.HTTPStatusError):
             client.generate_answer("Test")
@@ -433,7 +481,9 @@ class TestGenerateAnswerErrorHandling:
             json={"usage": {"total_tokens": 10}},
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(RuntimeError, match="missing 'choices' array"):
             client.generate_answer("Test")
@@ -446,7 +496,9 @@ class TestGenerateAnswerErrorHandling:
             json={"choices": [], "usage": {"total_tokens": 10}},
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(RuntimeError, match="missing 'choices' array"):
             client.generate_answer("Test")
@@ -456,10 +508,15 @@ class TestGenerateAnswerErrorHandling:
         httpx_mock.add_response(
             method="POST",
             url=MISTRAL_API_URL,
-            json={"choices": [{"finish_reason": "stop"}], "usage": {"total_tokens": 10}},
+            json={
+                "choices": [{"finish_reason": "stop"}],
+                "usage": {"total_tokens": 10},
+            },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(RuntimeError, match="missing 'message' object"):
             client.generate_answer("Test")
@@ -475,7 +532,9 @@ class TestGenerateAnswerErrorHandling:
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(RuntimeError, match="missing 'content' field"):
             client.generate_answer("Test")
@@ -490,7 +549,9 @@ class TestGenerateAnswerErrorHandling:
             json={"choices": [{"message": {"role": "assistant", "content": "Test"}}]},
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         response = client.generate_answer("Test")
 
         # Should gracefully handle missing usage with warning
@@ -506,7 +567,9 @@ class TestGenerateAnswerErrorHandling:
             content=b"not valid json{",
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(RuntimeError, match="Failed to parse Mistral response JSON"):
             client.generate_answer("Test")
@@ -517,7 +580,9 @@ class TestGenerateAnswerErrorHandling:
         for _ in range(3):
             httpx_mock.add_exception(httpx.ConnectError("Connection failed"))
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(httpx.ConnectError):
             client.generate_answer("Test")
@@ -528,7 +593,9 @@ class TestGenerateAnswerErrorHandling:
         for _ in range(3):
             httpx_mock.add_exception(httpx.TimeoutException("Request timed out"))
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(httpx.TimeoutException):
             client.generate_answer("Test")
@@ -552,7 +619,9 @@ class TestTokenUsageExtraction:
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         response = client.generate_answer("Test")
 
         assert response.tokens_used == 150
@@ -573,7 +642,9 @@ class TestTokenUsageExtraction:
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         response = client.generate_answer("Test")
 
         # Should calculate total from prompt + completion
@@ -599,7 +670,9 @@ class TestCostEstimation:
             },
         )
 
-        client = MistralClient("mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         response = client.generate_answer("Test")
 
         # Mistral Large: $2.00/1M input, $6.00/1M output
@@ -620,7 +693,9 @@ class TestCostEstimation:
             },
         )
 
-        client = MistralClient("mistral-small-latest", "test-api-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-small-latest", "test-api-key", TEST_SYSTEM_PROMPT
+        )
         response = client.generate_answer("Test")
 
         # Mistral Small: $0.20/1M input, $0.60/1M output
@@ -644,7 +719,9 @@ class TestLogging:
             },
         )
 
-        client = MistralClient("mistral-large-latest", "super-secret-key", TEST_SYSTEM_PROMPT)
+        client = MistralClient(
+            "mistral-large-latest", "super-secret-key", TEST_SYSTEM_PROMPT
+        )
         client.generate_answer("Test")
 
         # Should log model name

@@ -92,9 +92,7 @@ class TestGetPricing:
 
         cache_file.write_text(json.dumps(cache_data))
 
-        monkeypatch.setattr(
-            "llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file
-        )
+        monkeypatch.setattr("llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file)
         monkeypatch.setattr(
             "llm_answer_watcher.utils.pricing.OVERRIDES_FILE",
             tmp_path / "overrides.json",
@@ -179,9 +177,7 @@ class TestGetPricing:
 
         cache_file.write_text(json.dumps(cache_data))
 
-        monkeypatch.setattr(
-            "llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file
-        )
+        monkeypatch.setattr("llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file)
         monkeypatch.setattr(
             "llm_answer_watcher.utils.pricing.OVERRIDES_FILE",
             tmp_path / "overrides.json",
@@ -238,9 +234,7 @@ class TestGetPricing:
 
         cache_file.write_text(json.dumps(cache_data))
 
-        monkeypatch.setattr(
-            "llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file
-        )
+        monkeypatch.setattr("llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file)
         monkeypatch.setattr(
             "llm_answer_watcher.utils.pricing.OVERRIDES_FILE",
             tmp_path / "overrides.json",
@@ -322,9 +316,7 @@ class TestRefreshPricing:
         cache_file = tmp_path / "cache.json"
         cache_file.parent.mkdir(parents=True, exist_ok=True)
 
-        monkeypatch.setattr(
-            "llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file
-        )
+        monkeypatch.setattr("llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file)
 
         mock_data = {
             "updated_at": "2025-11-04",
@@ -357,9 +349,7 @@ class TestRefreshPricing:
 
         cache_file.write_text(json.dumps(cache_data))
 
-        monkeypatch.setattr(
-            "llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file
-        )
+        monkeypatch.setattr("llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file)
 
         result = refresh_pricing(force=False)
 
@@ -416,9 +406,7 @@ class TestListAvailableModels:
 
         cache_file.write_text(json.dumps(cache_data))
 
-        monkeypatch.setattr(
-            "llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file
-        )
+        monkeypatch.setattr("llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file)
         monkeypatch.setattr(
             "llm_answer_watcher.utils.pricing.OVERRIDES_FILE",
             tmp_path / "overrides.json",
@@ -487,9 +475,7 @@ class TestCacheExpiration:
 
         cache_file.write_text(json.dumps(cache_data))
 
-        monkeypatch.setattr(
-            "llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file
-        )
+        monkeypatch.setattr("llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file)
 
         result = refresh_pricing(force=False)
 
@@ -509,9 +495,7 @@ class TestCacheExpiration:
 
         cache_file.write_text(json.dumps(cache_data))
 
-        monkeypatch.setattr(
-            "llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file
-        )
+        monkeypatch.setattr("llm_answer_watcher.utils.pricing.CACHE_FILE", cache_file)
 
         mock_data = {"updated_at": "2025-11-04", "prices": []}
 

@@ -26,7 +26,9 @@ from llm_answer_watcher.llm_runner.gemini_client import (
 from llm_answer_watcher.llm_runner.models import LLMResponse
 
 # Skip all Gemini tests temporarily - mock setup needs work
-pytestmark = pytest.mark.skip(reason="Gemini mock setup WIP - httpx mock registration issues")
+pytestmark = pytest.mark.skip(
+    reason="Gemini mock setup WIP - httpx mock registration issues"
+)
 
 # Test system prompt for all tests
 TEST_SYSTEM_PROMPT = "You are a test assistant."
@@ -37,7 +39,9 @@ class TestGeminiClientInit:
 
     def test_init_success(self):
         """Test successful client initialization."""
-        client = GeminiClient("gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT)
+        client = GeminiClient(
+            "gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT
+        )
 
         assert client.model_name == "gemini-2.0-flash-exp"
         assert client.api_key == "AIza-test123"
@@ -128,7 +132,9 @@ class TestGenerateAnswerSuccess:
                     {
                         "content": {
                             "parts": [
-                                {"text": "Based on market research, the top CRM tools are Salesforce, HubSpot, and Zoho."}
+                                {
+                                    "text": "Based on market research, the top CRM tools are Salesforce, HubSpot, and Zoho."
+                                }
                             ],
                             "role": "model",
                         },
@@ -173,7 +179,10 @@ class TestGenerateAnswerSuccess:
             json={
                 "candidates": [
                     {
-                        "content": {"parts": [{"text": "Test response"}], "role": "model"},
+                        "content": {
+                            "parts": [{"text": "Test response"}],
+                            "role": "model",
+                        },
                         "finishReason": "STOP",
                     }
                 ],
@@ -244,7 +253,10 @@ class TestGenerateAnswerSuccess:
             json={
                 "candidates": [
                     {
-                        "content": {"parts": [{"text": large_content}], "role": "model"},
+                        "content": {
+                            "parts": [{"text": large_content}],
+                            "role": "model",
+                        },
                         "finishReason": "STOP",
                     }
                 ],
@@ -300,14 +312,18 @@ class TestGenerateAnswerValidation:
 
     def test_generate_answer_empty_prompt(self):
         """Test that empty prompt raises ValueError."""
-        client = GeminiClient("gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT)
+        client = GeminiClient(
+            "gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
             client.generate_answer("")
 
     def test_generate_answer_whitespace_prompt(self):
         """Test that whitespace-only prompt raises ValueError."""
-        client = GeminiClient("gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT)
+        client = GeminiClient(
+            "gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT
+        )
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
             client.generate_answer("   \n\t  ")
@@ -328,7 +344,10 @@ class TestPromptLengthValidation:
             json={
                 "candidates": [
                     {
-                        "content": {"parts": [{"text": "Test response"}], "role": "model"},
+                        "content": {
+                            "parts": [{"text": "Test response"}],
+                            "role": "model",
+                        },
                         "finishReason": "STOP",
                     }
                 ],
@@ -356,7 +375,10 @@ class TestPromptLengthValidation:
             json={
                 "candidates": [
                     {
-                        "content": {"parts": [{"text": "Test response"}], "role": "model"},
+                        "content": {
+                            "parts": [{"text": "Test response"}],
+                            "role": "model",
+                        },
                         "finishReason": "STOP",
                     }
                 ],
@@ -373,7 +395,9 @@ class TestPromptLengthValidation:
 
     def test_generate_answer_rejects_over_limit_prompt(self):
         """Prompts over max length should raise ValueError."""
-        client = GeminiClient("gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT)
+        client = GeminiClient(
+            "gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT
+        )
         prompt = "a" * (MAX_PROMPT_LENGTH + 1)
 
         with pytest.raises(ValueError, match=r"Prompt exceeds maximum length"):
@@ -381,7 +405,9 @@ class TestPromptLengthValidation:
 
     def test_generate_answer_rejects_very_long_prompt(self):
         """Very long prompts should raise ValueError with correct count."""
-        client = GeminiClient("gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT)
+        client = GeminiClient(
+            "gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT
+        )
         prompt = "a" * (MAX_PROMPT_LENGTH * 2)
 
         with pytest.raises(ValueError, match=r"200,000 characters"):
@@ -389,7 +415,9 @@ class TestPromptLengthValidation:
 
     def test_generate_answer_error_message_shows_actual_length(self):
         """Error message should show actual received length."""
-        client = GeminiClient("gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT)
+        client = GeminiClient(
+            "gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT
+        )
         prompt = "a" * (MAX_PROMPT_LENGTH + 5000)
 
         with pytest.raises(ValueError) as exc_info:
@@ -483,7 +511,10 @@ class TestGenerateAnswerRetryableErrors:
             json={
                 "candidates": [
                     {
-                        "content": {"parts": [{"text": "Success after retry"}], "role": "model"},
+                        "content": {
+                            "parts": [{"text": "Success after retry"}],
+                            "role": "model",
+                        },
                         "finishReason": "STOP",
                     }
                 ],
@@ -666,7 +697,10 @@ class TestGenerateAnswerResponseParsing:
             json={
                 "candidates": [
                     {
-                        "content": {"parts": [{}], "role": "model"},  # Empty part, no 'text'
+                        "content": {
+                            "parts": [{}],
+                            "role": "model",
+                        },  # Empty part, no 'text'
                         "finishReason": "STOP",
                     }
                 ],

@@ -87,8 +87,14 @@ class RawAnswerRecord:
         estimated_cost_usd: Estimated API cost in USD based on token usage
         web_search_results: Optional list of web search results if tools were used
         web_search_count: Number of web searches performed (0 if no web search)
+        runner_type: Runner type ("api", "browser", or "custom", default "api")
+        runner_name: Optional human-readable runner name (e.g., "steel-chatgpt")
+        screenshot_path: Optional path to screenshot file (browser runners only)
+        html_snapshot_path: Optional path to HTML snapshot file (browser runners only)
+        session_id: Optional browser session ID (browser runners only)
 
     Example:
+        >>> # API runner example
         >>> record = RawAnswerRecord(
         ...     intent_id="email-warmup",
         ...     prompt="What are the best email warmup tools?",
@@ -100,7 +106,26 @@ class RawAnswerRecord:
         ...     usage_meta={"prompt_tokens": 100, "completion_tokens": 400},
         ...     estimated_cost_usd=0.001,
         ...     web_search_results=None,
-        ...     web_search_count=0
+        ...     web_search_count=0,
+        ...     runner_type="api",
+        ...     runner_name="openai-gpt-4o-mini"
+        ... )
+        >>> # Browser runner example
+        >>> record = RawAnswerRecord(
+        ...     intent_id="email-warmup",
+        ...     prompt="What are the best email warmup tools?",
+        ...     model_provider="chatgpt-web",
+        ...     model_name="chatgpt-unknown",
+        ...     timestamp_utc="2025-11-02T08:00:00Z",
+        ...     answer_text="Browser answer...",
+        ...     answer_length=800,
+        ...     usage_meta={},
+        ...     estimated_cost_usd=0.0,
+        ...     runner_type="browser",
+        ...     runner_name="steel-chatgpt",
+        ...     screenshot_path="./output/screenshot.png",
+        ...     html_snapshot_path="./output/snapshot.html",
+        ...     session_id="session-abc123"
         ... )
     """
 
@@ -115,6 +140,11 @@ class RawAnswerRecord:
     estimated_cost_usd: float
     web_search_results: list[dict] | None = None
     web_search_count: int = 0
+    runner_type: str = "api"
+    runner_name: str | None = None
+    screenshot_path: str | None = None
+    html_snapshot_path: str | None = None
+    session_id: str | None = None
 
 
 def estimate_run_cost(config: RuntimeConfig) -> dict:
@@ -549,6 +579,11 @@ def run_all(
                             estimated_cost_usd=cost_usd,
                             web_search_count=response.web_search_count,
                             web_search_results_json=web_search_json,
+                            runner_type=raw_record.runner_type,
+                            runner_name=raw_record.runner_name,
+                            screenshot_path=raw_record.screenshot_path,
+                            html_snapshot_path=raw_record.html_snapshot_path,
+                            session_id=raw_record.session_id,
                         )
                         conn.commit()
                 except Exception as e:

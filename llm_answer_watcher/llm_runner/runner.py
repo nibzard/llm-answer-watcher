@@ -58,6 +58,7 @@ from ..storage.writer import (
     write_run_meta,
 )
 from ..utils.time import run_id_from_timestamp, utc_timestamp
+from .intent_runner import IntentResult
 from .models import build_client
 from .operation_executor import (
     OperationContext,
@@ -192,9 +193,6 @@ def intent_result_to_raw_record(
         - API runners converted via APIRunner adapter already have token data
         - web_search_count is derived from len(web_search_results) or explicit value
     """
-    # Import here to avoid circular dependency
-    from .intent_runner import IntentResult
-
     # Calculate web search count
     web_search_count = 0
     if result.web_search_results:
@@ -1039,8 +1037,11 @@ def run_all(
                     # Parse answer to extract mentions and rankings
                     extraction_result = parse_answer(
                         answer_text=result.answer_text,
-                        my_brands=config.brands.mine,
-                        competitors=config.brands.competitors,
+                        brands=config.brands,
+                        intent_id=intent.id,
+                        provider=result.provider,
+                        model_name=result.model_name,
+                        timestamp_utc=raw_record.timestamp_utc,
                         extraction_settings=config.extraction_settings,
                     )
 
@@ -1054,27 +1055,21 @@ def run_all(
                     )
 
                     # Insert mentions into database
-                    for mention in (
-                        extraction_result.my_mentions + extraction_result.competitor_mentions
-                    ):
+                    all_mentions = (
+                        extraction_result.my_mentions
+                        + extraction_result.competitor_mentions
+                    )
+                    for mention in all_mentions:
                         try:
-                            # Determine if this is our brand
-                            is_mine = mention.normalized_name in [
-                                b.lower() for b in config.brands.mine
-                            ]
+                            # Determine if this is my brand
+                            is_mine = mention.brand_category == "mine"
 
-                            # Get rank position from ranked list
+                            # Find rank position if this brand is in ranked list
                             rank_position = None
-                            ranked_item = next(
-                                (
-                                    item
-                                    for item in extraction_result.ranked_list
-                                    if item.brand == mention.normalized_name
-                                ),
-                                None,
-                            )
-                            if ranked_item:
-                                rank_position = ranked_item.rank_position
+                            for ranked in extraction_result.ranked_list:
+                                if ranked.brand_name == mention.normalized_name:
+                                    rank_position = ranked.rank_position
+                                    break
 
                             with sqlite3.connect(
                                 config.run_settings.sqlite_db_path

@@ -150,7 +150,7 @@ class SteelBaseRunner:
 
         response = self._client.post(
             f"{self.steel_api_url}/sessions",
-            headers={"Authorization": f"Bearer {self.config.steel_api_key}"},
+            headers={"Steel-Api-Key": self.config.steel_api_key},
             json={
                 "url": self.config.target_url,
                 "timeout": self.config.session_timeout,
@@ -179,7 +179,7 @@ class SteelBaseRunner:
             logger.debug(f"Releasing Steel session: {session_id}")
             response = self._client.delete(
                 f"{self.steel_api_url}/sessions/{session_id}",
-                headers={"Authorization": f"Bearer {self.config.steel_api_key}"},
+                headers={"Steel-Api-Key": self.config.steel_api_key},
             )
             response.raise_for_status()
             logger.info(f"Released Steel session: {session_id}")
@@ -208,7 +208,7 @@ class SteelBaseRunner:
 
             response = self._client.get(
                 f"{self.steel_api_url}/sessions/{session_id}/screenshot",
-                headers={"Authorization": f"Bearer {self.config.steel_api_key}"},
+                headers={"Steel-Api-Key": self.config.steel_api_key},
             )
             response.raise_for_status()
 
@@ -254,7 +254,7 @@ class SteelBaseRunner:
 
             response = self._client.get(
                 f"{self.steel_api_url}/sessions/{session_id}/html",
-                headers={"Authorization": f"Bearer {self.config.steel_api_key}"},
+                headers={"Steel-Api-Key": self.config.steel_api_key},
             )
             response.raise_for_status()
 

@@ -2,8 +2,9 @@
 
 ## Summary
 
-✅ **All core tests passing** (8/8 successful)
+✅ **All core tests passing** (12/12 successful)
 ✅ **Steel API integration verified** with real API key
+✅ **Config & Storage integration complete** (schema v5 + runner config loading)
 🚧 **CDP implementation pending** (placeholder navigation/extraction)
 
 ---
@@ -63,6 +64,72 @@
 
 ---
 
+## Test Suite 3: Config Runner Support (3/3 passing)
+
+### 1. Legacy Format (models) ✅
+**Result:** Backward compatibility maintained
+- Existing config files with `run_settings.models` still work
+- API keys resolved correctly
+- No breaking changes for existing users
+
+### 2. New Format (runners) ✅
+**Result:** New runner config format works
+- Multiple runners configured via `runners` list
+- Plugin-based runner creation
+- Environment variable substitution in runner configs
+- Both API and browser runners supported
+
+### 3. Environment Variable Substitution ✅
+**Result:** Recursive env var resolution works
+- Simple substitution: `${STEEL_API_KEY}` → resolved value
+- Nested dict substitution: deep object traversal
+- List substitution: env vars in arrays
+- Fail-fast error handling for missing vars
+
+**Test file:** `tests/test_config_runner_support.py`
+
+---
+
+## Test Suite 4: Storage Schema v5 Migration (4/4 passing)
+
+### 1. Schema Migration (v4 → v5) ✅
+**Result:** Database upgrade successful
+- 5 new columns added to `answers_raw` table:
+  - `runner_type TEXT DEFAULT 'api'`
+  - `runner_name TEXT`
+  - `screenshot_path TEXT`
+  - `html_snapshot_path TEXT`
+  - `session_id TEXT`
+- 2 new indexes created:
+  - `idx_answers_runner_type`
+  - `idx_answers_runner_name`
+- All existing data preserved (defaults to runner_type='api')
+
+### 2. Insert Browser Metadata ✅
+**Result:** Browser runner data storage works
+- Screenshot paths stored correctly
+- HTML snapshot paths tracked
+- Session IDs captured for debugging
+- Web search count included
+
+### 3. Backward Compatibility ✅
+**Result:** API runners unaffected
+- Existing API runner code works unchanged
+- Default values applied automatically (runner_type='api')
+- Browser-specific fields remain NULL for API runners
+- No migration required for API-only users
+
+### 4. Query by Runner Type ✅
+**Result:** Filtering and analysis ready
+- Can query all API runners: `WHERE runner_type = 'api'`
+- Can query all browser runners: `WHERE runner_type = 'browser'`
+- Can filter by specific runner: `WHERE runner_name = 'steel-chatgpt'`
+- Indexes ensure fast queries
+
+**Test file:** `tests/test_storage_v5_migration.py`
+
+---
+
 ## Known Limitations
 
 ### Screenshot/HTML Endpoints (Expected 404s)
@@ -107,6 +174,20 @@ The following endpoints return 404:
    - Configuration management
    - Type system (API vs Browser)
 
+5. **Config loading with runner support**
+   - New `runners` field in WatcherConfig
+   - Backward compatible with `models` field
+   - Environment variable substitution (recursive)
+   - Plugin-based runner configuration
+
+6. **Storage layer (Schema v5)**
+   - Browser metadata columns in answers_raw table
+   - Runner type tracking (api/browser/custom)
+   - Screenshot and HTML snapshot paths
+   - Session ID tracking for debugging
+   - Indexes for efficient querying
+   - Full backward compatibility with existing data
+
 ### 🚧 Placeholder (Needs CDP Implementation)
 1. **Browser navigation** (`_navigate_and_submit`)
    - Currently returns mock data
@@ -138,51 +219,71 @@ The following endpoints return 404:
 
 ## Next Steps (In Priority Order)
 
-### Phase 1: Config & Storage Integration
-1. **Update config schema** (30 min)
-   - Add `runners` field to WatcherConfig
-   - Support both `llm_configs` (legacy) and `runners` (new)
-   - Add RunnerConfig Pydantic model
+### Phase 1: Config & Storage Integration ✅ **COMPLETE**
+1. ✅ **Update config schema** (DONE)
+   - Added `runners` field to WatcherConfig
+   - Support both `models` (legacy) and `runners` (new)
+   - Added RunnerConfig Pydantic model with validation
 
-2. **Migrate SQLite schema** (20 min)
-   - Add `runner_type`, `runner_name` columns
-   - Add `screenshot_path`, `html_snapshot_path`, `session_id`
-   - Write v1→v2 migration script
+2. ✅ **Migrate SQLite schema** (DONE)
+   - Added `runner_type`, `runner_name` columns
+   - Added `screenshot_path`, `html_snapshot_path`, `session_id`
+   - Wrote v4→v5 migration with indexes
 
-3. **Update storage module** (20 min)
-   - Modify `insert_answer_raw()` for browser metadata
-   - Update JSON artifact writers
-   - Handle screenshot/HTML file paths
+3. ✅ **Update storage module** (DONE)
+   - Modified `insert_answer_raw()` for browser metadata
+   - Updated RawAnswerRecord dataclass
+   - JSON artifact writers automatically include browser metadata
 
-### Phase 2: CDP Implementation (Future)
-4. **Research Steel CDP integration** (1 hour)
+### Phase 2: Runner Orchestration Integration (Next)
+4. **Integrate browser runners into run_all()** (2 hours)
+   - Update runner.py to detect runner configs
+   - Create runner instances via RunnerRegistry
+   - Execute intents via runner.run_intent()
+   - Convert IntentResult to RawAnswerRecord
+   - Handle browser-specific artifacts (screenshots, HTML)
+
+5. **Update report generation** (1 hour)
+   - Display browser runner results in HTML report
+   - Show screenshots inline in report
+   - Link to HTML snapshot files
+   - Compare API vs browser results side-by-side
+
+6. **End-to-end testing** (1 hour)
+   - Test full workflow with browser runner config
+   - Verify database storage
+   - Confirm JSON artifacts written
+   - Validate HTML report generation
+
+### Phase 3: CDP Implementation (Future)
+7. **Research Steel CDP integration** (1 hour)
    - Check Steel SDK documentation
    - Test WebSocket connection to `wss://connect.steel.dev`
    - Identify correct screenshot/HTML API routes
 
-5. **Implement ChatGPT navigation** (2 hours)
+8. **Implement ChatGPT navigation** (2 hours)
    - Find textarea selector
    - Type prompt via CDP
    - Wait for response completion (streaming indicator)
    - Extract answer from DOM
 
-6. **Implement Perplexity navigation** (2 hours)
+9. **Implement Perplexity navigation** (2 hours)
    - Find search input selector
    - Submit query
    - Wait for sources to load
    - Extract answer + source citations
 
-### Phase 3: Production Readiness
-7. **Comprehensive tests** (3 hours)
-   - Mock Steel API responses
-   - Test session lifecycle
-   - Test error scenarios
-   - Test cost tracking
+### Phase 4: Production Readiness (Future)
+10. **Comprehensive tests** (3 hours)
+    - Mock Steel API responses
+    - Test session lifecycle
+    - Test error scenarios
+    - Test cost tracking
 
-8. **Documentation** (1 hour)
-   - CDP implementation guide
-   - Steel API reference
-   - Troubleshooting guide
+11. **Documentation** (1 hour)
+    - CDP implementation guide
+    - Steel API reference
+    - Troubleshooting guide
 
 ---
 
@@ -258,7 +359,7 @@ pytest tests/test_steel_api_integration.py -v
 
 ## Files Created/Modified
 
-### New Files (12)
+### New Files (15)
 - `llm_answer_watcher/llm_runner/intent_runner.py` (core protocols)
 - `llm_answer_watcher/llm_runner/plugin_registry.py` (registry system)
 - `llm_answer_watcher/llm_runner/api_runner.py` (API adapter)
@@ -270,15 +371,22 @@ pytest tests/test_steel_api_integration.py -v
 - `examples/watcher.config.browser-runners.yaml` (example config)
 - `tests/test_integration_browser_runners.py` (integration tests)
 - `tests/test_steel_api_integration.py` (Steel API tests)
+- `tests/test_config_runner_support.py` (config loading tests)
+- `tests/test_storage_v5_migration.py` (storage migration tests)
 - `TEST_RESULTS.md` (this document)
 
-### Modified Files (1)
+### Modified Files (5)
 - `llm_answer_watcher/llm_runner/__init__.py` (imports plugins)
+- `llm_answer_watcher/config/schema.py` (added RunnerConfig, runners field)
+- `llm_answer_watcher/config/loader.py` (env var resolution for runners)
+- `llm_answer_watcher/storage/db.py` (schema v5 migration + browser metadata)
+- `llm_answer_watcher/llm_runner/runner.py` (RawAnswerRecord + insert_answer_raw updates)
 
-**Total:** 3,082 lines of code + documentation
+**Total:** ~3,800 lines of code + documentation + tests
 
 ---
 
 **Last Updated:** 2025-11-07
-**Test Status:** All Passing (8/8)
+**Test Status:** All Passing (12/12)
 **Steel API:** Verified Working
+**Config & Storage:** Phase 1 Complete

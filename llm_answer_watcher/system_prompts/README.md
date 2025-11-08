@@ -154,7 +154,61 @@ OpenAI models use the `messages` array format with a system role:
 - `openai/gpt-4-default.json` - ChatGPT personality for GPT-4 models
 - `openai/gpt-5-default.json` - Enhanced ChatGPT personality for GPT-5 models
 
-### Anthropic (Future)
+### Google (Gemini)
+
+Google Gemini models use a `systemInstruction` parameter separate from the contents array:
+
+```json
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [{"text": "User query"}]
+    }
+  ],
+  "systemInstruction": {
+    "parts": [{"text": "Your system prompt here"}]
+  },
+  "tools": [
+    {"google_search": {}}  // Optional: Enable Google Search grounding
+  ]
+}
+```
+
+**Available prompts:**
+- `google/default.json` - Unbiased market analyst (used by all Gemini models by default)
+- `google/gemini-grounding.json` - Gemini prompt with Google Search grounding instructions
+
+**Google Search Grounding:**
+
+Gemini supports Google Search grounding for real-time web information. To enable:
+
+1. Use the `gemini-grounding` system prompt (designed for grounding use cases)
+2. Add `tools` configuration to your model config:
+
+```yaml
+models:
+  - provider: "google"
+    model_name: "gemini-2.5-flash"
+    env_api_key: "GEMINI_API_KEY"
+    system_prompt: "google/gemini-grounding"
+    tools:
+      - google_search: {}  # Enable Google Search grounding
+```
+
+When grounding is enabled, Gemini automatically:
+- Determines when web search is needed based on the query
+- Generates and executes search queries
+- Provides grounded responses with citations
+
+The grounding metadata includes:
+- `webSearchQueries`: List of search queries performed
+- `groundingChunks`: Web sources used (URLs and titles)
+- `groundingSupports`: Citation mappings linking text segments to sources
+
+**Note**: Google Search grounding incurs additional API costs. See [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) for details.
+
+### Anthropic
 
 Anthropic Claude models use a top-level `system` parameter:
 

@@ -785,6 +785,93 @@ class TestGenerateAnswerResponseParsing:
         with pytest.raises(RuntimeError, match="blocked content.*PROHIBITED_CONTENT"):
             client.generate_answer("Test")
 
+    def test_generate_answer_unexpected_tool_call(self, httpx_mock):
+        """Test that UNEXPECTED_TOOL_CALL finish reason raises informative RuntimeError."""
+        model_name = "gemini-2.0-flash-exp"
+        api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
+
+        httpx_mock.add_response(
+            method="POST",
+            url=api_url,
+            json={
+                "candidates": [
+                    {
+                        "finishReason": "UNEXPECTED_TOOL_CALL",
+                        # Note: No 'content' field when tool call fails
+                        "index": 0,
+                    }
+                ],
+                "usageMetadata": {"totalTokenCount": 10},
+            },
+        )
+
+        client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
+
+        with pytest.raises(
+            RuntimeError,
+            match="encountered unexpected tool call.*UNEXPECTED_TOOL_CALL.*"
+            "system prompt references tools",
+        ):
+            client.generate_answer("Test")
+
+    def test_generate_answer_max_tokens(self, httpx_mock):
+        """Test that MAX_TOKENS finish reason raises informative RuntimeError."""
+        model_name = "gemini-2.0-flash-exp"
+        api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
+
+        httpx_mock.add_response(
+            method="POST",
+            url=api_url,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [{"text": "Partial response that was cut o"}],
+                            "role": "model",
+                        },
+                        "finishReason": "MAX_TOKENS",
+                    }
+                ],
+                "usageMetadata": {"totalTokenCount": 10},
+            },
+        )
+
+        client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
+
+        with pytest.raises(
+            RuntimeError,
+            match="exceeded maximum token limit.*MAX_TOKENS.*"
+            "shorter prompt or.*larger context window",
+        ):
+            client.generate_answer("Test")
+
+    def test_generate_answer_unknown_finish_reason(self, httpx_mock):
+        """Test that unknown finish reasons raise informative RuntimeError."""
+        model_name = "gemini-2.0-flash-exp"
+        api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
+
+        httpx_mock.add_response(
+            method="POST",
+            url=api_url,
+            json={
+                "candidates": [
+                    {
+                        "content": {"parts": [{"text": "Some text"}], "role": "model"},
+                        "finishReason": "SOME_FUTURE_REASON",
+                    }
+                ],
+                "usageMetadata": {"totalTokenCount": 10},
+            },
+        )
+
+        client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
+
+        with pytest.raises(
+            RuntimeError,
+            match="unexpected finish reason.*SOME_FUTURE_REASON.*incomplete or invalid",
+        ):
+            client.generate_answer("Test")
+
     def test_generate_answer_malformed_json(self, httpx_mock):
         """Test that malformed JSON raises RuntimeError."""
         model_name = "gemini-2.0-flash-exp"

@@ -17,7 +17,7 @@ LLM Answer Watcher is a production-ready CLI tool that asks LLMs specific questi
 - **📈 Rank Extraction**: Automatic detection of where brands appear in LLM responses
 - **💰 Dynamic Pricing**: Auto-loads from llm-prices.com with 24-hour caching
 - **🛡️ Budget Protection**: Set spending limits to prevent runaway costs
-- **🔧 Web Search Costs**: Accurate calculation for all OpenAI web search tiers
+- **🔧 Web Search Support**: OpenAI web_search tool + Google Search grounding for Gemini with accurate cost tracking
 - **🎯 Dual-Mode CLI**: Beautiful Rich output for humans, structured JSON for AI agents
 - **📋 HTML Reports**: Auto-generated reports with historical data visualizations
 - **🔒 Local-First**: All data stored locally, BYOK (Bring Your Own Keys)
@@ -367,7 +367,9 @@ Cost estimation includes:
 
 ### Web Search Costs
 
-Web search tool usage is automatically calculated based on OpenAI pricing:
+Web search tool usage is automatically calculated based on provider pricing:
+
+**OpenAI (web_search tool):**
 
 | Tool Version | Cost | Content Tokens |
 |--------------|------|----------------|
@@ -375,6 +377,22 @@ Web search tool usage is automatically calculated based on OpenAI pricing:
 | gpt-4o-mini, gpt-4.1-mini | $10/1k calls | Fixed 8k tokens |
 | Preview reasoning (o1, o3) | $10/1k calls | @ model rate |
 | Preview non-reasoning | $25/1k calls | **FREE** |
+
+**Google (Google Search grounding):**
+- Billed per API request that includes the `google_search` tool
+- Multiple search queries within same request = single billable use
+- See [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) for current rates
+
+**Example with Google Search grounding:**
+```yaml
+models:
+  - provider: "google"
+    model_name: "gemini-2.5-flash"
+    env_api_key: "GEMINI_API_KEY"
+    system_prompt: "google/gemini-grounding"
+    tools:
+      - google_search: {}  # Enable grounding
+```
 
 ### Budget Protection
 

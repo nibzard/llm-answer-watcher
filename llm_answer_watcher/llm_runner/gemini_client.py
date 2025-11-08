@@ -103,8 +103,8 @@ class GeminiClient:
             model_name: Gemini model identifier (e.g., "gemini-2.0-flash-exp")
             api_key: Google API key for authentication
             system_prompt: System message for context/instructions
-            tools: Optional list of tool configurations (not currently supported)
-            tool_choice: Tool selection mode (not currently supported)
+            tools: Optional list of tool configurations (e.g., [{"google_search": {}}])
+            tool_choice: Tool selection mode (note: Gemini auto-decides, this param is for API compat)
 
         Raises:
             ValueError: If model_name, api_key, or system_prompt is empty
@@ -114,14 +114,24 @@ class GeminiClient:
             >>> client.model_name
             'gemini-2.0-flash-exp'
 
+            >>> # With Google Search grounding
+            >>> client = GeminiClient(
+            ...     "gemini-2.5-flash",
+            ...     "AIza...",
+            ...     "You are a helpful assistant.",
+            ...     tools=[{"google_search": {}}]
+            ... )
+
         Security:
             - The api_key parameter is NEVER logged
             - API key validation happens server-side
             - We only validate it's non-empty locally
 
         Note:
-            Tools are not currently supported for Gemini client in v1.
-            The parameters are accepted for API compatibility but will log a warning if used.
+            Google Search grounding is supported via the tools parameter.
+            Pass [{"google_search": {}}] to enable grounding with web search.
+            Note that tool_choice is accepted for API compatibility but Gemini
+            automatically decides when to use Google Search based on the query.
         """
         # Validate inputs (never log api_key)
         if not model_name or model_name.isspace():
@@ -139,15 +149,24 @@ class GeminiClient:
         self.tools = tools
         self.tool_choice = tool_choice
 
-        # Log warning if tools are provided (not yet supported)
+        # Log if Google Search grounding is enabled
         if tools:
-            logger.warning(
-                f"Tools are not currently supported for Gemini client. "
-                f"Tools parameter will be ignored for model: {model_name}"
+            # Check if google_search tool is in tools list
+            has_google_search = any(
+                "google_search" in tool for tool in tools if isinstance(tool, dict)
             )
-
-        # Log initialization (never log api_key)
-        logger.info(f"Initialized Gemini client for model: {model_name}")
+            if has_google_search:
+                logger.info(
+                    f"Initialized Gemini client with Google Search grounding: {model_name}"
+                )
+            else:
+                logger.warning(
+                    f"Tools provided but no google_search found. "
+                    f"Only google_search is supported for Gemini. Model: {model_name}"
+                )
+        else:
+            # Log initialization without tools (never log api_key)
+            logger.info(f"Initialized Gemini client for model: {model_name}")
 
     @create_retry_decorator()
     def generate_answer(self, prompt: str) -> LLMResponse:
@@ -226,6 +245,11 @@ class GeminiClient:
             },
         }
 
+        # Add tools if configured (e.g., Google Search grounding)
+        if self.tools:
+            payload["tools"] = self.tools
+            logger.debug(f"Added tools to request: {len(self.tools)} tool(s)")
+
         # Build API endpoint URL
         # Format: /v1beta/models/{model}:generateContent?key={api_key}
         api_url = f"{GEMINI_API_BASE_URL}/models/{self.model_name}:generateContent"
@@ -303,6 +327,9 @@ class GeminiClient:
         # Extract token usage
         tokens_used, prompt_tokens, completion_tokens = self._extract_token_usage(data)
 
+        # Extract grounding metadata (Google Search results if tools enabled)
+        web_search_results, web_search_count = self._extract_grounding_metadata(data)
+
         # Calculate cost
         usage_meta = {
             "prompt_tokens": prompt_tokens,
@@ -323,8 +350,8 @@ class GeminiClient:
             provider="google",
             model_name=self.model_name,
             timestamp_utc=timestamp,
-            web_search_results=None,  # Web search not supported in v1
-            web_search_count=0,
+            web_search_results=web_search_results,
+            web_search_count=web_search_count,
         )
 
     def _extract_answer_text(self, data: dict[str, Any]) -> str:
@@ -355,22 +382,47 @@ class GeminiClient:
             if not isinstance(candidate, dict):
                 raise RuntimeError("Invalid candidate structure")
 
-            # Check for safety ratings that blocked content
+            # Check for any non-STOP finish reason
+            # These indicate the response didn't complete normally
             finish_reason = candidate.get("finishReason")
-            if (
-                finish_reason
-                and finish_reason != "STOP"
-                and finish_reason in ("SAFETY", "RECITATION", "PROHIBITED_CONTENT")
-            ):
-                # Content was blocked or had other issues
-                raise RuntimeError(
-                    f"Gemini API blocked content: finishReason={finish_reason}"
-                )
+            if finish_reason and finish_reason != "STOP":
+                # Build informative error message based on finish reason
+                if finish_reason in ("SAFETY", "RECITATION", "PROHIBITED_CONTENT"):
+                    error_msg = (
+                        f"Gemini API blocked content due to safety filters: "
+                        f"finishReason={finish_reason}"
+                    )
+                elif finish_reason == "UNEXPECTED_TOOL_CALL":
+                    error_msg = (
+                        f"Gemini API encountered unexpected tool call: "
+                        f"finishReason={finish_reason}. "
+                        f"This typically happens when the system prompt references tools "
+                        f"(e.g., Google Search) but no tools are configured in the API request. "
+                        f"Either add 'tools' parameter to your config or use a simpler system prompt."
+                    )
+                elif finish_reason == "MAX_TOKENS":
+                    error_msg = (
+                        f"Gemini API response exceeded maximum token limit: "
+                        f"finishReason={finish_reason}. "
+                        f"Consider using a shorter prompt or a model with larger context window."
+                    )
+                else:
+                    error_msg = (
+                        f"Gemini API returned unexpected finish reason: "
+                        f"finishReason={finish_reason}. "
+                        f"The response may be incomplete or invalid."
+                    )
+                raise RuntimeError(error_msg)
 
             # Extract content from candidate
             content = candidate.get("content")
             if not content or not isinstance(content, dict):
-                raise RuntimeError("Candidate missing 'content' field")
+                # Include finish reason in error for debugging
+                fr = candidate.get("finishReason", "UNKNOWN")
+                raise RuntimeError(
+                    f"Candidate missing 'content' field. finishReason={fr}. "
+                    f"Available fields: {list(candidate.keys())}"
+                )
 
             # Extract parts array
             parts = content.get("parts")
@@ -390,6 +442,121 @@ class GeminiClient:
 
         except (KeyError, IndexError, TypeError) as e:
             raise RuntimeError(f"Invalid Gemini response structure: {e}") from e
+
+    def _extract_grounding_metadata(
+        self, data: dict[str, Any]
+    ) -> tuple[list[dict] | None, int]:
+        """
+        Extract Google Search grounding metadata from Gemini API response.
+
+        Extracts groundingMetadata which includes web search queries and sources
+        when Google Search grounding is enabled via tools parameter.
+
+        Args:
+            data: Parsed JSON response from Gemini API
+
+        Returns:
+            tuple: (web_search_results, web_search_count)
+                - web_search_results: List of web search metadata dicts, or None if no searches
+                - web_search_count: Number of web search queries performed
+
+        Note:
+            Returns (None, 0) if no grounding metadata in response (graceful handling).
+            This happens when tools are not configured or Gemini decides search is not needed.
+
+        Example grounding metadata structure:
+            {
+                "webSearchQueries": ["query1", "query2"],
+                "groundingChunks": [
+                    {"web": {"uri": "https://...", "title": "..."}},
+                    ...
+                ],
+                "groundingSupports": [
+                    {
+                        "segment": {"startIndex": 0, "endIndex": 50, "text": "..."},
+                        "groundingChunkIndices": [0, 1]
+                    },
+                    ...
+                ]
+            }
+        """
+        try:
+            # Check if candidates exist
+            candidates = data.get("candidates")
+            if not candidates or not isinstance(candidates, list) or len(candidates) == 0:
+                return None, 0
+
+            # Get first candidate
+            candidate = candidates[0]
+            if not isinstance(candidate, dict):
+                return None, 0
+
+            # Extract grounding metadata (optional field)
+            grounding_metadata = candidate.get("groundingMetadata")
+            if not grounding_metadata or not isinstance(grounding_metadata, dict):
+                logger.debug("No grounding metadata in response")
+                return None, 0
+
+            # Extract web search queries (list of strings)
+            web_search_queries = grounding_metadata.get("webSearchQueries", [])
+            if not isinstance(web_search_queries, list):
+                web_search_queries = []
+
+            # Extract grounding chunks (search results/sources)
+            grounding_chunks = grounding_metadata.get("groundingChunks", [])
+            if not isinstance(grounding_chunks, list):
+                grounding_chunks = []
+
+            # Extract grounding supports (citations mapping)
+            grounding_supports = grounding_metadata.get("groundingSupports", [])
+            if not isinstance(grounding_supports, list):
+                grounding_supports = []
+
+            # Build web search results in format similar to OpenAI
+            # Store queries and sources for database/reporting
+            web_search_results = []
+
+            # Add search queries
+            for query in web_search_queries:
+                web_search_results.append(
+                    {"type": "web_search_query", "query": str(query)}
+                )
+
+            # Add grounding chunks (sources)
+            for chunk in grounding_chunks:
+                if isinstance(chunk, dict) and "web" in chunk:
+                    web = chunk["web"]
+                    web_search_results.append(
+                        {
+                            "type": "web_search_source",
+                            "uri": web.get("uri", ""),
+                            "title": web.get("title", ""),
+                        }
+                    )
+
+            # Add citation supports (optional, for advanced usage)
+            if grounding_supports:
+                web_search_results.append(
+                    {"type": "grounding_supports", "supports": grounding_supports}
+                )
+
+            if not web_search_results:
+                logger.debug("Grounding metadata present but no queries/sources extracted")
+                return None, 0
+
+            # Count is based on number of queries performed
+            web_search_count = len(web_search_queries)
+
+            logger.debug(
+                f"Extracted grounding metadata: {web_search_count} queries, "
+                f"{len(grounding_chunks)} sources, {len(grounding_supports)} supports"
+            )
+
+            return web_search_results, web_search_count
+
+        except (KeyError, TypeError) as e:
+            logger.warning(f"Failed to extract grounding metadata: {e}")
+            return None, 0
 
     def _extract_token_usage(self, data: dict[str, Any]) -> tuple[int, int, int]:
         """

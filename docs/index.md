@@ -38,6 +38,12 @@ All responses are stored in a local SQLite database, enabling powerful trend ana
 ### 🤖 Multi-Provider Support
 Works with **6+ LLM providers**: OpenAI, Anthropic, Mistral, X.AI Grok, Google Gemini, and Perplexity, with an extensible architecture for adding more.
 
+### 🌐 Browser Runners (BETA - New in v0.2.0)
+Interact with web-based LLM interfaces (ChatGPT, Perplexity) using headless browser automation via Steel API. Captures true user experience with screenshots and HTML snapshots.
+
+### ⚡ Async Parallelization (New in v0.2.0)
+3-4x faster performance with async/await parallel query execution across multiple models and providers.
+
 ### 📈 Intelligent Rank Extraction
 Automatically detects where your brand appears in ranked lists using pattern-based extraction and optional LLM-assisted ranking.
 
@@ -122,6 +128,8 @@ LLM Answer Watcher is built with production-ready patterns:
 
 - **Domain-Driven Design**: Clear separation between config, LLM clients, extraction, storage, and reporting
 - **Provider Abstraction**: Easy to add new LLM providers with unified interface
+- **Plugin System**: Extensible runner architecture supporting both API and browser-based runners
+- **Async/Await**: Parallel query execution for 3-4x performance improvement (v0.2.0+)
 - **Retry Logic**: Exponential backoff with tenacity for resilient API calls
 - **Type Safety**: Full Pydantic validation and modern Python 3.12+ type hints
 - **Testability**: 750+ test cases with 100% coverage on critical paths

@@ -4,10 +4,12 @@
 
 LLM Answer Watcher is designed to be compatible with new OpenAI models as they're released. However, newer models may have different parameter requirements than existing ones.
 
+> **📅 Updated November 2025**: GPT-5 models (`gpt-5-mini`, `gpt-5-nano`) are now available and have different parameter requirements than GPT-4 models.
+
 ## The Temperature Parameter Issue
 
 ### Problem
-Some newer OpenAI models (like GPT-5-mini, GPT-5-nano) don't support custom temperature values and only work with the model's default temperature (1.0).
+**Current OpenAI GPT-5 models** (`gpt-5-mini`, `gpt-5-nano`) don't support custom temperature values and only work with the model's default temperature (1.0). This is a real limitation as of November 2025.
 
 ### Solution
 The OpenAI client has been updated with dynamic parameter handling:
@@ -29,13 +31,13 @@ TEMPERATURE_FIXED_MODELS = {
 ## Adding Support for New Models
 
 ### Step 1: Identify Model Requirements
-When a new model is released, check:
+When a new OpenAI model is released (beyond GPT-5-mini/nano), check:
 - Does it support custom temperature values?
 - Are there other parameter restrictions?
 - Is it available via the standard OpenAI API?
 
 ### Step 2: Update Model Configuration
-If the model has parameter restrictions, add it to the appropriate configuration:
+If the model has parameter restrictions (like GPT-5 models), add it to the appropriate configuration:
 
 ```python
 # For models that don't support custom temperature
@@ -82,20 +84,24 @@ Add the new model to:
 - Documentation
 - Default model lists (if appropriate)
 
-## Current Model Support
+## Current Model Support (November 2025)
 
-### Fully Supported
-- `gpt-4o-mini` - Supports custom temperature
-- `gpt-4o` - Supports custom temperature
-- `gpt-3.5-turbo` - Supports custom temperature
-- Most existing OpenAI models
+### Fully Supported (Custom Temperature)
+- `gpt-4o-mini` - Supports custom temperature (0.0-2.0)
+- `gpt-4o` - Supports custom temperature (0.0-2.0)
+- `gpt-4-turbo` - Supports custom temperature (0.0-2.0)
+- `gpt-3.5-turbo` - Supports custom temperature (0.0-2.0)
+- Most GPT-4 and earlier models
 
-### Conditional Support
-- `gpt-5-mini` - Requires temperature=1.0 (default)
-- `gpt-5-nano` - Requires temperature=1.0 (default)
+### Fixed Temperature Models (GPT-5 Series)
+**These models are LIVE as of November 2025:**
+- `gpt-5-mini` - Requires temperature=1.0 (default) - **Cannot customize**
+- `gpt-5-nano` - Requires temperature=1.0 (default) - **Cannot customize**
+
+The OpenAI client automatically detects these models and excludes the temperature parameter.
 
 ### Testing New Models
-Always test new models with a simple configuration before adding them to production configs.
+Always test new models with a simple configuration before adding them to production configs. Future GPT-5 models may have similar restrictions.
 
 ## Error Handling
 

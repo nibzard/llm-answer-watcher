@@ -244,6 +244,8 @@ class RunSettings(BaseModel):
     Attributes:
         output_dir: Directory for run artifacts (JSON files, HTML reports)
         sqlite_db_path: Path to SQLite database for historical tracking
+        max_concurrent_requests: Maximum number of parallel API requests (default: 10)
+                                Respects provider rate limits. Range: 1-50.
         models: List of LLM models to query for each intent (LEGACY - use runners instead)
                Optional when using the new runners format
         use_llm_rank_extraction: Enable LLM-assisted ranking (slower, more accurate)
@@ -252,6 +254,7 @@ class RunSettings(BaseModel):
 
     output_dir: str
     sqlite_db_path: str
+    max_concurrent_requests: int = 10
     models: list[ModelConfig] = []  # Now optional with default empty list
     use_llm_rank_extraction: bool = False
     budget: BudgetConfig | None = None
@@ -270,6 +273,24 @@ class RunSettings(BaseModel):
         """Validate sqlite_db_path is non-empty."""
         if not v or v.isspace():
             raise ValueError("sqlite_db_path cannot be empty")
+        return v
+
+    @field_validator("max_concurrent_requests")
+    @classmethod
+    def validate_max_concurrent_requests(cls, v: int) -> int:
+        """
+        Validate max_concurrent_requests is within safe limits.
+
+        Conservative range prevents overwhelming API rate limits while
+        allowing reasonable parallelism. Based on provider rate limit research:
+        - OpenAI: ~5-10 concurrent recommended
+        - Anthropic: Limited concurrency reported
+        - Google Gemini: 3 concurrent sessions per API key
+        """
+        if not 1 <= v <= 50:
+            raise ValueError(
+                f"max_concurrent_requests must be between 1 and 50 (got: {v})"
+            )
         return v
 
     @field_validator("models")

@@ -1,13 +1,14 @@
 """
 X.AI Grok API client implementation for LLM Answer Watcher.
 
-Provides synchronous HTTP client for X.AI Grok Chat Completions API with
+Provides asynchronous HTTP client for X.AI Grok Chat Completions API with
 automatic retry logic, exponential backoff, and comprehensive error handling.
 
 The Grok API is OpenAI-compatible, using the same request/response format
 but with a different base URL and model identifiers.
 
 Key features:
+- Asynchronous HTTP client (httpx.AsyncClient) for efficient I/O
 - Retry on transient failures (429, 5xx) with exponential backoff
 - Fail fast on permanent errors (401, 400, 404)
 - Automatic cost estimation based on token usage
@@ -20,7 +21,7 @@ Example:
     >>> from llm_runner.grok_client import GrokClient
     >>> client = GrokClient("grok-beta", api_key="xai-...",
     ...     system_prompt="You are a helpful assistant.")
-    >>> response = client.generate_answer("What are the best CRM tools?")
+    >>> response = await client.generate_answer("What are the best CRM tools?")
     >>> print(f"Answer: {response.answer_text[:100]}...")
     >>> print(f"Cost: ${response.cost_usd:.6f}")
 """
@@ -56,10 +57,11 @@ logger = logging.getLogger(__name__)
 
 class GrokClient:
     """
-    X.AI Grok Chat Completions API client with retry logic and cost tracking.
+    X.AI Grok Chat Completions API client with async, retry logic, and cost tracking.
 
-    Implements the LLMClient protocol for X.AI's Grok API with automatic retry
-    on transient failures, exponential backoff, and integrated cost estimation.
+    Implements the LLMClient protocol for X.AI's Grok API with asynchronous HTTP
+    requests, automatic retry on transient failures, exponential backoff, and
+    integrated cost estimation.
 
     The Grok API uses OpenAI-compatible format, making it easy to integrate
     with existing OpenAI-based workflows.
@@ -71,7 +73,7 @@ class GrokClient:
 
     Example:
         >>> client = GrokClient("grok-beta", "xai-...", "You are a helpful assistant.")
-        >>> response = client.generate_answer("What are the best email warmup tools?")
+        >>> response = await client.generate_answer("What are the best email warmup tools?")
         >>> response.tokens_used
         450
         >>> response.cost_usd
@@ -90,7 +92,7 @@ class GrokClient:
         - Timeout: 120s per request (from retry_config.REQUEST_TIMEOUT)
 
     Note:
-        This implementation is synchronous (no async) per v1 requirements.
+        This implementation uses async/await for efficient I/O operations.
         Streaming is not supported in v1.
     """
 
@@ -156,9 +158,9 @@ class GrokClient:
         logger.info(f"Initialized Grok client for model: {model_name}")
 
     @create_retry_decorator()
-    def generate_answer(self, prompt: str) -> LLMResponse:
+    async def generate_answer(self, prompt: str) -> LLMResponse:
         """
-        Execute LLM query with automatic retry and cost tracking.
+        Execute async LLM query with automatic retry and cost tracking.
 
         Sends prompt to X.AI Grok Chat Completions API with system message for
         unbiased analysis. Handles transient failures with exponential backoff
@@ -180,7 +182,7 @@ class GrokClient:
 
         Example:
             >>> client = GrokClient("grok-beta", "xai-...")
-            >>> response = client.generate_answer("What are the best CRM tools?")
+            >>> response = await client.generate_answer("What are the best CRM tools?")
             >>> print(response.answer_text[:100])
             "Based on market research, here are the top CRM tools..."
             >>> response.provider
@@ -235,10 +237,10 @@ class GrokClient:
         # Log request (NEVER log api_key or headers)
         logger.debug(f"Sending request to Grok: model={self.model_name}")
 
-        # Make HTTP request with context manager for proper cleanup
+        # Make HTTP request with async context manager for proper cleanup
         try:
-            with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-                response = client.post(
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+                response = await client.post(
                     GROK_API_URL,
                     json=payload,
                     headers=headers,

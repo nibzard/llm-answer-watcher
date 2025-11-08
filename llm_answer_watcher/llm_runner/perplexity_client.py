@@ -1,10 +1,11 @@
 """
 Perplexity API client implementation for LLM Answer Watcher.
 
-Provides synchronous HTTP client for Perplexity Chat Completions API with
+Provides asynchronous HTTP client for Perplexity Chat Completions API with
 automatic retry logic, exponential backoff, and comprehensive error handling.
 
 Key features:
+- Async HTTP client for parallel execution (httpx.AsyncClient)
 - Retry on transient failures (429, 5xx) with exponential backoff
 - Fail fast on permanent errors (401, 400, 404)
 - Automatic cost estimation based on token usage
@@ -17,7 +18,7 @@ Example:
     >>> from llm_runner.perplexity_client import PerplexityClient
     >>> client = PerplexityClient("sonar-pro", api_key="pplx-...",
     ...     system_prompt="You are a helpful assistant.")
-    >>> response = client.generate_answer("What are the best CRM tools?")
+    >>> response = await client.generate_answer("What are the best CRM tools?")
     >>> print(f"Answer: {response.answer_text[:100]}...")
     >>> print(f"Cost: ${response.cost_usd:.6f}")
 """
@@ -56,10 +57,11 @@ logger = logging.getLogger(__name__)
 
 class PerplexityClient:
     """
-    Perplexity Chat Completions API client with retry logic and cost tracking.
+    Perplexity Chat Completions API client with async retry logic and cost tracking.
 
     Implements the LLMClient protocol for Perplexity's Chat Completions API with automatic retry
     on transient failures, exponential backoff, and integrated cost estimation.
+    Uses async HTTP client for non-blocking parallel execution.
 
     Perplexity's API is OpenAI-compatible, making integration straightforward. The API supports
     both standard chat models and specialized Sonar models with web search capabilities.
@@ -71,7 +73,7 @@ class PerplexityClient:
 
     Example:
         >>> client = PerplexityClient("sonar-pro", "pplx-...", "You are a helpful assistant.")
-        >>> response = client.generate_answer("What are the best email warmup tools?")
+        >>> response = await client.generate_answer("What are the best email warmup tools?")
         >>> response.tokens_used
         450
         >>> response.cost_usd
@@ -90,7 +92,7 @@ class PerplexityClient:
         - Timeout: 120s per request (from retry_config.REQUEST_TIMEOUT)
 
     Note:
-        This implementation is synchronous (no async) per v1 requirements.
+        This implementation uses async/await for parallel execution.
         Streaming is not supported in v1.
         Request fees (for Sonar models) are not yet included in cost estimates.
     """
@@ -157,13 +159,14 @@ class PerplexityClient:
         logger.info(f"Initialized Perplexity client for model: {model_name}")
 
     @create_retry_decorator()
-    def generate_answer(self, prompt: str) -> LLMResponse:
+    async def generate_answer(self, prompt: str) -> LLMResponse:
         """
-        Execute LLM query with automatic retry and cost tracking.
+        Execute LLM query asynchronously with automatic retry and cost tracking.
 
         Sends prompt to Perplexity Chat Completions API with system message for
         unbiased analysis. Handles transient failures with exponential backoff
-        and calculates costs based on token usage.
+        and calculates costs based on token usage. Uses async HTTP client for
+        non-blocking parallel execution.
 
         Args:
             prompt: User intent prompt to send to the LLM
@@ -181,7 +184,7 @@ class PerplexityClient:
 
         Example:
             >>> client = PerplexityClient("sonar-pro", "pplx-...")
-            >>> response = client.generate_answer("What are the best CRM tools?")
+            >>> response = await client.generate_answer("What are the best CRM tools?")
             >>> print(response.answer_text[:100])
             "Based on market research, here are the top CRM tools..."
             >>> response.provider
@@ -201,7 +204,7 @@ class PerplexityClient:
             - Only model name and status codes are logged
 
         Note:
-            The @retry decorator automatically handles retries.
+            The @retry decorator automatically handles retries for async functions.
             If a non-retryable error occurs (e.g., 401), it checks the status
             code and raises immediately without retry.
             Cost estimates include token costs but not request fees (Sonar models).
@@ -238,10 +241,10 @@ class PerplexityClient:
         # Log request (NEVER log api_key or headers)
         logger.debug(f"Sending request to Perplexity: model={self.model_name}")
 
-        # Make HTTP request with context manager for proper cleanup
+        # Make async HTTP request with context manager for proper cleanup
         try:
-            with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-                response = client.post(
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+                response = await client.post(
                     PERPLEXITY_API_URL,
                     json=payload,
                     headers=headers,

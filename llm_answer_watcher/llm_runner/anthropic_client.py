@@ -1,10 +1,11 @@
 """
 Anthropic API client implementation for LLM Answer Watcher.
 
-Provides synchronous HTTP client for Anthropic Messages API with
+Provides asynchronous HTTP client for Anthropic Messages API with
 automatic retry logic, exponential backoff, and comprehensive error handling.
 
 Key features:
+- Async HTTP client for parallel execution (httpx.AsyncClient)
 - Retry on transient failures (429, 5xx) with exponential backoff
 - Fail fast on permanent errors (401, 400, 404)
 - Automatic cost estimation based on token usage
@@ -16,7 +17,7 @@ Example:
     >>> from llm_runner.anthropic_client import AnthropicClient
     >>> client = AnthropicClient("claude-3-5-haiku-20241022", api_key="sk-ant-...",
     ...     system_prompt="You are a helpful assistant.")
-    >>> response = client.generate_answer("What are the best CRM tools?")
+    >>> response = await client.generate_answer("What are the best CRM tools?")
     >>> print(f"Answer: {response.answer_text[:100]}...")
     >>> print(f"Cost: ${response.cost_usd:.6f}")
 """
@@ -59,10 +60,11 @@ logger = logging.getLogger(__name__)
 
 class AnthropicClient:
     """
-    Anthropic Messages API client with retry logic and cost tracking.
+    Anthropic Messages API client with async retry logic and cost tracking.
 
     Implements the LLMClient protocol for Anthropic's Messages API with automatic retry
     on transient failures, exponential backoff, and integrated cost estimation.
+    Uses async HTTP client for non-blocking parallel execution.
 
     Attributes:
         model_name: Anthropic model identifier (e.g., "claude-3-5-haiku-20241022")
@@ -71,7 +73,7 @@ class AnthropicClient:
 
     Example:
         >>> client = AnthropicClient("claude-3-5-haiku-20241022", "sk-ant-...", "You are a helpful assistant.")
-        >>> response = client.generate_answer("What are the best email warmup tools?")
+        >>> response = await client.generate_answer("What are the best email warmup tools?")
         >>> response.tokens_used
         450
         >>> response.cost_usd
@@ -90,7 +92,7 @@ class AnthropicClient:
         - Timeout: 30s per request (from retry_config.REQUEST_TIMEOUT)
 
     Note:
-        This implementation is synchronous (no async) per v1 requirements.
+        This implementation uses async/await for parallel execution.
         Streaming is not supported in v1.
     """
 
@@ -156,13 +158,14 @@ class AnthropicClient:
         logger.info(f"Initialized Anthropic client for model: {model_name}")
 
     @create_retry_decorator()
-    def generate_answer(self, prompt: str) -> LLMResponse:
+    async def generate_answer(self, prompt: str) -> LLMResponse:
         """
-        Execute LLM query with automatic retry and cost tracking.
+        Execute LLM query asynchronously with automatic retry and cost tracking.
 
         Sends prompt to Anthropic Messages API with system message for
         unbiased analysis. Handles transient failures with exponential backoff
-        and calculates costs based on token usage.
+        and calculates costs based on token usage. Uses async HTTP client for
+        non-blocking parallel execution.
 
         Args:
             prompt: User intent prompt to send to the LLM
@@ -180,7 +183,7 @@ class AnthropicClient:
 
         Example:
             >>> client = AnthropicClient("claude-3-5-haiku-20241022", "sk-ant-...")
-            >>> response = client.generate_answer("What are the best CRM tools?")
+            >>> response = await client.generate_answer("What are the best CRM tools?")
             >>> print(response.answer_text[:100])
             "Based on market research, here are the top CRM tools..."
             >>> response.provider
@@ -200,7 +203,7 @@ class AnthropicClient:
             - Only model name and status codes are logged
 
         Note:
-            The @retry decorator automatically handles retries.
+            The @retry decorator automatically handles retries for async functions.
             If a non-retryable error occurs (e.g., 401), it checks the status
             code and raises immediately without retry.
         """
@@ -238,10 +241,10 @@ class AnthropicClient:
         # Log request (NEVER log api_key or headers)
         logger.debug(f"Sending request to Anthropic: model={self.model_name}")
 
-        # Make HTTP request with context manager for proper cleanup
+        # Make async HTTP request with context manager for proper cleanup
         try:
-            with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-                response = client.post(
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+                response = await client.post(
                     ANTHROPIC_API_URL,
                     json=payload,
                     headers=headers,

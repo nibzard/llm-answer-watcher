@@ -1,10 +1,11 @@
 """
 OpenAI API client implementation for LLM Answer Watcher.
 
-Provides synchronous HTTP client for OpenAI Responses API with
+Provides asynchronous HTTP client for OpenAI Responses API with
 automatic retry logic, exponential backoff, and comprehensive error handling.
 
 Key features:
+- Async HTTP client for parallel execution (httpx.AsyncClient)
 - Retry on transient failures (429, 5xx) with exponential backoff
 - Fail fast on permanent errors (401, 400, 404)
 - Automatic cost estimation based on token usage
@@ -16,7 +17,7 @@ Example:
     >>> from llm_runner.openai_client import OpenAIClient
     >>> client = OpenAIClient("gpt-4o-mini", api_key="sk-...",
     ...     system_prompt="You are a helpful assistant.")
-    >>> response = client.generate_answer("What are the best CRM tools?")
+    >>> response = await client.generate_answer("What are the best CRM tools?")
     >>> print(f"Answer: {response.answer_text[:100]}...")
     >>> print(f"Cost: ${response.cost_usd:.6f}")
 """
@@ -96,10 +97,11 @@ logger = logging.getLogger(__name__)
 
 class OpenAIClient:
     """
-    OpenAI Responses API client with retry logic and cost tracking.
+    OpenAI Responses API client with async retry logic and cost tracking.
 
     Implements the LLMClient protocol for OpenAI's Responses API with automatic retry
     on transient failures, exponential backoff, and integrated cost estimation.
+    Uses async HTTP client for non-blocking parallel execution.
 
     Attributes:
         model_name: OpenAI model identifier (e.g., "gpt-4o-mini", "gpt-4o")
@@ -108,7 +110,7 @@ class OpenAIClient:
 
     Example:
         >>> client = OpenAIClient("gpt-4o-mini", "sk-...", "You are a helpful assistant.")
-        >>> response = client.generate_answer("What are the best email warmup tools?")
+        >>> response = await client.generate_answer("What are the best email warmup tools?")
         >>> response.tokens_used
         450
         >>> response.cost_usd
@@ -124,10 +126,10 @@ class OpenAIClient:
         - Fails immediately on: 401 (auth), 400 (bad request), 404 (not found)
         - Max attempts: 3 (from retry_config.MAX_ATTEMPTS)
         - Backoff: Exponential starting at 1s, max 60s (from retry_config)
-        - Timeout: 30s per request (from retry_config.REQUEST_TIMEOUT)
+        - Timeout: 120s per request (from retry_config.REQUEST_TIMEOUT)
 
     Note:
-        This implementation is synchronous (no async) per v1 requirements.
+        This implementation uses async/await for parallel execution.
         Streaming is not supported in v1.
     """
 
@@ -188,13 +190,14 @@ class OpenAIClient:
         )
 
     @create_retry_decorator()
-    def generate_answer(self, prompt: str) -> LLMResponse:
+    async def generate_answer(self, prompt: str) -> LLMResponse:
         """
-        Execute LLM query with automatic retry and cost tracking.
+        Execute LLM query asynchronously with automatic retry and cost tracking.
 
         Sends prompt to OpenAI Chat Completions API with system message for
         unbiased analysis. Handles transient failures with exponential backoff
-        and calculates costs based on token usage.
+        and calculates costs based on token usage. Uses async HTTP client for
+        non-blocking parallel execution.
 
         Args:
             prompt: User intent prompt to send to the LLM
@@ -212,7 +215,7 @@ class OpenAIClient:
 
         Example:
             >>> client = OpenAIClient("gpt-4o-mini", "sk-...")
-            >>> response = client.generate_answer("What are the best CRM tools?")
+            >>> response = await client.generate_answer("What are the best CRM tools?")
             >>> print(response.answer_text[:100])
             "Based on market research, here are the top CRM tools..."
             >>> response.provider
@@ -232,7 +235,7 @@ class OpenAIClient:
             - Only model name and status codes are logged
 
         Note:
-            The @retry decorator automatically handles retries.
+            The @retry decorator automatically handles retries for async functions.
             If a non-retryable error occurs (e.g., 401), it checks the status
             code and raises immediately without retry.
         """
@@ -288,10 +291,10 @@ class OpenAIClient:
         # Log request (NEVER log api_key or headers)
         logger.debug(f"Sending request to OpenAI: model={self.model_name}")
 
-        # Make HTTP request with context manager for proper cleanup
+        # Make async HTTP request with context manager for proper cleanup
         try:
-            with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-                response = client.post(
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+                response = await client.post(
                     OPENAI_API_URL,
                     json=payload,
                     headers=headers,

@@ -96,7 +96,8 @@ class TestGenerateAnswerSuccess:
     """Test suite for successful Mistral API calls."""
 
     @freeze_time("2025-11-02T08:30:45Z")
-    def test_generate_answer_success(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_success(self, httpx_mock):
         """Test successful API call with complete response."""
         # Mock successful Mistral Chat Completions API response
         httpx_mock.add_response(
@@ -124,7 +125,7 @@ class TestGenerateAnswerSuccess:
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("What are the best CRM tools?")
+        response = await client.generate_answer("What are the best CRM tools?")
 
         # Verify response structure
         assert isinstance(response, LLMResponse)
@@ -140,7 +141,8 @@ class TestGenerateAnswerSuccess:
         assert response.model_name == "mistral-large-latest"
         assert response.timestamp_utc == "2025-11-02T08:30:45Z"
 
-    def test_generate_answer_sends_correct_payload(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_sends_correct_payload(self, httpx_mock):
         """Test that API request includes system message and correct structure."""
         httpx_mock.add_response(
             method="POST",
@@ -156,7 +158,7 @@ class TestGenerateAnswerSuccess:
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
-        client.generate_answer("Test prompt")
+        await client.generate_answer("Test prompt")
 
         # Verify request was made
         request = httpx_mock.get_request()
@@ -176,7 +178,8 @@ class TestGenerateAnswerSuccess:
         assert data["messages"][1]["content"] == "Test prompt"
         assert data["temperature"] == 0.7
 
-    def test_generate_answer_sends_auth_header(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_sends_auth_header(self, httpx_mock):
         """Test that API request includes Bearer token in Authorization header."""
         httpx_mock.add_response(
             method="POST",
@@ -190,14 +193,15 @@ class TestGenerateAnswerSuccess:
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
-        client.generate_answer("Test")
+        await client.generate_answer("Test")
 
         # Verify Authorization header
         request = httpx_mock.get_request()
         assert request.headers["Authorization"] == "Bearer test-api-key"
         assert request.headers["Content-Type"] == "application/json"
 
-    def test_generate_answer_large_response(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_large_response(self, httpx_mock):
         """Test handling of large response with high token count."""
         large_content = "A" * 10000
         httpx_mock.add_response(
@@ -214,7 +218,7 @@ class TestGenerateAnswerSuccess:
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Generate large text")
+        response = await client.generate_answer("Generate large text")
 
         assert response.answer_text == large_content
         assert response.tokens_used == 50000
@@ -223,29 +227,32 @@ class TestGenerateAnswerSuccess:
 class TestGenerateAnswerValidation:
     """Test suite for input validation."""
 
-    def test_generate_answer_empty_prompt(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_empty_prompt(self, httpx_mock):
         """Test that empty prompt raises ValueError."""
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
-            client.generate_answer("")
+            await client.generate_answer("")
 
-    def test_generate_answer_whitespace_prompt(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_whitespace_prompt(self, httpx_mock):
         """Test that whitespace-only prompt raises ValueError."""
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
-            client.generate_answer("   \n\t  ")
+            await client.generate_answer("   \n\t  ")
 
 
 class TestPromptLengthValidation:
     """Test suite for prompt length validation in Mistral client."""
 
-    def test_generate_answer_accepts_normal_prompt(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_accepts_normal_prompt(self, httpx_mock):
         """Normal-length prompts should be accepted."""
         # Mock successful response
         httpx_mock.add_response(
@@ -264,12 +271,13 @@ class TestPromptLengthValidation:
         )
         # Test with a reasonable prompt (< 100k chars)
         prompt = "What are the best email warmup tools?" * 100  # ~4000 chars
-        response = client.generate_answer(prompt)
+        response = await client.generate_answer(prompt)
 
         assert response.answer_text == "Test response"
         assert len(httpx_mock.get_requests()) == 1
 
-    def test_generate_answer_accepts_max_length_prompt(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_accepts_max_length_prompt(self, httpx_mock):
         """Prompts exactly at max length should be accepted."""
         # Mock successful response
         httpx_mock.add_response(
@@ -287,12 +295,13 @@ class TestPromptLengthValidation:
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
         prompt = "a" * MAX_PROMPT_LENGTH
-        response = client.generate_answer(prompt)
+        response = await client.generate_answer(prompt)
 
         # Should not raise ValueError for length
         assert response.answer_text == "Test response"
 
-    def test_generate_answer_rejects_over_limit_prompt(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_rejects_over_limit_prompt(self):
         """Prompts over max length should raise ValueError."""
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
@@ -300,9 +309,10 @@ class TestPromptLengthValidation:
         prompt = "a" * (MAX_PROMPT_LENGTH + 1)
 
         with pytest.raises(ValueError, match=r"Prompt exceeds maximum length"):
-            client.generate_answer(prompt)
+            await client.generate_answer(prompt)
 
-    def test_generate_answer_rejects_very_long_prompt(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_rejects_very_long_prompt(self):
         """Very long prompts should raise ValueError with correct count."""
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
@@ -310,9 +320,10 @@ class TestPromptLengthValidation:
         prompt = "a" * (MAX_PROMPT_LENGTH * 2)
 
         with pytest.raises(ValueError, match=r"200,000 characters"):
-            client.generate_answer(prompt)
+            await client.generate_answer(prompt)
 
-    def test_generate_answer_error_message_shows_actual_length(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_error_message_shows_actual_length(self):
         """Error message should show actual received length."""
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
@@ -320,7 +331,7 @@ class TestPromptLengthValidation:
         prompt = "a" * (MAX_PROMPT_LENGTH + 5000)
 
         with pytest.raises(ValueError) as exc_info:
-            client.generate_answer(prompt)
+            await client.generate_answer(prompt)
 
         error_msg = str(exc_info.value)
         assert "105,000 characters" in error_msg
@@ -331,7 +342,8 @@ class TestPromptLengthValidation:
 class TestGenerateAnswerNonRetryableErrors:
     """Test suite for non-retryable errors (401, 400, 404)."""
 
-    def test_generate_answer_401_unauthorized(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_401_unauthorized(self, httpx_mock):
         """Test that 401 error raises RuntimeError immediately (no retry)."""
         httpx_mock.add_response(
             method="POST",
@@ -345,12 +357,13 @@ class TestGenerateAnswerNonRetryableErrors:
         )
 
         with pytest.raises(RuntimeError, match="non-retryable"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         # Verify only one request was made (no retry)
         assert len(httpx_mock.get_requests()) == 1
 
-    def test_generate_answer_400_bad_request(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_400_bad_request(self, httpx_mock):
         """Test that 400 error raises RuntimeError immediately (no retry)."""
         httpx_mock.add_response(
             method="POST",
@@ -364,9 +377,10 @@ class TestGenerateAnswerNonRetryableErrors:
         )
 
         with pytest.raises(RuntimeError, match="non-retryable"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_404_not_found(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_404_not_found(self, httpx_mock):
         """Test that 404 error raises RuntimeError immediately (no retry)."""
         httpx_mock.add_response(
             method="POST",
@@ -380,13 +394,14 @@ class TestGenerateAnswerNonRetryableErrors:
         )
 
         with pytest.raises(RuntimeError, match="non-retryable"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
 
 class TestGenerateAnswerRetryableErrors:
     """Test suite for retryable errors (429, 5xx) with retry logic."""
 
-    def test_generate_answer_429_rate_limit_then_success(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_429_rate_limit_then_success(self, httpx_mock):
         """Test that 429 error is retried and succeeds on second attempt."""
         # First call: rate limit
         httpx_mock.add_response(
@@ -412,12 +427,13 @@ class TestGenerateAnswerRetryableErrors:
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         assert response.answer_text == "Success after retry"
         assert len(httpx_mock.get_requests()) == 2  # Two attempts
 
-    def test_generate_answer_500_server_error_then_success(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_500_server_error_then_success(self, httpx_mock):
         """Test that 500 error is retried and succeeds."""
         # First call: server error
         httpx_mock.add_response(
@@ -443,12 +459,13 @@ class TestGenerateAnswerRetryableErrors:
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         assert response.answer_text == "Success after retry"
         assert len(httpx_mock.get_requests()) == 2
 
-    def test_generate_answer_503_service_unavailable(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_503_service_unavailable(self, httpx_mock):
         """Test that 503 error is retried."""
         # All calls fail with 503
         for _ in range(3):
@@ -464,7 +481,7 @@ class TestGenerateAnswerRetryableErrors:
         )
 
         with pytest.raises(httpx.HTTPStatusError):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         # Verify 3 retry attempts were made
         assert len(httpx_mock.get_requests()) == 3
@@ -473,7 +490,8 @@ class TestGenerateAnswerRetryableErrors:
 class TestGenerateAnswerErrorHandling:
     """Test suite for error handling and edge cases."""
 
-    def test_generate_answer_missing_choices(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_missing_choices(self, httpx_mock):
         """Test handling of response missing 'choices' field."""
         httpx_mock.add_response(
             method="POST",
@@ -486,9 +504,10 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="missing 'choices' array"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_empty_choices(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_empty_choices(self, httpx_mock):
         """Test handling of empty choices array."""
         httpx_mock.add_response(
             method="POST",
@@ -501,9 +520,10 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="missing 'choices' array"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_missing_message(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_missing_message(self, httpx_mock):
         """Test handling of choice missing 'message' field."""
         httpx_mock.add_response(
             method="POST",
@@ -519,9 +539,10 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="missing 'message' object"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_missing_content(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_missing_content(self, httpx_mock):
         """Test handling of message missing 'content' field."""
         httpx_mock.add_response(
             method="POST",
@@ -537,9 +558,10 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="missing 'content' field"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_missing_usage(self, httpx_mock, caplog):
+    @pytest.mark.asyncio
+    async def test_generate_answer_missing_usage(self, httpx_mock, caplog):
         """Test handling of response missing 'usage' field."""
         caplog.set_level(logging.WARNING)
 
@@ -552,14 +574,15 @@ class TestGenerateAnswerErrorHandling:
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Should gracefully handle missing usage with warning
         assert "missing 'usage' data" in caplog.text
         assert response.tokens_used == 0
         assert response.cost_usd == 0.0
 
-    def test_generate_answer_malformed_json(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_malformed_json(self, httpx_mock):
         """Test handling of malformed JSON response."""
         httpx_mock.add_response(
             method="POST",
@@ -572,9 +595,10 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="Failed to parse Mistral response JSON"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_connection_error(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_connection_error(self, httpx_mock):
         """Test handling of connection errors."""
         # Add exception 3 times (for retry attempts)
         for _ in range(3):
@@ -585,9 +609,10 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(httpx.ConnectError):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_timeout(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_timeout(self, httpx_mock):
         """Test handling of timeout errors."""
         # Add exception 3 times (for retry attempts)
         for _ in range(3):
@@ -598,13 +623,14 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(httpx.TimeoutException):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
 
 class TestTokenUsageExtraction:
     """Test suite for token usage extraction."""
 
-    def test_extract_token_usage_all_fields_present(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_extract_token_usage_all_fields_present(self, httpx_mock):
         """Test token extraction when all fields are present."""
         httpx_mock.add_response(
             method="POST",
@@ -622,13 +648,14 @@ class TestTokenUsageExtraction:
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         assert response.tokens_used == 150
         assert response.prompt_tokens == 100
         assert response.completion_tokens == 50
 
-    def test_extract_token_usage_without_total(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_extract_token_usage_without_total(self, httpx_mock):
         """Test token extraction when total_tokens is missing."""
         httpx_mock.add_response(
             method="POST",
@@ -645,7 +672,7 @@ class TestTokenUsageExtraction:
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Should calculate total from prompt + completion
         assert response.tokens_used == 150
@@ -656,7 +683,8 @@ class TestTokenUsageExtraction:
 class TestCostEstimation:
     """Test suite for cost estimation integration."""
 
-    def test_cost_calculation_mistral_large(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_cost_calculation_mistral_large(self, httpx_mock):
         """Test cost calculation for mistral-large-latest."""
         httpx_mock.add_response(
             method="POST",
@@ -673,13 +701,14 @@ class TestCostEstimation:
         client = MistralClient(
             "mistral-large-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Mistral Large: $2.00/1M input, $6.00/1M output
         # Cost = (1000 * 0.000002) + (500 * 0.000006) = 0.002 + 0.003 = 0.005
         assert response.cost_usd == pytest.approx(0.005, rel=1e-6)
 
-    def test_cost_calculation_mistral_small(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_cost_calculation_mistral_small(self, httpx_mock):
         """Test cost calculation for mistral-small-latest."""
         httpx_mock.add_response(
             method="POST",
@@ -696,7 +725,7 @@ class TestCostEstimation:
         client = MistralClient(
             "mistral-small-latest", "test-api-key", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Mistral Small: $0.20/1M input, $0.60/1M output
         # Cost = (1000 * 0.0000002) + (500 * 0.0000006) = 0.0002 + 0.0003 = 0.0005
@@ -706,7 +735,8 @@ class TestCostEstimation:
 class TestLogging:
     """Test suite for logging behavior."""
 
-    def test_generate_answer_never_logs_api_key(self, httpx_mock, caplog):
+    @pytest.mark.asyncio
+    async def test_generate_answer_never_logs_api_key(self, httpx_mock, caplog):
         """Test that API key is NEVER logged in any form."""
         caplog.set_level(logging.DEBUG)
 
@@ -722,7 +752,7 @@ class TestLogging:
         client = MistralClient(
             "mistral-large-latest", "super-secret-key", TEST_SYSTEM_PROMPT
         )
-        client.generate_answer("Test")
+        await client.generate_answer("Test")
 
         # Should log model name
         assert "mistral-large-latest" in caplog.text
@@ -731,7 +761,8 @@ class TestLogging:
         assert "super-secret-key" not in caplog.text
         assert "secret" not in caplog.text
 
-    def test_generate_answer_logs_errors_without_api_key(self, httpx_mock, caplog):
+    @pytest.mark.asyncio
+    async def test_generate_answer_logs_errors_without_api_key(self, httpx_mock, caplog):
         """Test that error logs do not contain API key."""
         caplog.set_level(logging.ERROR)
 
@@ -748,7 +779,7 @@ class TestLogging:
 
         # Will fail after retries
         with contextlib.suppress(Exception):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         # Should log error details but not API key
         assert "secret-key" not in caplog.text

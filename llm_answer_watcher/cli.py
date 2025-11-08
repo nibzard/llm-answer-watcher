@@ -38,6 +38,7 @@ Security:
     - All exceptions are caught and formatted appropriately
 """
 
+import asyncio
 import json
 from contextlib import nullcontext
 from pathlib import Path
@@ -346,49 +347,46 @@ def run(
                     "[bold cyan]Overall Progress[/bold cyan]", total=total_queries
                 )
 
-                # Track current query task
-                current_task = None
-                current_task_info = {}
-
-                # Define progress callback with nested progress support
+                # Define progress callback with nested progress support for concurrent queries
                 class ProgressTracker:
+                    """
+                    Progress tracker for concurrent LLM queries.
+
+                    Tracks overall progress across all queries running in parallel.
+                    Individual query progress is shown via nested progress bars.
+                    """
                     def __init__(self):
                         self.completed = 0
+                        self.active_tasks: dict[str, int] = {}  # Maps query_key -> task_id
 
-                    def start_query(self, intent_id: str, provider: str, model: str):
-                        """Called when a new query starts."""
-                        nonlocal current_task, current_task_info
+                    async def start_query(self, intent_id: str, provider: str, model: str):
+                        """
+                        Called when a new query starts (async-compatible).
 
-                        # Remove previous task if exists
-                        if current_task is not None:
-                            progress.remove_task(current_task)
+                        Creates a nested progress bar for the query.
+                        Rich Progress updates are synchronous, so we don't await anything.
+                        """
+                        query_key = f"{intent_id}_{provider}_{model}"
 
-                        # Create new nested task
-                        current_task_info = {
-                            "intent_id": intent_id,
-                            "provider": provider,
-                            "model": model,
-                        }
-                        current_task = progress.add_task(
+                        # Add nested task for this query (Rich Progress is sync)
+                        task_id = progress.add_task(
                             f"  └─ [yellow]{intent_id}[/yellow] x [cyan]{provider}/{model}[/cyan]",
-                            total=1,
-                            start=False,
+                            total=100,  # Percentage-based (though we don't track real %)
                         )
-                        progress.start_task(current_task)
+                        self.active_tasks[query_key] = task_id
 
-                    def complete_query(self, success: bool = True):
-                        """Called when a query completes."""
-                        nonlocal current_task
+                    async def complete_query(self, success: bool = True):
+                        """
+                        Called when a query completes (async-compatible).
 
-                        # Update current task
-                        if current_task is not None:
-                            progress.update(current_task, completed=1)
-                            progress.remove_task(current_task)
-                            current_task = None
-
-                        # Advance main progress
+                        Updates overall progress. Individual task cleanup happens automatically.
+                        """
+                        # Update overall progress (Rich Progress is sync)
                         progress.advance(main_task)
                         self.completed += 1
+
+                        # Note: We could remove individual tasks here, but leaving them
+                        # shows the full history of completed queries
 
                 progress_tracker = ProgressTracker()
                 progress_callback = progress_tracker
@@ -397,13 +395,13 @@ def run(
                 # No progress updates in agent/quiet modes
                 progress_callback = None
 
-            # Run all queries
+            # Run all queries (async runner wrapped with asyncio.run)
             with (
                 spinner("Running queries...")
                 if not output_mode.is_human()
                 else nullcontext()
             ):
-                results = run_all(runtime_config, progress_callback=progress_callback)
+                results = asyncio.run(run_all(runtime_config, progress_callback=progress_callback))
 
         # Generate HTML report
         with spinner("Generating report..."):

@@ -115,7 +115,8 @@ class TestGenerateAnswerSuccess:
     """Test suite for successful Anthropic API calls."""
 
     @freeze_time("2025-11-02T08:30:45Z")
-    def test_generate_answer_success(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_success(self, httpx_mock):
         """Test successful API call with complete response."""
         # Mock successful Anthropic Messages API response
         httpx_mock.add_response(
@@ -143,7 +144,7 @@ class TestGenerateAnswerSuccess:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("What are the best CRM tools?")
+        response = await client.generate_answer("What are the best CRM tools?")
 
         # Verify response structure
         assert isinstance(response, LLMResponse)
@@ -161,7 +162,8 @@ class TestGenerateAnswerSuccess:
         assert response.web_search_results is None
         assert response.web_search_count == 0
 
-    def test_generate_answer_sends_correct_payload(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_sends_correct_payload(self, httpx_mock):
         """Test that API request includes correct structure for Anthropic."""
         httpx_mock.add_response(
             method="POST",
@@ -175,7 +177,7 @@ class TestGenerateAnswerSuccess:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        client.generate_answer("Test prompt")
+        await client.generate_answer("Test prompt")
 
         # Verify request was made
         request = httpx_mock.get_request()
@@ -195,7 +197,8 @@ class TestGenerateAnswerSuccess:
         assert data["messages"][0]["role"] == "user"
         assert data["messages"][0]["content"] == "Test prompt"
 
-    def test_generate_answer_sends_auth_header(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_sends_auth_header(self, httpx_mock):
         """Test that API request includes x-api-key and anthropic-version headers."""
         httpx_mock.add_response(
             method="POST",
@@ -209,7 +212,7 @@ class TestGenerateAnswerSuccess:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        client.generate_answer("Test")
+        await client.generate_answer("Test")
 
         # Verify headers
         request = httpx_mock.get_request()
@@ -217,7 +220,8 @@ class TestGenerateAnswerSuccess:
         assert request.headers["anthropic-version"] == ANTHROPIC_VERSION
         assert request.headers["content-type"] == "application/json"
 
-    def test_generate_answer_large_response(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_large_response(self, httpx_mock):
         """Test handling of large response with high token count."""
         large_content = "A" * 10000
         httpx_mock.add_response(
@@ -232,7 +236,7 @@ class TestGenerateAnswerSuccess:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Generate large text")
+        response = await client.generate_answer("Generate large text")
 
         assert response.answer_text == large_content
         assert response.tokens_used == 25100  # 100 + 25000
@@ -241,29 +245,32 @@ class TestGenerateAnswerSuccess:
 class TestGenerateAnswerValidation:
     """Test suite for input validation."""
 
-    def test_generate_answer_empty_prompt(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_empty_prompt(self):
         """Test that empty prompt raises ValueError."""
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
-            client.generate_answer("")
+            await client.generate_answer("")
 
-    def test_generate_answer_whitespace_prompt(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_whitespace_prompt(self):
         """Test that whitespace-only prompt raises ValueError."""
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
-            client.generate_answer("   \n\t  ")
+            await client.generate_answer("   \n\t  ")
 
 
 class TestPromptLengthValidation:
     """Test suite for prompt length validation in Anthropic client."""
 
-    def test_generate_answer_accepts_normal_prompt(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_accepts_normal_prompt(self, httpx_mock):
         """Normal-length prompts should be accepted."""
         # Mock successful response
         httpx_mock.add_response(
@@ -280,12 +287,13 @@ class TestPromptLengthValidation:
         )
         # Test with a reasonable prompt (< 100k chars)
         prompt = "What are the best email warmup tools?" * 100  # ~4000 chars
-        response = client.generate_answer(prompt)
+        response = await client.generate_answer(prompt)
 
         assert response.answer_text == "Test response"
         assert len(httpx_mock.get_requests()) == 1
 
-    def test_generate_answer_accepts_max_length_prompt(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_accepts_max_length_prompt(self, httpx_mock):
         """Prompts exactly at max length should be accepted."""
         # Mock successful response
         httpx_mock.add_response(
@@ -301,12 +309,13 @@ class TestPromptLengthValidation:
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
         prompt = "a" * MAX_PROMPT_LENGTH
-        response = client.generate_answer(prompt)
+        response = await client.generate_answer(prompt)
 
         # Should not raise ValueError for length
         assert response.answer_text == "Test response"
 
-    def test_generate_answer_rejects_over_limit_prompt(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_rejects_over_limit_prompt(self):
         """Prompts over max length should raise ValueError."""
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
@@ -314,9 +323,10 @@ class TestPromptLengthValidation:
         prompt = "a" * (MAX_PROMPT_LENGTH + 1)
 
         with pytest.raises(ValueError, match=r"Prompt exceeds maximum length"):
-            client.generate_answer(prompt)
+            await client.generate_answer(prompt)
 
-    def test_generate_answer_rejects_very_long_prompt(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_rejects_very_long_prompt(self):
         """Very long prompts should raise ValueError with correct count."""
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
@@ -324,13 +334,14 @@ class TestPromptLengthValidation:
         prompt = "a" * (MAX_PROMPT_LENGTH * 2)
 
         with pytest.raises(ValueError, match=r"200,000 characters"):
-            client.generate_answer(prompt)
+            await client.generate_answer(prompt)
 
 
 class TestGenerateAnswerErrorHandling:
     """Test suite for error handling in API calls."""
 
-    def test_generate_answer_http_401_fails_immediately(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_http_401_fails_immediately(self, httpx_mock):
         """Test that 401 (auth error) fails immediately without retry."""
         httpx_mock.add_response(
             method="POST",
@@ -344,12 +355,13 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="non-retryable.*401"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         # Should only attempt once (no retry)
         assert len(httpx_mock.get_requests()) == 1
 
-    def test_generate_answer_http_400_fails_immediately(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_http_400_fails_immediately(self, httpx_mock):
         """Test that 400 (bad request) fails immediately without retry."""
         httpx_mock.add_response(
             method="POST",
@@ -363,12 +375,13 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="non-retryable.*400"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         # Should only attempt once (no retry)
         assert len(httpx_mock.get_requests()) == 1
 
-    def test_generate_answer_http_404_fails_immediately(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_http_404_fails_immediately(self, httpx_mock):
         """Test that 404 (not found) fails immediately without retry."""
         httpx_mock.add_response(
             method="POST",
@@ -382,12 +395,13 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="non-retryable.*404"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         # Should only attempt once (no retry)
         assert len(httpx_mock.get_requests()) == 1
 
-    def test_generate_answer_http_429_retries(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_http_429_retries(self, httpx_mock):
         """Test that 429 (rate limit) triggers retry logic."""
         # First attempt: 429
         httpx_mock.add_response(
@@ -410,13 +424,14 @@ class TestGenerateAnswerErrorHandling:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Should have retried and succeeded
         assert response.answer_text == "Success after retry"
         assert len(httpx_mock.get_requests()) == 2
 
-    def test_generate_answer_http_500_retries(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_http_500_retries(self, httpx_mock):
         """Test that 500 (server error) triggers retry logic."""
         # First attempt: 500
         httpx_mock.add_response(
@@ -439,13 +454,14 @@ class TestGenerateAnswerErrorHandling:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Should have retried and succeeded
         assert response.answer_text == "Success after retry"
         assert len(httpx_mock.get_requests()) == 2
 
-    def test_generate_answer_connection_error_retries(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_connection_error_retries(self, httpx_mock):
         """Test that connection errors trigger retry logic."""
         # First attempt: Connection error
         httpx_mock.add_exception(httpx.ConnectError("Connection failed"))
@@ -463,12 +479,13 @@ class TestGenerateAnswerErrorHandling:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Should have retried and succeeded
         assert response.answer_text == "Success after retry"
 
-    def test_generate_answer_invalid_json_response(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_invalid_json_response(self, httpx_mock):
         """Test that invalid JSON response raises RuntimeError."""
         httpx_mock.add_response(
             method="POST",
@@ -483,9 +500,10 @@ class TestGenerateAnswerErrorHandling:
         with pytest.raises(
             RuntimeError, match="Failed to parse Anthropic response JSON"
         ):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_missing_content_field(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_missing_content_field(self, httpx_mock):
         """Test that missing content field raises RuntimeError."""
         httpx_mock.add_response(
             method="POST",
@@ -500,9 +518,10 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="missing 'content' array"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_empty_content_array(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_empty_content_array(self, httpx_mock):
         """Test that empty content array raises RuntimeError."""
         httpx_mock.add_response(
             method="POST",
@@ -518,9 +537,10 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="missing 'content' array"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_missing_text_field(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_missing_text_field(self, httpx_mock):
         """Test that missing text field in content block raises RuntimeError."""
         httpx_mock.add_response(
             method="POST",
@@ -536,9 +556,10 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="missing 'text' field"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_wrong_content_type(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_wrong_content_type(self, httpx_mock):
         """Test that wrong content type raises RuntimeError."""
         httpx_mock.add_response(
             method="POST",
@@ -554,13 +575,14 @@ class TestGenerateAnswerErrorHandling:
         )
 
         with pytest.raises(RuntimeError, match="Expected content block type 'text'"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
 
 class TestTokenUsageExtraction:
     """Test suite for token usage extraction."""
 
-    def test_extract_token_usage_success(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_extract_token_usage_success(self, httpx_mock):
         """Test successful token usage extraction."""
         httpx_mock.add_response(
             method="POST",
@@ -574,13 +596,14 @@ class TestTokenUsageExtraction:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         assert response.prompt_tokens == 100
         assert response.completion_tokens == 50
         assert response.tokens_used == 150
 
-    def test_extract_token_usage_missing_usage(self, httpx_mock, caplog):
+    @pytest.mark.asyncio
+    async def test_extract_token_usage_missing_usage(self, httpx_mock, caplog):
         """Test handling of missing usage field."""
         caplog.set_level(logging.WARNING)
 
@@ -596,7 +619,7 @@ class TestTokenUsageExtraction:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Should default to 0 and log warning
         assert response.tokens_used == 0
@@ -604,7 +627,8 @@ class TestTokenUsageExtraction:
         assert response.completion_tokens == 0
         assert "missing 'usage' data" in caplog.text
 
-    def test_extract_token_usage_partial_data(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_extract_token_usage_partial_data(self, httpx_mock):
         """Test handling of partial token usage data."""
         httpx_mock.add_response(
             method="POST",
@@ -618,7 +642,7 @@ class TestTokenUsageExtraction:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Should use available data and default missing to 0
         assert response.prompt_tokens == 100
@@ -629,7 +653,8 @@ class TestTokenUsageExtraction:
 class TestCostEstimation:
     """Test suite for cost estimation."""
 
-    def test_cost_estimation_haiku(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_cost_estimation_haiku(self, httpx_mock):
         """Test cost estimation for Claude 3.5 Haiku."""
         httpx_mock.add_response(
             method="POST",
@@ -643,13 +668,14 @@ class TestCostEstimation:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Cost = (1000 * $0.80/1M) + (500 * $4.00/1M) = $0.0008 + $0.002 = $0.0028
         assert response.cost_usd > 0
         assert response.cost_usd == pytest.approx(0.0028, rel=1e-6)
 
-    def test_cost_estimation_sonnet(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_cost_estimation_sonnet(self, httpx_mock):
         """Test cost estimation for Claude 3.5 Sonnet."""
         httpx_mock.add_response(
             method="POST",
@@ -663,7 +689,7 @@ class TestCostEstimation:
         client = AnthropicClient(
             "claude-3-5-sonnet-20241022", "sk-ant-test123", TEST_SYSTEM_PROMPT
         )
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Cost = (1000 * $3.00/1M) + (500 * $15.00/1M) = $0.003 + $0.0075 = $0.0105
         assert response.cost_usd > 0
@@ -673,7 +699,8 @@ class TestCostEstimation:
 class TestErrorDetailExtraction:
     """Test suite for error detail extraction."""
 
-    def test_extract_error_detail_with_message(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_extract_error_detail_with_message(self, httpx_mock):
         """Test error detail extraction with error message."""
         httpx_mock.add_response(
             method="POST",
@@ -687,9 +714,10 @@ class TestErrorDetailExtraction:
         )
 
         with pytest.raises(RuntimeError, match="Invalid API key provided"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_extract_error_detail_without_message(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_extract_error_detail_without_message(self, httpx_mock):
         """Test error detail extraction without error message."""
         # 500 error is retryable, so we need to mock it 3 times (max attempts)
         for _ in range(3):
@@ -705,9 +733,10 @@ class TestErrorDetailExtraction:
         )
 
         with pytest.raises(httpx.HTTPStatusError, match="500"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_extract_error_detail_invalid_json(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_extract_error_detail_invalid_json(self, httpx_mock):
         """Test error detail extraction with invalid JSON."""
         # 500 error is retryable, so we need to mock it 3 times (max attempts)
         for _ in range(3):
@@ -723,13 +752,14 @@ class TestErrorDetailExtraction:
         )
 
         with pytest.raises(httpx.HTTPStatusError, match="500"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
 
 class TestLogging:
     """Test suite for logging behavior."""
 
-    def test_api_key_never_logged_on_success(self, httpx_mock, caplog):
+    @pytest.mark.asyncio
+    async def test_api_key_never_logged_on_success(self, httpx_mock, caplog):
         """Test that API key is NEVER logged on successful request."""
         caplog.set_level(logging.DEBUG)
 
@@ -745,7 +775,7 @@ class TestLogging:
         client = AnthropicClient(
             "claude-3-5-haiku-20241022", "sk-ant-secret123", TEST_SYSTEM_PROMPT
         )
-        client.generate_answer("Test")
+        await client.generate_answer("Test")
 
         # Should log model name
         assert "claude-3-5-haiku-20241022" in caplog.text
@@ -754,7 +784,8 @@ class TestLogging:
         assert "sk-ant-secret123" not in caplog.text
         assert "secret" not in caplog.text
 
-    def test_api_key_never_logged_on_error(self, httpx_mock, caplog):
+    @pytest.mark.asyncio
+    async def test_api_key_never_logged_on_error(self, httpx_mock, caplog):
         """Test that API key is NEVER logged on retryable error (with logging)."""
         caplog.set_level(logging.ERROR)
 
@@ -784,7 +815,7 @@ class TestLogging:
         )
 
         with pytest.raises(httpx.HTTPStatusError):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         # Should log model name and status (goes through HTTPStatusError handler)
         assert "claude-3-5-haiku-20241022" in caplog.text

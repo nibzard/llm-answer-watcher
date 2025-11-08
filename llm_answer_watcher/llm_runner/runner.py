@@ -32,6 +32,7 @@ Architecture:
     In Cloud version, this becomes the HTTP endpoint handler.
 """
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -408,15 +409,15 @@ def validate_budget(config: RuntimeConfig, cost_estimate: dict) -> None:
         )
 
 
-def run_all(
+async def run_all(
     config: RuntimeConfig, progress_callback: Callable[[], None] | None = None
 ) -> dict:
     """
-    Execute complete LLM query workflow and return results.
+    Execute complete LLM query workflow with parallel execution and return results.
 
     This is the core orchestration function that runs all queries across
-    all intents and models, parses results, writes artifacts, and stores
-    data in SQLite.
+    all intents and models in parallel (with semaphore rate limiting),
+    parses results, writes artifacts, and stores data in SQLite.
 
     **This is the internal API contract** - designed to be called in-process
     by OSS CLI or exposed over HTTP in Cloud version.
@@ -456,7 +457,7 @@ def run_all(
 
     Example:
         >>> config = load_config("examples/watcher.config.yaml")
-        >>> result = run_all(config)
+        >>> result = await run_all(config)  # Note: now requires await
         >>> success = result['success_count']
         >>> total = result['total_queries']
         >>> print(f"Completed {success}/{total} queries")
@@ -465,10 +466,12 @@ def run_all(
         Total cost: $0.0123
 
     Implementation notes:
-        - Queries are executed sequentially (no async in v1)
+        - Queries are executed in parallel with semaphore rate limiting
+        - Concurrency controlled by config.run_settings.max_concurrent_requests
+        - Intent classification runs sequentially per intent before parallel execution
         - Each query failure is logged but doesn't stop execution
         - Error files are written for failed queries
-        - Database errors are logged but don't prevent JSON output
+        - Database operations remain synchronous (SQLite is fast for local ops)
         - Cost is estimated, not exact (depends on provider pricing)
     """
     # Generate run identifier from current UTC timestamp
@@ -527,7 +530,581 @@ def run_all(
         logger.error(f"Failed to insert run record into database: {e}", exc_info=True)
         # Continue execution - database is not critical
 
-    # Execute queries for all (intent, model) combinations
+    # Initialize semaphore for rate limiting concurrent requests
+    max_concurrent = config.run_settings.max_concurrent_requests
+    semaphore = asyncio.Semaphore(max_concurrent)
+    logger.info(f"Parallelization enabled: max {max_concurrent} concurrent requests")
+
+    # Define async wrapper for executing single query with semaphore
+    async def _execute_query_with_semaphore(
+        intent,
+        model_config=None,
+        runner_config=None,
+    ):
+        """
+        Execute single query with semaphore rate limiting.
+
+        Returns:
+            tuple: (success: bool, cost_usd: float, error_dict: dict | None)
+        """
+        async with semaphore:
+            # Determine if this is an API model or runner
+            if model_config:
+                provider = model_config.provider
+                model_name = model_config.model_name
+                logger.info(
+                    f"Processing: intent={intent.id}, provider={provider}, model={model_name}"
+                )
+            else:
+                provider = runner_config.runner_plugin
+                model_name = "runner"
+                logger.info(
+                    f"Processing runner: intent={intent.id}, plugin={provider}"
+                )
+
+            # Notify progress callback of query start (if supported)
+            if progress_callback and hasattr(progress_callback, "start_query"):
+                progress_callback.start_query(intent.id, provider, model_name)
+
+            try:
+                # Process API model
+                if model_config:
+                    # Build LLM client for this model
+                    client = build_client(
+                        provider=model_config.provider,
+                        model_name=model_config.model_name,
+                        api_key=model_config.api_key,
+                        system_prompt=model_config.system_prompt,
+                        tools=model_config.tools,
+                        tool_choice=model_config.tool_choice,
+                    )
+
+                    # Generate answer with retry logic (await the async call)
+                    response = await client.generate_answer(intent.prompt)
+
+                    # Extract response data
+                    answer_text = response.answer_text
+                    cost_usd = response.cost_usd
+
+                    # Create usage metadata for storage with actual token breakdown
+                    usage_meta = {
+                        "prompt_tokens": response.prompt_tokens,
+                        "completion_tokens": response.completion_tokens,
+                        "total_tokens": response.tokens_used,
+                    }
+
+                    # Create raw answer record
+                    raw_record = RawAnswerRecord(
+                        intent_id=intent.id,
+                        prompt=intent.prompt,
+                        model_provider=model_config.provider,
+                        model_name=model_config.model_name,
+                        timestamp_utc=utc_timestamp(),
+                        answer_text=answer_text,
+                        answer_length=len(answer_text),
+                        usage_meta=usage_meta,
+                        estimated_cost_usd=cost_usd,
+                        web_search_results=response.web_search_results,
+                        web_search_count=response.web_search_count,
+                    )
+
+                    # Write raw answer JSON
+                    write_raw_answer(
+                        run_dir=run_dir,
+                        intent_id=intent.id,
+                        provider=model_config.provider,
+                        model=model_config.model_name,
+                        data=asdict(raw_record),
+                    )
+
+                    # Insert raw answer into database
+                    try:
+                        # Serialize web search results to JSON if present
+                        web_search_json = None
+                        if response.web_search_results:
+                            web_search_json = json.dumps(response.web_search_results)
+
+                        with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
+                            insert_answer_raw(
+                                conn=conn,
+                                run_id=run_id,
+                                intent_id=intent.id,
+                                model_provider=model_config.provider,
+                                model_name=model_config.model_name,
+                                timestamp_utc=raw_record.timestamp_utc,
+                                prompt=intent.prompt,
+                                answer_text=answer_text,
+                                usage_meta_json=json.dumps(usage_meta),
+                                estimated_cost_usd=cost_usd,
+                                web_search_count=response.web_search_count,
+                                web_search_results_json=web_search_json,
+                                runner_type=raw_record.runner_type,
+                                runner_name=raw_record.runner_name,
+                                screenshot_path=raw_record.screenshot_path,
+                                html_snapshot_path=raw_record.html_snapshot_path,
+                                session_id=raw_record.session_id,
+                            )
+                            conn.commit()
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to insert answer into database: {e}", exc_info=True
+                        )
+
+                    # Parse answer to extract mentions and rankings
+                    extraction_result = parse_answer(
+                        answer_text=answer_text,
+                        brands=config.brands,
+                        intent_id=intent.id,
+                        provider=model_config.provider,
+                        model_name=model_config.model_name,
+                        timestamp_utc=raw_record.timestamp_utc,
+                        extraction_settings=config.extraction_settings,
+                    )
+
+                    # Write parsed answer JSON
+                    parsed_data = {
+                        "appeared_mine": extraction_result.appeared_mine,
+                        "my_mentions": [
+                            {
+                                "original_text": m.original_text,
+                                "normalized_name": m.normalized_name,
+                                "brand_category": m.brand_category,
+                                "match_position": m.match_position,
+                            }
+                            for m in extraction_result.my_mentions
+                        ],
+                        "competitor_mentions": [
+                            {
+                                "original_text": m.original_text,
+                                "normalized_name": m.normalized_name,
+                                "brand_category": m.brand_category,
+                                "match_position": m.match_position,
+                            }
+                            for m in extraction_result.competitor_mentions
+                        ],
+                        "ranked_list": [
+                            {
+                                "brand_name": r.brand_name,
+                                "rank_position": r.rank_position,
+                                "confidence": r.confidence,
+                            }
+                            for r in extraction_result.ranked_list
+                        ],
+                        "rank_extraction_method": extraction_result.rank_extraction_method,
+                        "rank_confidence": extraction_result.rank_confidence,
+                        "extraction_cost_usd": extraction_result.extraction_cost_usd,
+                    }
+
+                    write_parsed_answer(
+                        run_dir=run_dir,
+                        intent_id=intent.id,
+                        provider=model_config.provider,
+                        model=model_config.model_name,
+                        data=parsed_data,
+                    )
+
+                    # Insert mentions into database
+                    all_mentions = (
+                        extraction_result.my_mentions
+                        + extraction_result.competitor_mentions
+                    )
+                    for mention in all_mentions:
+                        try:
+                            # Determine if this is my brand
+                            is_mine = mention.brand_category == "mine"
+
+                            # Find rank position if this brand is in ranked list
+                            rank_position = None
+                            for ranked in extraction_result.ranked_list:
+                                if ranked.brand_name == mention.normalized_name:
+                                    rank_position = ranked.rank_position
+                                    break
+
+                            with sqlite3.connect(
+                                config.run_settings.sqlite_db_path
+                            ) as conn:
+                                insert_mention(
+                                    conn=conn,
+                                    run_id=run_id,
+                                    timestamp_utc=raw_record.timestamp_utc,
+                                    intent_id=intent.id,
+                                    model_provider=model_config.provider,
+                                    model_name=model_config.model_name,
+                                    brand_name=mention.original_text,
+                                    normalized_name=mention.normalized_name,
+                                    is_mine=is_mine,
+                                    rank_position=rank_position,
+                                    match_type="exact",
+                                    sentiment=mention.sentiment,
+                                    mention_context=mention.mention_context,
+                                )
+                                conn.commit()
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to insert mention into database: {e}",
+                                exc_info=True,
+                            )
+
+                    # Execute operations if configured
+                    operations_cost_usd = 0.0
+                    if intent.operations or config.global_operations:
+                        logger.info(f"Executing operations for intent={intent.id}")
+
+                        # Combine intent-specific and global operations
+                        all_operations = list(intent.operations) + list(
+                            config.global_operations
+                        )
+
+                        # Build operation context
+                        operation_context = OperationContext(
+                            intent_data={
+                                "id": intent.id,
+                                "prompt": intent.prompt,
+                                "response": answer_text,
+                            },
+                            extraction_data={
+                                "my_brand": config.brands.mine[0]
+                                if config.brands.mine
+                                else "unknown",
+                                "my_brand_aliases": config.brands.mine,
+                                "competitors": config.brands.competitors,
+                                "competitors_mentioned": [
+                                    m.normalized_name
+                                    for m in extraction_result.competitor_mentions
+                                ],
+                                "my_rank": extraction_result.ranked_list[0].rank_position
+                                if extraction_result.ranked_list
+                                and extraction_result.appeared_mine
+                                else None,
+                                "my_mentions": [
+                                    m.original_text for m in extraction_result.my_mentions
+                                ],
+                                "competitor_mentions": [
+                                    m.original_text
+                                    for m in extraction_result.competitor_mentions
+                                ],
+                            },
+                            run_metadata={
+                                "run_id": run_id,
+                                "timestamp": timestamp_utc,
+                            },
+                            model_info={
+                                "provider": model_config.provider,
+                                "name": model_config.model_name,
+                            },
+                        )
+
+                        # Execute operations
+                        operation_results = execute_operations_with_dependencies(
+                            operations=all_operations,
+                            context=operation_context,
+                            runtime_config=config,
+                        )
+
+                        # Store operation results
+                        for execution_order, (op_id, op_result) in enumerate(
+                            operation_results.items()
+                        ):
+                            operations_cost_usd += op_result.cost_usd
+
+                            # Write JSON artifact
+                            operation_data = asdict(op_result)
+                            write_operation_result(
+                                run_dir=run_dir,
+                                intent_id=intent.id,
+                                operation_id=op_id,
+                                provider=op_result.model_provider,
+                                model=op_result.model_name,
+                                data=operation_data,
+                            )
+
+                            # Insert into database
+                            try:
+                                operation = next(
+                                    (o for o in all_operations if o.id == op_id), None
+                                )
+                                with sqlite3.connect(
+                                    config.run_settings.sqlite_db_path
+                                ) as conn:
+                                    insert_operation(
+                                        conn=conn,
+                                        run_id=run_id,
+                                        intent_id=intent.id,
+                                        model_provider=op_result.model_provider,
+                                        model_name=op_result.model_name,
+                                        operation_id=op_id,
+                                        operation_description=operation.description
+                                        if operation
+                                        else None,
+                                        operation_prompt=op_result.rendered_prompt,
+                                        result_text=op_result.result_text,
+                                        tokens_used_input=op_result.tokens_used_input,
+                                        tokens_used_output=op_result.tokens_used_output,
+                                        cost_usd=op_result.cost_usd,
+                                        timestamp_utc=op_result.timestamp_utc,
+                                        depends_on=operation.depends_on
+                                        if operation
+                                        else [],
+                                        execution_order=execution_order,
+                                        skipped=op_result.skipped,
+                                        error=op_result.error,
+                                    )
+                                    conn.commit()
+                            except Exception as e:
+                                logger.error(
+                                    f"Failed to insert operation into database: {e}",
+                                    exc_info=True,
+                                )
+
+                        logger.info(
+                            f"Completed {len(operation_results)} operations, cost=${operations_cost_usd:.6f}"
+                        )
+
+                    # Calculate total cost for this query
+                    total_query_cost = cost_usd + extraction_result.extraction_cost_usd + operations_cost_usd
+
+                    # Log with extraction cost breakdown if applicable
+                    if extraction_result.extraction_cost_usd > 0:
+                        logger.info(
+                            f"Success: intent={intent.id}, provider={model_config.provider}, "
+                            f"model={model_config.model_name}, "
+                            f"answer_cost=${cost_usd:.6f}, "
+                            f"extraction_cost=${extraction_result.extraction_cost_usd:.6f}, "
+                            f"total=${cost_usd + extraction_result.extraction_cost_usd:.6f}, "
+                            f"appeared_mine={extraction_result.appeared_mine}, "
+                            f"extraction_method={extraction_result.rank_extraction_method}"
+                        )
+                    else:
+                        logger.info(
+                            f"Success: intent={intent.id}, provider={model_config.provider}, "
+                            f"model={model_config.model_name}, cost=${cost_usd:.6f}, "
+                            f"appeared_mine={extraction_result.appeared_mine}"
+                        )
+
+                    # Call progress callback if provided
+                    if progress_callback:
+                        if hasattr(progress_callback, "complete_query"):
+                            progress_callback.complete_query(success=True)
+                        else:
+                            progress_callback()
+
+                    return (True, total_query_cost, None)
+
+                # Process browser/custom runner
+                # Create runner instance via plugin registry
+                runner = RunnerRegistry.create_runner(
+                    plugin_name=runner_config.runner_plugin,
+                    config=runner_config.config,
+                )
+
+                # Execute intent via runner
+                result = runner.run_intent(intent.prompt)
+
+                # Check if execution was successful
+                if not result.success:
+                    raise Exception(
+                        result.error_message or "Runner execution failed (no error message)"
+                    )
+
+                # Convert IntentResult to RawAnswerRecord
+                raw_record = intent_result_to_raw_record(
+                    result=result, intent_id=intent.id, prompt=intent.prompt
+                )
+
+                # Write raw answer JSON
+                write_raw_answer(
+                    run_dir=run_dir,
+                    intent_id=intent.id,
+                    provider=result.provider,
+                    model=result.model_name,
+                    data=asdict(raw_record),
+                )
+
+                # Insert raw answer into database
+                try:
+                    # Serialize web search results to JSON if present
+                    web_search_json = None
+                    if result.web_search_results:
+                        web_search_json = json.dumps(result.web_search_results)
+
+                    with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
+                        insert_answer_raw(
+                            conn=conn,
+                            run_id=run_id,
+                            intent_id=intent.id,
+                            model_provider=result.provider,
+                            model_name=result.model_name,
+                            timestamp_utc=raw_record.timestamp_utc,
+                            prompt=intent.prompt,
+                            answer_text=result.answer_text,
+                            usage_meta_json=json.dumps(raw_record.usage_meta),
+                            estimated_cost_usd=result.cost_usd,
+                            web_search_count=raw_record.web_search_count,
+                            web_search_results_json=web_search_json,
+                            runner_type=result.runner_type,
+                            runner_name=result.runner_name,
+                            screenshot_path=result.screenshot_path,
+                            html_snapshot_path=result.html_snapshot_path,
+                            session_id=result.session_id,
+                        )
+                        conn.commit()
+                except Exception as e:
+                    logger.error(
+                        f"Failed to insert runner answer into database: {e}",
+                        exc_info=True,
+                    )
+
+                # Parse answer to extract mentions and rankings
+                extraction_result = parse_answer(
+                    answer_text=result.answer_text,
+                    brands=config.brands,
+                    intent_id=intent.id,
+                    provider=result.provider,
+                    model_name=result.model_name,
+                    timestamp_utc=raw_record.timestamp_utc,
+                    extraction_settings=config.extraction_settings,
+                )
+
+                # Write parsed answer JSON
+                write_parsed_answer(
+                    run_dir=run_dir,
+                    intent_id=intent.id,
+                    provider=result.provider,
+                    model=result.model_name,
+                    data=asdict(extraction_result),
+                )
+
+                # Insert mentions into database
+                all_mentions = (
+                    extraction_result.my_mentions
+                    + extraction_result.competitor_mentions
+                )
+                for mention in all_mentions:
+                    try:
+                        # Determine if this is my brand
+                        is_mine = mention.brand_category == "mine"
+
+                        # Find rank position if this brand is in ranked list
+                        rank_position = None
+                        for ranked in extraction_result.ranked_list:
+                            if ranked.brand_name == mention.normalized_name:
+                                rank_position = ranked.rank_position
+                                break
+
+                        with sqlite3.connect(
+                            config.run_settings.sqlite_db_path
+                        ) as conn:
+                            insert_mention(
+                                conn=conn,
+                                run_id=run_id,
+                                timestamp_utc=raw_record.timestamp_utc,
+                                intent_id=intent.id,
+                                model_provider=result.provider,
+                                model_name=result.model_name,
+                                brand_name=mention.original_text,
+                                normalized_name=mention.normalized_name,
+                                is_mine=is_mine,
+                                rank_position=rank_position,
+                                match_type="exact",
+                                sentiment=mention.sentiment,
+                                mention_context=mention.mention_context,
+                            )
+                            conn.commit()
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to insert runner mention into database: {e}",
+                            exc_info=True,
+                        )
+
+                # Calculate total cost for this query
+                total_query_cost = result.cost_usd + extraction_result.extraction_cost_usd
+
+                # Log success
+                if extraction_result.extraction_cost_usd > 0:
+                    logger.info(
+                        f"Success: intent={intent.id}, runner={runner_config.runner_plugin}, "
+                        f"runner_cost=${result.cost_usd:.6f}, "
+                        f"extraction_cost=${extraction_result.extraction_cost_usd:.6f}, "
+                        f"total=${result.cost_usd + extraction_result.extraction_cost_usd:.6f}, "
+                        f"appeared_mine={extraction_result.appeared_mine}"
+                    )
+                else:
+                    logger.info(
+                        f"Success: intent={intent.id}, runner={runner_config.runner_plugin}, "
+                        f"cost=${result.cost_usd:.6f}, "
+                        f"appeared_mine={extraction_result.appeared_mine}"
+                    )
+
+                # Call progress callback if provided
+                if progress_callback:
+                    if hasattr(progress_callback, "complete_query"):
+                        progress_callback.complete_query(success=True)
+                    else:
+                        progress_callback()
+
+                return (True, total_query_cost, None)
+
+            except Exception as e:
+                # Query failed - write error file and track
+                error_message = str(e)
+
+                if model_config:
+                    logger.error(
+                        f"Failed query: intent={intent.id}, "
+                        f"provider={model_config.provider}, "
+                        f"model={model_config.model_name}, error={error_message}",
+                        exc_info=True,
+                    )
+
+                    write_error(
+                        run_dir=run_dir,
+                        intent_id=intent.id,
+                        provider=model_config.provider,
+                        model=model_config.model_name,
+                        error_message=error_message,
+                    )
+
+                    error_dict = {
+                        "intent_id": intent.id,
+                        "model_provider": model_config.provider,
+                        "model_name": model_config.model_name,
+                        "error_message": error_message,
+                    }
+                else:
+                    logger.error(
+                        f"Failed runner: intent={intent.id}, "
+                        f"plugin={runner_config.runner_plugin}, "
+                        f"error={error_message}",
+                        exc_info=True,
+                    )
+
+                    write_error(
+                        run_dir=run_dir,
+                        intent_id=intent.id,
+                        provider=runner_config.runner_plugin,
+                        model="runner",
+                        error_message=error_message,
+                    )
+
+                    error_dict = {
+                        "intent_id": intent.id,
+                        "model_provider": runner_config.runner_plugin,
+                        "model_name": "runner",
+                        "error_message": error_message,
+                    }
+
+                # Call progress callback if provided (even for errors)
+                if progress_callback:
+                    if hasattr(progress_callback, "complete_query"):
+                        progress_callback.complete_query(success=False)
+                    else:
+                        progress_callback()
+
+                return (False, 0.0, error_dict)
+
+    # Build list of tasks for all (intent x model) and (intent x runner) combinations
+    tasks = []
+
     for intent in config.intents:
         # Classify intent before running queries (if enabled)
         intent_classification_cost = 0.0
@@ -583,582 +1160,43 @@ def run_all(
                 )
                 # Continue execution - classification is not critical
 
-        # Process API models (if configured)
+        # Create tasks for API models (if configured)
         if config.models:
             for model_config in config.models:
-                logger.info(
-                    f"Processing: intent={intent.id}, provider={model_config.provider}, "
-                    f"model={model_config.model_name}"
+                task = _execute_query_with_semaphore(
+                    intent=intent,
+                    model_config=model_config,
+                    runner_config=None,
                 )
+                tasks.append(task)
 
-                # Notify progress callback of query start (if supported)
-                if progress_callback and hasattr(progress_callback, "start_query"):
-                    progress_callback.start_query(
-                    intent.id, model_config.provider, model_config.model_name
-                )
-
-                try:
-                    # Build LLM client for this model
-                    client = build_client(
-                        provider=model_config.provider,
-                        model_name=model_config.model_name,
-                        api_key=model_config.api_key,
-                        system_prompt=model_config.system_prompt,
-                        tools=model_config.tools,
-                        tool_choice=model_config.tool_choice,
-                    )
-    
-                    # Generate answer with retry logic
-                    response = client.generate_answer(intent.prompt)
-    
-                    # Extract response data
-                    answer_text = response.answer_text
-                    cost_usd = response.cost_usd
-    
-                    # Create usage metadata for storage with actual token breakdown
-                    usage_meta = {
-                        "prompt_tokens": response.prompt_tokens,
-                        "completion_tokens": response.completion_tokens,
-                        "total_tokens": response.tokens_used,
-                    }
-    
-                    # Create raw answer record
-                    raw_record = RawAnswerRecord(
-                        intent_id=intent.id,
-                        prompt=intent.prompt,
-                        model_provider=model_config.provider,
-                        model_name=model_config.model_name,
-                        timestamp_utc=utc_timestamp(),
-                        answer_text=answer_text,
-                        answer_length=len(answer_text),
-                        usage_meta=usage_meta,
-                        estimated_cost_usd=cost_usd,
-                        web_search_results=response.web_search_results,
-                        web_search_count=response.web_search_count,
-                    )
-    
-                    # Write raw answer JSON
-                    write_raw_answer(
-                        run_dir=run_dir,
-                        intent_id=intent.id,
-                        provider=model_config.provider,
-                        model=model_config.model_name,
-                        data=asdict(raw_record),
-                    )
-    
-                    # Insert raw answer into database
-                    try:
-                        # Serialize web search results to JSON if present
-                        web_search_json = None
-                        if response.web_search_results:
-                            web_search_json = json.dumps(response.web_search_results)
-    
-                        with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
-                            insert_answer_raw(
-                                conn=conn,
-                                run_id=run_id,
-                                intent_id=intent.id,
-                                model_provider=model_config.provider,
-                                model_name=model_config.model_name,
-                                timestamp_utc=raw_record.timestamp_utc,
-                                prompt=intent.prompt,
-                                answer_text=answer_text,
-                                usage_meta_json=json.dumps(usage_meta),
-                                estimated_cost_usd=cost_usd,
-                                web_search_count=response.web_search_count,
-                                web_search_results_json=web_search_json,
-                                runner_type=raw_record.runner_type,
-                                runner_name=raw_record.runner_name,
-                                screenshot_path=raw_record.screenshot_path,
-                                html_snapshot_path=raw_record.html_snapshot_path,
-                                session_id=raw_record.session_id,
-                            )
-                            conn.commit()
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to insert answer into database: {e}", exc_info=True
-                        )
-    
-                    # Parse answer to extract mentions and rankings
-                    extraction_result = parse_answer(
-                        answer_text=answer_text,
-                        brands=config.brands,
-                        intent_id=intent.id,
-                        provider=model_config.provider,
-                        model_name=model_config.model_name,
-                        timestamp_utc=raw_record.timestamp_utc,
-                        extraction_settings=config.extraction_settings,  # Enable function calling if configured
-                    )
-    
-                    # Write parsed answer JSON
-                    parsed_data = {
-                        "appeared_mine": extraction_result.appeared_mine,
-                        "my_mentions": [
-                            {
-                                "original_text": m.original_text,
-                                "normalized_name": m.normalized_name,
-                                "brand_category": m.brand_category,
-                                "match_position": m.match_position,
-                            }
-                            for m in extraction_result.my_mentions
-                        ],
-                        "competitor_mentions": [
-                            {
-                                "original_text": m.original_text,
-                                "normalized_name": m.normalized_name,
-                                "brand_category": m.brand_category,
-                                "match_position": m.match_position,
-                            }
-                            for m in extraction_result.competitor_mentions
-                        ],
-                        "ranked_list": [
-                            {
-                                "brand_name": r.brand_name,
-                                "rank_position": r.rank_position,
-                                "confidence": r.confidence,
-                            }
-                            for r in extraction_result.ranked_list
-                        ],
-                        "rank_extraction_method": extraction_result.rank_extraction_method,
-                        "rank_confidence": extraction_result.rank_confidence,
-                        "extraction_cost_usd": extraction_result.extraction_cost_usd,
-                    }
-    
-                    write_parsed_answer(
-                        run_dir=run_dir,
-                        intent_id=intent.id,
-                        provider=model_config.provider,
-                        model=model_config.model_name,
-                        data=parsed_data,
-                    )
-    
-                    # Insert mentions into database
-                    all_mentions = (
-                        extraction_result.my_mentions
-                        + extraction_result.competitor_mentions
-                    )
-                    for mention in all_mentions:
-                        try:
-                            # Determine if this is my brand
-                            is_mine = mention.brand_category == "mine"
-    
-                            # Find rank position if this brand is in ranked list
-                            rank_position = None
-                            for ranked in extraction_result.ranked_list:
-                                if ranked.brand_name == mention.normalized_name:
-                                    rank_position = ranked.rank_position
-                                    break
-    
-                            with sqlite3.connect(
-                                config.run_settings.sqlite_db_path
-                            ) as conn:
-                                insert_mention(
-                                    conn=conn,
-                                    run_id=run_id,
-                                    timestamp_utc=raw_record.timestamp_utc,
-                                    intent_id=intent.id,
-                                    model_provider=model_config.provider,
-                                    model_name=model_config.model_name,
-                                    brand_name=mention.original_text,
-                                    normalized_name=mention.normalized_name,
-                                    is_mine=is_mine,
-                                    rank_position=rank_position,
-                                    match_type="exact",  # Default match type
-                                    sentiment=mention.sentiment,
-                                    mention_context=mention.mention_context,
-                                )
-                                conn.commit()
-                        except Exception as e:
-                            logger.error(
-                                f"Failed to insert mention into database: {e}",
-                                exc_info=True,
-                            )
-    
-                    # Update success tracking
-                    success_count += 1
-                    total_cost_usd += cost_usd + extraction_result.extraction_cost_usd
-    
-                    # Execute operations if configured
-                    operations_cost_usd = 0.0
-                    if intent.operations or config.global_operations:
-                        logger.info(f"Executing operations for intent={intent.id}")
-    
-                        # Combine intent-specific and global operations
-                        all_operations = list(intent.operations) + list(
-                            config.global_operations
-                        )
-    
-                        # Build operation context
-                        operation_context = OperationContext(
-                            intent_data={
-                                "id": intent.id,
-                                "prompt": intent.prompt,
-                                "response": answer_text,
-                            },
-                            extraction_data={
-                                "my_brand": config.brands.mine[0]
-                                if config.brands.mine
-                                else "unknown",
-                                "my_brand_aliases": config.brands.mine,
-                                "competitors": config.brands.competitors,
-                                "competitors_mentioned": [
-                                    m.normalized_name
-                                    for m in extraction_result.competitor_mentions
-                                ],
-                                "my_rank": extraction_result.ranked_list[0].rank_position
-                                if extraction_result.ranked_list
-                                and extraction_result.appeared_mine
-                                else None,
-                                "my_mentions": [
-                                    m.original_text for m in extraction_result.my_mentions
-                                ],
-                                "competitor_mentions": [
-                                    m.original_text
-                                    for m in extraction_result.competitor_mentions
-                                ],
-                            },
-                            run_metadata={
-                                "run_id": run_id,
-                                "timestamp": timestamp_utc,
-                            },
-                            model_info={
-                                "provider": model_config.provider,
-                                "name": model_config.model_name,
-                            },
-                        )
-    
-                        # Execute operations
-                        operation_results = execute_operations_with_dependencies(
-                            operations=all_operations,
-                            context=operation_context,
-                            runtime_config=config,
-                        )
-    
-                        # Store operation results
-                        for execution_order, (op_id, op_result) in enumerate(
-                            operation_results.items()
-                        ):
-                            operations_cost_usd += op_result.cost_usd
-    
-                            # Write JSON artifact
-                            operation_data = asdict(op_result)
-                            write_operation_result(
-                                run_dir=run_dir,
-                                intent_id=intent.id,
-                                operation_id=op_id,
-                                provider=op_result.model_provider,
-                                model=op_result.model_name,
-                                data=operation_data,
-                            )
-    
-                            # Insert into database
-                            try:
-                                operation = next(
-                                    (o for o in all_operations if o.id == op_id), None
-                                )
-                                with sqlite3.connect(
-                                    config.run_settings.sqlite_db_path
-                                ) as conn:
-                                    insert_operation(
-                                        conn=conn,
-                                        run_id=run_id,
-                                        intent_id=intent.id,
-                                        model_provider=op_result.model_provider,
-                                        model_name=op_result.model_name,
-                                        operation_id=op_id,
-                                        operation_description=operation.description
-                                        if operation
-                                        else None,
-                                        operation_prompt=op_result.rendered_prompt,
-                                        result_text=op_result.result_text,
-                                        tokens_used_input=op_result.tokens_used_input,
-                                        tokens_used_output=op_result.tokens_used_output,
-                                        cost_usd=op_result.cost_usd,
-                                        timestamp_utc=op_result.timestamp_utc,
-                                        depends_on=operation.depends_on
-                                        if operation
-                                        else [],
-                                        execution_order=execution_order,
-                                        skipped=op_result.skipped,
-                                        error=op_result.error,
-                                    )
-                                    conn.commit()
-                            except Exception as e:
-                                logger.error(
-                                    f"Failed to insert operation into database: {e}",
-                                    exc_info=True,
-                                )
-    
-                        # Add operations cost to total
-                        total_cost_usd += operations_cost_usd
-                        logger.info(
-                            f"Completed {len(operation_results)} operations, cost=${operations_cost_usd:.6f}"
-                        )
-    
-                    # Log with extraction cost breakdown if applicable
-                    if extraction_result.extraction_cost_usd > 0:
-                        logger.info(
-                            f"Success: intent={intent.id}, provider={model_config.provider}, "
-                            f"model={model_config.model_name}, "
-                            f"answer_cost=${cost_usd:.6f}, "
-                            f"extraction_cost=${extraction_result.extraction_cost_usd:.6f}, "
-                            f"total=${cost_usd + extraction_result.extraction_cost_usd:.6f}, "
-                            f"appeared_mine={extraction_result.appeared_mine}, "
-                            f"extraction_method={extraction_result.rank_extraction_method}"
-                        )
-                    else:
-                        logger.info(
-                            f"Success: intent={intent.id}, provider={model_config.provider}, "
-                            f"model={model_config.model_name}, cost=${cost_usd:.6f}, "
-                            f"appeared_mine={extraction_result.appeared_mine}"
-                        )
-    
-                    # Call progress callback if provided
-                    if progress_callback:
-                        if hasattr(progress_callback, "complete_query"):
-                            progress_callback.complete_query(success=True)
-                        else:
-                            # Backward compatibility: call as function
-                            progress_callback()
-    
-                except Exception as e:
-                    # Query failed - write error file and track
-                    error_message = str(e)
-                    logger.error(
-                        f"Failed query: intent={intent.id}, "
-                        f"provider={model_config.provider}, "
-                        f"model={model_config.model_name}, error={error_message}",
-                        exc_info=True,
-                    )
-    
-                    write_error(
-                        run_dir=run_dir,
-                        intent_id=intent.id,
-                        provider=model_config.provider,
-                        model=model_config.model_name,
-                        error_message=error_message,
-                    )
-    
-                    error_count += 1
-                    errors.append(
-                        {
-                            "intent_id": intent.id,
-                            "model_provider": model_config.provider,
-                            "model_name": model_config.model_name,
-                            "error_message": error_message,
-                        }
-                    )
-    
-                    # Call progress callback if provided (even for errors)
-                    if progress_callback:
-                        if hasattr(progress_callback, "complete_query"):
-                            progress_callback.complete_query(success=False)
-                        else:
-                            # Backward compatibility: call as function
-                            progress_callback()
-    
-        # Process browser/custom runners (if configured)
+        # Create tasks for browser/custom runners (if configured)
         if config.runner_configs:
             for runner_config in config.runner_configs:
-                try:
-                    logger.info(
-                        f"Processing runner: intent={intent.id}, plugin={runner_config.runner_plugin}"
-                    )
+                task = _execute_query_with_semaphore(
+                    intent=intent,
+                    model_config=None,
+                    runner_config=runner_config,
+                )
+                tasks.append(task)
 
-                    # Notify progress callback of query start (if supported)
-                    if progress_callback and hasattr(progress_callback, "start_query"):
-                        progress_callback.start_query(
-                            intent.id, runner_config.runner_plugin, "runner"
-                        )
+    # Execute all tasks in parallel with semaphore limiting concurrency
+    logger.info(f"Executing {len(tasks)} queries in parallel...")
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    # Create runner instance via plugin registry
-                    runner = RunnerRegistry.create_runner(
-                        plugin_name=runner_config.runner_plugin,
-                        config=runner_config.config,
-                    )
-
-                    # Execute intent via runner
-                    result = runner.run_intent(intent.prompt)
-
-                    # Check if execution was successful
-                    if not result.success:
-                        raise Exception(
-                            result.error_message or "Runner execution failed (no error message)"
-                        )
-
-                    # Convert IntentResult to RawAnswerRecord
-                    raw_record = intent_result_to_raw_record(
-                        result=result, intent_id=intent.id, prompt=intent.prompt
-                    )
-
-                    # Write raw answer JSON
-                    write_raw_answer(
-                        run_dir=run_dir,
-                        intent_id=intent.id,
-                        provider=result.provider,
-                        model=result.model_name,
-                        data=asdict(raw_record),
-                    )
-
-                    # Insert raw answer into database
-                    try:
-                        # Serialize web search results to JSON if present
-                        web_search_json = None
-                        if result.web_search_results:
-                            web_search_json = json.dumps(result.web_search_results)
-
-                        with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
-                            insert_answer_raw(
-                                conn=conn,
-                                run_id=run_id,
-                                intent_id=intent.id,
-                                model_provider=result.provider,
-                                model_name=result.model_name,
-                                timestamp_utc=raw_record.timestamp_utc,
-                                prompt=intent.prompt,
-                                answer_text=result.answer_text,
-                                usage_meta_json=json.dumps(raw_record.usage_meta),
-                                estimated_cost_usd=result.cost_usd,
-                                web_search_count=raw_record.web_search_count,
-                                web_search_results_json=web_search_json,
-                                runner_type=result.runner_type,
-                                runner_name=result.runner_name,
-                                screenshot_path=result.screenshot_path,
-                                html_snapshot_path=result.html_snapshot_path,
-                                session_id=result.session_id,
-                            )
-                            conn.commit()
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to insert runner answer into database: {e}",
-                            exc_info=True,
-                        )
-
-                    # Parse answer to extract mentions and rankings
-                    extraction_result = parse_answer(
-                        answer_text=result.answer_text,
-                        brands=config.brands,
-                        intent_id=intent.id,
-                        provider=result.provider,
-                        model_name=result.model_name,
-                        timestamp_utc=raw_record.timestamp_utc,
-                        extraction_settings=config.extraction_settings,
-                    )
-
-                    # Write parsed answer JSON
-                    write_parsed_answer(
-                        run_dir=run_dir,
-                        intent_id=intent.id,
-                        provider=result.provider,
-                        model=result.model_name,
-                        data=asdict(extraction_result),
-                    )
-
-                    # Insert mentions into database
-                    all_mentions = (
-                        extraction_result.my_mentions
-                        + extraction_result.competitor_mentions
-                    )
-                    for mention in all_mentions:
-                        try:
-                            # Determine if this is my brand
-                            is_mine = mention.brand_category == "mine"
-
-                            # Find rank position if this brand is in ranked list
-                            rank_position = None
-                            for ranked in extraction_result.ranked_list:
-                                if ranked.brand_name == mention.normalized_name:
-                                    rank_position = ranked.rank_position
-                                    break
-
-                            with sqlite3.connect(
-                                config.run_settings.sqlite_db_path
-                            ) as conn:
-                                insert_mention(
-                                    conn=conn,
-                                    run_id=run_id,
-                                    timestamp_utc=raw_record.timestamp_utc,
-                                    intent_id=intent.id,
-                                    model_provider=result.provider,
-                                    model_name=result.model_name,
-                                    brand_name=mention.original_text,
-                                    normalized_name=mention.normalized_name,
-                                    is_mine=is_mine,
-                                    rank_position=rank_position,
-                                    match_type="exact",  # Default match type
-                                    sentiment=mention.sentiment,
-                                    mention_context=mention.mention_context,
-                                )
-                                conn.commit()
-                        except Exception as e:
-                            logger.error(
-                                f"Failed to insert runner mention into database: {e}",
-                                exc_info=True,
-                            )
-
-                    # Update success tracking
-                    success_count += 1
-                    total_cost_usd += result.cost_usd + extraction_result.extraction_cost_usd
-
-                    # Log success
-                    if extraction_result.extraction_cost_usd > 0:
-                        logger.info(
-                            f"Success: intent={intent.id}, runner={runner_config.runner_plugin}, "
-                            f"runner_cost=${result.cost_usd:.6f}, "
-                            f"extraction_cost=${extraction_result.extraction_cost_usd:.6f}, "
-                            f"total=${result.cost_usd + extraction_result.extraction_cost_usd:.6f}, "
-                            f"appeared_mine={extraction_result.appeared_mine}"
-                        )
-                    else:
-                        logger.info(
-                            f"Success: intent={intent.id}, runner={runner_config.runner_plugin}, "
-                            f"cost=${result.cost_usd:.6f}, "
-                            f"appeared_mine={extraction_result.appeared_mine}"
-                        )
-
-                    # Call progress callback if provided
-                    if progress_callback:
-                        if hasattr(progress_callback, "complete_query"):
-                            progress_callback.complete_query(success=True)
-                        else:
-                            # Backward compatibility: call as function
-                            progress_callback()
-
-                except Exception as e:
-                    # Runner execution failed - write error file and track
-                    error_message = str(e)
-                    logger.error(
-                        f"Failed runner: intent={intent.id}, "
-                        f"plugin={runner_config.runner_plugin}, "
-                        f"error={error_message}",
-                        exc_info=True,
-                    )
-
-                    write_error(
-                        run_dir=run_dir,
-                        intent_id=intent.id,
-                        provider=runner_config.runner_plugin,
-                        model="runner",
-                        error_message=error_message,
-                    )
-
-                    error_count += 1
-                    errors.append(
-                        {
-                            "intent_id": intent.id,
-                            "model_provider": runner_config.runner_plugin,
-                            "model_name": "runner",
-                            "error_message": error_message,
-                        }
-                    )
-
-                    # Call progress callback if provided (even for errors)
-                    if progress_callback:
-                        if hasattr(progress_callback, "complete_query"):
-                            progress_callback.complete_query(success=False)
-                        else:
-                            # Backward compatibility: call as function
-                            progress_callback()
+    # Process results
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            logger.error(f"Task {i} failed with exception: {result}")
+            error_count += 1
+        elif result[0]:  # Success
+            success_count += 1
+            total_cost_usd += result[1]
+        else:  # Returned error
+            error_count += 1
+            total_cost_usd += result[1]
+            if result[2]:
+                errors.append(result[2])
 
     # Generate run metadata summary
     run_meta = {

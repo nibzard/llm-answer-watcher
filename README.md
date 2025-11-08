@@ -162,6 +162,71 @@ intents:
 - **Model selection**: Use smaller models (gpt-4o-mini, claude-haiku, grok-2-1212) for cost efficiency
 - **LLM rank extraction**: Set to `true` only if regex extraction fails (costs more)
 
+## ⚡ Parallel Execution
+
+LLM Answer Watcher executes queries **in parallel** using async/await for significant performance improvements.
+
+### How It Works
+
+- **Concurrent requests**: All intent × model combinations run simultaneously
+- **Semaphore rate limiting**: Configurable limit prevents overwhelming API providers
+- **Conservative defaults**: Default limit of 10 concurrent requests respects provider rate limits
+
+### Performance Example
+
+**Sequential execution** (old approach):
+- 3 intents × 4 models × 8s avg = ~96 seconds
+
+**Parallel execution** (current):
+- Same workload = ~32 seconds (3x faster)
+- Limited only by `max_concurrent_requests` semaphore
+
+### Configuration
+
+Control parallelism via `max_concurrent_requests` in your config:
+
+```yaml
+run_settings:
+  max_concurrent_requests: 10  # Default: 10 (range: 1-50)
+```
+
+### Rate Limit Guidance
+
+Based on publicly documented limits:
+
+| Provider   | Recommended Concurrency | Notes                          |
+|------------|-------------------------|--------------------------------|
+| OpenAI     | 5-10                    | ~5-10 concurrent recommended   |
+| Anthropic  | 5-10                    | Limited concurrency reported   |
+| Google     | 3-5                     | 3 concurrent sessions per key  |
+| Mistral    | 5-10                    | Similar to OpenAI              |
+| Grok       | 5-10                    | Similar to OpenAI              |
+| Perplexity | 5-10                    | Similar to OpenAI              |
+
+**Recommendations:**
+- **Start with default (10)**: Works well for most use cases
+- **Increase for enterprise quotas**: If you have higher rate limits
+- **Decrease if hitting rate limits**: Watch for 429 errors in logs
+- **Monitor costs**: Parallelism = faster = more API calls per minute
+
+### Progress UI
+
+The CLI shows concurrent queries in real-time:
+
+```
+⠹ Overall Progress                                   ━━━━━━━━━━━  25% 0:05:23
+⠹   └─ best-tools x openai/gpt-4.1-nano              ━━━━━━━━━━━  50% 0:00:12
+⠹   └─ best-tools x google/gemini-2.5-flash-lite     ━━━━━━━━━━━  30% 0:00:08
+⠹   └─ alternative-tools x openai/gpt-4.1-nano       ━━━━━━━━━━━  10% 0:00:03
+```
+
+### Technical Details
+
+- **Implementation**: Python asyncio with httpx.AsyncClient
+- **Retry logic**: Each query retries independently (exponential backoff)
+- **Database writes**: Sequential per query (SQLite writes are fast)
+- **Error handling**: One query failure doesn't stop others
+
 ## 📖 Usage Examples
 
 ### Human Mode (Default)

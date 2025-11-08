@@ -2,6 +2,12 @@ run_settings:
   output_dir: "./output"
   sqlite_db_path: "./output/watcher.db"
 
+  # Maximum concurrent API requests (default: 10)
+  # Conservative limit respects provider rate limits while enabling parallelism
+  # Based on research: OpenAI ~5-10, Anthropic limited, Gemini ~3 per key
+  # Increase for higher quotas, decrease if hitting rate limits
+  max_concurrent_requests: 10
+
   models:
     # - provider: "openai"
     #   model_name: "gpt-5-nano"

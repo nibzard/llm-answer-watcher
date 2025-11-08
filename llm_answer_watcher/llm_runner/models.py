@@ -86,11 +86,11 @@ class LLMClient(Protocol):
     All LLM provider implementations must conform to this Protocol.
     This enables polymorphic usage and simplifies adding new providers.
 
-    The Protocol defines a single method that handles the complete request/response
+    The Protocol defines a single async method that handles the complete request/response
     cycle including retry logic, error handling, and metadata extraction.
 
     Methods:
-        generate_answer: Execute LLM query and return structured response
+        generate_answer: Execute LLM query asynchronously and return structured response
 
     Example implementation:
         >>> class OpenAIClient:
@@ -98,12 +98,13 @@ class LLMClient(Protocol):
         ...         self.model_name = model_name
         ...         self.api_key = api_key
         ...
-        ...     def generate_answer(self, prompt: str) -> LLMResponse:
-        ...         # Implementation with retry logic, API calls, etc.
+        ...     async def generate_answer(self, prompt: str) -> LLMResponse:
+        ...         # Implementation with async HTTP, retry logic, etc.
         ...         pass
 
     Note:
         Implementations MUST:
+        - Use async/await for HTTP requests (httpx.AsyncClient)
         - Include automatic retry logic with exponential backoff
         - Handle transient failures (rate limits, server errors)
         - Never log API keys or sensitive credentials
@@ -111,12 +112,12 @@ class LLMClient(Protocol):
         - Use UTC timestamps from utils.time module
     """
 
-    def generate_answer(self, prompt: str) -> LLMResponse:
+    async def generate_answer(self, prompt: str) -> LLMResponse:
         """
-        Execute an LLM query and return structured response with metadata.
+        Execute an LLM query asynchronously and return structured response with metadata.
 
         Handles the complete request/response cycle including:
-        - HTTP API call to provider
+        - Async HTTP API call to provider (using httpx.AsyncClient)
         - Automatic retry on transient failures (429, 5xx errors)
         - Token usage extraction
         - Cost estimation
@@ -134,13 +135,14 @@ class LLMClient(Protocol):
 
         Example:
             >>> client = build_client("openai", "gpt-4o-mini", api_key)
-            >>> response = client.generate_answer("What are the best CRM tools?")
+            >>> response = await client.generate_answer("What are the best CRM tools?")
             >>> print(response.answer_text)
             "Based on market research, the top CRM tools are..."
             >>> response.tokens_used
             350
 
         Note:
+            - Uses async HTTP client for non-blocking I/O
             - Retry logic is provider-specific (configured per implementation)
             - Typical retry strategy: 3 attempts, exponential backoff 1s-10s
             - Non-retryable errors: 401 (auth), 400 (bad request), 404 (not found)

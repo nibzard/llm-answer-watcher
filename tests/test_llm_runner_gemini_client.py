@@ -118,7 +118,8 @@ class TestGenerateAnswerSuccess:
     """Test suite for successful Gemini API calls."""
 
     @freeze_time("2025-11-02T08:30:45Z")
-    def test_generate_answer_success(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_success(self, httpx_mock):
         """Test successful API call with complete response."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -150,7 +151,7 @@ class TestGenerateAnswerSuccess:
         )
 
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
-        response = client.generate_answer("What are the best CRM tools?")
+        response = await client.generate_answer("What are the best CRM tools?")
 
         # Verify response structure
         assert isinstance(response, LLMResponse)
@@ -168,7 +169,8 @@ class TestGenerateAnswerSuccess:
         assert response.web_search_results is None
         assert response.web_search_count == 0
 
-    def test_generate_answer_sends_correct_payload(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_sends_correct_payload(self, httpx_mock):
         """Test that API request includes system instruction and correct structure."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -191,7 +193,7 @@ class TestGenerateAnswerSuccess:
         )
 
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
-        client.generate_answer("Test prompt")
+        await client.generate_answer("Test prompt")
 
         # Verify request was made
         request = httpx_mock.get_request()
@@ -214,7 +216,8 @@ class TestGenerateAnswerSuccess:
         assert "generationConfig" in data
         assert data["generationConfig"]["temperature"] == 0.7
 
-    def test_generate_answer_sends_api_key_in_params(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_sends_api_key_in_params(self, httpx_mock):
         """Test that API request includes API key in query parameters."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -234,14 +237,15 @@ class TestGenerateAnswerSuccess:
         )
 
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
-        client.generate_answer("Test")
+        await client.generate_answer("Test")
 
         # Verify API key in query parameters
         request = httpx_mock.get_request()
         assert "key=AIza-test123" in str(request.url)
         assert request.headers["Content-Type"] == "application/json"
 
-    def test_generate_answer_large_response(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_large_response(self, httpx_mock):
         """Test handling of large response with high token count."""
         model_name = "gemini-1.5-pro"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -269,14 +273,15 @@ class TestGenerateAnswerSuccess:
         )
 
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
-        response = client.generate_answer("Generate large text")
+        response = await client.generate_answer("Generate large text")
 
         assert response.answer_text == large_content
         assert response.tokens_used == 50000
         assert response.prompt_tokens == 10000
         assert response.completion_tokens == 40000
 
-    def test_generate_answer_with_cost_calculation(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_with_cost_calculation(self, httpx_mock):
         """Test cost calculation for paid Gemini model."""
         model_name = "gemini-1.5-flash"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -300,7 +305,7 @@ class TestGenerateAnswerSuccess:
         )
 
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Cost: (1000 * $0.075/1M) + (500 * $0.30/1M) = $0.000075 + $0.000150 = $0.000225
         assert response.cost_usd > 0
@@ -310,29 +315,32 @@ class TestGenerateAnswerSuccess:
 class TestGenerateAnswerValidation:
     """Test suite for input validation."""
 
-    def test_generate_answer_empty_prompt(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_empty_prompt(self):
         """Test that empty prompt raises ValueError."""
         client = GeminiClient(
             "gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT
         )
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
-            client.generate_answer("")
+            await client.generate_answer("")
 
-    def test_generate_answer_whitespace_prompt(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_whitespace_prompt(self):
         """Test that whitespace-only prompt raises ValueError."""
         client = GeminiClient(
             "gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT
         )
 
         with pytest.raises(ValueError, match="Prompt cannot be empty"):
-            client.generate_answer("   \n\t  ")
+            await client.generate_answer("   \n\t  ")
 
 
 class TestPromptLengthValidation:
     """Test suite for prompt length validation in Gemini client."""
 
-    def test_generate_answer_accepts_normal_prompt(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_accepts_normal_prompt(self, httpx_mock):
         """Normal-length prompts should be accepted."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -358,12 +366,13 @@ class TestPromptLengthValidation:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
         # Test with a reasonable prompt (< 100k chars)
         prompt = "What are the best email warmup tools?" * 100  # ~4000 chars
-        response = client.generate_answer(prompt)
+        response = await client.generate_answer(prompt)
 
         assert response.answer_text == "Test response"
         assert len(httpx_mock.get_requests()) == 1
 
-    def test_generate_answer_accepts_max_length_prompt(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_accepts_max_length_prompt(self, httpx_mock):
         """Prompts exactly at max length should be accepted."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -388,12 +397,13 @@ class TestPromptLengthValidation:
 
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
         prompt = "a" * MAX_PROMPT_LENGTH
-        response = client.generate_answer(prompt)
+        response = await client.generate_answer(prompt)
 
         # Should not raise ValueError for length
         assert response.answer_text == "Test response"
 
-    def test_generate_answer_rejects_over_limit_prompt(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_rejects_over_limit_prompt(self):
         """Prompts over max length should raise ValueError."""
         client = GeminiClient(
             "gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT
@@ -401,9 +411,10 @@ class TestPromptLengthValidation:
         prompt = "a" * (MAX_PROMPT_LENGTH + 1)
 
         with pytest.raises(ValueError, match=r"Prompt exceeds maximum length"):
-            client.generate_answer(prompt)
+            await client.generate_answer(prompt)
 
-    def test_generate_answer_rejects_very_long_prompt(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_rejects_very_long_prompt(self):
         """Very long prompts should raise ValueError with correct count."""
         client = GeminiClient(
             "gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT
@@ -411,9 +422,10 @@ class TestPromptLengthValidation:
         prompt = "a" * (MAX_PROMPT_LENGTH * 2)
 
         with pytest.raises(ValueError, match=r"200,000 characters"):
-            client.generate_answer(prompt)
+            await client.generate_answer(prompt)
 
-    def test_generate_answer_error_message_shows_actual_length(self):
+    @pytest.mark.asyncio
+    async def test_generate_answer_error_message_shows_actual_length(self):
         """Error message should show actual received length."""
         client = GeminiClient(
             "gemini-2.0-flash-exp", "AIza-test123", TEST_SYSTEM_PROMPT
@@ -421,7 +433,7 @@ class TestPromptLengthValidation:
         prompt = "a" * (MAX_PROMPT_LENGTH + 5000)
 
         with pytest.raises(ValueError) as exc_info:
-            client.generate_answer(prompt)
+            await client.generate_answer(prompt)
 
         error_msg = str(exc_info.value)
         assert "105,000 characters" in error_msg
@@ -432,7 +444,8 @@ class TestPromptLengthValidation:
 class TestGenerateAnswerNonRetryableErrors:
     """Test suite for non-retryable errors (401, 400, 404)."""
 
-    def test_generate_answer_401_unauthorized(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_401_unauthorized(self, httpx_mock):
         """Test that 401 error raises RuntimeError immediately (no retry)."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -447,12 +460,13 @@ class TestGenerateAnswerNonRetryableErrors:
         client = GeminiClient(model_name, "AIza-invalid", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="non-retryable"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         # Verify only one request was made (no retry)
         assert len(httpx_mock.get_requests()) == 1
 
-    def test_generate_answer_400_bad_request(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_400_bad_request(self, httpx_mock):
         """Test that 400 error raises RuntimeError immediately (no retry)."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -467,9 +481,10 @@ class TestGenerateAnswerNonRetryableErrors:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="non-retryable"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_404_not_found(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_404_not_found(self, httpx_mock):
         """Test that 404 error raises RuntimeError immediately (no retry)."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -484,13 +499,14 @@ class TestGenerateAnswerNonRetryableErrors:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="non-retryable"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
 
 class TestGenerateAnswerRetryableErrors:
     """Test suite for retryable errors (429, 5xx) with retry logic."""
 
-    def test_generate_answer_429_rate_limit_then_success(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_429_rate_limit_then_success(self, httpx_mock):
         """Test that 429 error is retried and succeeds on second attempt."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -523,12 +539,13 @@ class TestGenerateAnswerRetryableErrors:
         )
 
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         assert response.answer_text == "Success after retry"
         assert len(httpx_mock.get_requests()) == 2  # Two attempts
 
-    def test_generate_answer_500_server_error_then_success(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_500_server_error_then_success(self, httpx_mock):
         """Test that 500 error is retried and succeeds."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -558,11 +575,12 @@ class TestGenerateAnswerRetryableErrors:
         )
 
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         assert response.answer_text == "Recovered"
 
-    def test_generate_answer_502_bad_gateway_exhausts_retries(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_502_bad_gateway_exhausts_retries(self, httpx_mock):
         """Test that 502 exhausts retries and raises error."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -579,13 +597,14 @@ class TestGenerateAnswerRetryableErrors:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(httpx.HTTPStatusError):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
 
 class TestGenerateAnswerResponseParsing:
     """Test suite for response parsing edge cases."""
 
-    def test_generate_answer_missing_candidates(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_missing_candidates(self, httpx_mock):
         """Test that missing 'candidates' raises RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -599,9 +618,10 @@ class TestGenerateAnswerResponseParsing:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="missing 'candidates' array"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_empty_candidates(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_empty_candidates(self, httpx_mock):
         """Test that empty candidates array raises RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -615,9 +635,10 @@ class TestGenerateAnswerResponseParsing:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="missing 'candidates' array"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_missing_content(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_missing_content(self, httpx_mock):
         """Test that missing 'content' raises RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -636,9 +657,10 @@ class TestGenerateAnswerResponseParsing:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="missing 'content' field"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_missing_parts(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_missing_parts(self, httpx_mock):
         """Test that missing 'parts' raises RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -660,9 +682,10 @@ class TestGenerateAnswerResponseParsing:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="missing 'parts' array"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_empty_parts(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_empty_parts(self, httpx_mock):
         """Test that empty parts array raises RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -684,9 +707,10 @@ class TestGenerateAnswerResponseParsing:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="missing 'parts' array"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_missing_text(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_missing_text(self, httpx_mock):
         """Test that missing 'text' in part raises RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -711,9 +735,10 @@ class TestGenerateAnswerResponseParsing:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="missing 'text' field"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_safety_blocked(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_safety_blocked(self, httpx_mock):
         """Test that SAFETY finish reason raises RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -735,9 +760,10 @@ class TestGenerateAnswerResponseParsing:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="blocked content.*SAFETY"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_recitation_blocked(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_recitation_blocked(self, httpx_mock):
         """Test that RECITATION finish reason raises RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -759,9 +785,10 @@ class TestGenerateAnswerResponseParsing:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="blocked content.*RECITATION"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_prohibited_content_blocked(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_prohibited_content_blocked(self, httpx_mock):
         """Test that PROHIBITED_CONTENT finish reason raises RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -783,9 +810,10 @@ class TestGenerateAnswerResponseParsing:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="blocked content.*PROHIBITED_CONTENT"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_unexpected_tool_call(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_unexpected_tool_call(self, httpx_mock):
         """Test that UNEXPECTED_TOOL_CALL finish reason raises informative RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -812,9 +840,10 @@ class TestGenerateAnswerResponseParsing:
             match="encountered unexpected tool call.*UNEXPECTED_TOOL_CALL.*"
             "system prompt references tools",
         ):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_max_tokens(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_max_tokens(self, httpx_mock):
         """Test that MAX_TOKENS finish reason raises informative RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -843,9 +872,10 @@ class TestGenerateAnswerResponseParsing:
             match="exceeded maximum token limit.*MAX_TOKENS.*"
             "shorter prompt or.*larger context window",
         ):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_unknown_finish_reason(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_unknown_finish_reason(self, httpx_mock):
         """Test that unknown finish reasons raise informative RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -870,9 +900,10 @@ class TestGenerateAnswerResponseParsing:
             RuntimeError,
             match="unexpected finish reason.*SOME_FUTURE_REASON.*incomplete or invalid",
         ):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
-    def test_generate_answer_malformed_json(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_generate_answer_malformed_json(self, httpx_mock):
         """Test that malformed JSON raises RuntimeError."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -886,13 +917,14 @@ class TestGenerateAnswerResponseParsing:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError, match="Failed to parse Gemini response JSON"):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
 
 class TestTokenUsageExtraction:
     """Test suite for token usage extraction."""
 
-    def test_extract_token_usage_complete(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_extract_token_usage_complete(self, httpx_mock):
         """Test extraction of complete token usage metadata."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -916,13 +948,14 @@ class TestTokenUsageExtraction:
         )
 
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         assert response.tokens_used == 225
         assert response.prompt_tokens == 150
         assert response.completion_tokens == 75
 
-    def test_extract_token_usage_missing_metadata(self, httpx_mock, caplog):
+    @pytest.mark.asyncio
+    async def test_extract_token_usage_missing_metadata(self, httpx_mock, caplog):
         """Test graceful handling of missing usageMetadata."""
         caplog.set_level(logging.WARNING)
 
@@ -944,7 +977,7 @@ class TestTokenUsageExtraction:
         )
 
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Should default to 0
         assert response.tokens_used == 0
@@ -955,7 +988,8 @@ class TestTokenUsageExtraction:
         assert "missing 'usageMetadata'" in caplog.text
         assert "gemini-2.0-flash-exp" in caplog.text
 
-    def test_extract_token_usage_partial_metadata(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_extract_token_usage_partial_metadata(self, httpx_mock):
         """Test handling of partial token usage metadata."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -978,7 +1012,7 @@ class TestTokenUsageExtraction:
         )
 
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
-        response = client.generate_answer("Test")
+        response = await client.generate_answer("Test")
 
         # Should calculate total from prompt + candidates (0)
         assert response.prompt_tokens == 100
@@ -989,7 +1023,8 @@ class TestTokenUsageExtraction:
 class TestErrorDetailExtraction:
     """Test suite for error detail extraction."""
 
-    def test_extract_error_detail_with_message(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_extract_error_detail_with_message(self, httpx_mock):
         """Test extraction of error message from API response."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -1004,12 +1039,13 @@ class TestErrorDetailExtraction:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError) as exc_info:
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         error_msg = str(exc_info.value)
         assert "Invalid request: missing required field" in error_msg
 
-    def test_extract_error_detail_without_message(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_extract_error_detail_without_message(self, httpx_mock):
         """Test fallback when error message is unavailable."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -1024,7 +1060,7 @@ class TestErrorDetailExtraction:
         client = GeminiClient(model_name, "AIza-test123", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError) as exc_info:
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         error_msg = str(exc_info.value)
         assert "HTTP 500" in error_msg
@@ -1033,7 +1069,8 @@ class TestErrorDetailExtraction:
 class TestSecurityAndLogging:
     """Test suite for security and logging requirements."""
 
-    def test_api_key_never_logged_on_error(self, httpx_mock, caplog):
+    @pytest.mark.asyncio
+    async def test_api_key_never_logged_on_error(self, httpx_mock, caplog):
         """Test that API key is NEVER logged in error messages."""
         caplog.set_level(logging.ERROR)
 
@@ -1050,13 +1087,14 @@ class TestSecurityAndLogging:
         client = GeminiClient(model_name, "AIza-secret456", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError):
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         # Should NEVER log API key
         assert "AIza-secret456" not in caplog.text
         assert "secret" not in caplog.text
 
-    def test_api_key_never_in_exception_message(self, httpx_mock):
+    @pytest.mark.asyncio
+    async def test_api_key_never_in_exception_message(self, httpx_mock):
         """Test that API key is not included in exception messages."""
         model_name = "gemini-2.0-flash-exp"
         api_url = f"{GEMINI_API_BASE_URL}/models/{model_name}:generateContent"
@@ -1071,7 +1109,7 @@ class TestSecurityAndLogging:
         client = GeminiClient(model_name, "AIza-secret789", TEST_SYSTEM_PROMPT)
 
         with pytest.raises(RuntimeError) as exc_info:
-            client.generate_answer("Test")
+            await client.generate_answer("Test")
 
         error_msg = str(exc_info.value)
         assert "AIza-secret789" not in error_msg

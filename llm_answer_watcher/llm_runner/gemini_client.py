@@ -1,10 +1,11 @@
 """
 Google Gemini API client implementation for LLM Answer Watcher.
 
-Provides synchronous HTTP client for Google Gemini API with
+Provides asynchronous HTTP client for Google Gemini API with
 automatic retry logic, exponential backoff, and comprehensive error handling.
 
 Key features:
+- Async HTTP client for parallel execution (httpx.AsyncClient)
 - Retry on transient failures (429, 5xx) with exponential backoff
 - Fail fast on permanent errors (401, 400, 404)
 - Automatic cost estimation based on token usage
@@ -16,7 +17,7 @@ Example:
     >>> from llm_runner.gemini_client import GeminiClient
     >>> client = GeminiClient("gemini-2.0-flash-exp", api_key="...",
     ...     system_prompt="You are a helpful assistant.")
-    >>> response = client.generate_answer("What are the best CRM tools?")
+    >>> response = await client.generate_answer("What are the best CRM tools?")
     >>> print(f"Answer: {response.answer_text[:100]}...")
     >>> print(f"Cost: ${response.cost_usd:.6f}")
 """
@@ -57,6 +58,7 @@ class GeminiClient:
 
     Implements the LLMClient protocol for Google's Gemini API with automatic retry
     on transient failures, exponential backoff, and integrated cost estimation.
+    Uses async/await for parallel execution across multiple models.
 
     Attributes:
         model_name: Gemini model identifier (e.g., "gemini-2.0-flash-exp", "gemini-1.5-pro")
@@ -65,7 +67,7 @@ class GeminiClient:
 
     Example:
         >>> client = GeminiClient("gemini-2.0-flash-exp", "AIza...", "You are a helpful assistant.")
-        >>> response = client.generate_answer("What are the best email warmup tools?")
+        >>> response = await client.generate_answer("What are the best email warmup tools?")
         >>> response.tokens_used
         450
         >>> response.cost_usd
@@ -84,7 +86,7 @@ class GeminiClient:
         - Timeout: 30s per request (from retry_config.REQUEST_TIMEOUT)
 
     Note:
-        This implementation is synchronous (no async) per v1 requirements.
+        This implementation uses async/await for parallel execution.
         Streaming is not supported in v1.
     """
 
@@ -169,9 +171,9 @@ class GeminiClient:
             logger.info(f"Initialized Gemini client for model: {model_name}")
 
     @create_retry_decorator()
-    def generate_answer(self, prompt: str) -> LLMResponse:
+    async def generate_answer(self, prompt: str) -> LLMResponse:
         """
-        Execute LLM query with automatic retry and cost tracking.
+        Execute LLM query asynchronously with automatic retry and cost tracking.
 
         Sends prompt to Google Gemini API with system message for
         unbiased analysis. Handles transient failures with exponential backoff
@@ -193,7 +195,7 @@ class GeminiClient:
 
         Example:
             >>> client = GeminiClient("gemini-2.0-flash-exp", "AIza-...")
-            >>> response = client.generate_answer("What are the best CRM tools?")
+            >>> response = await client.generate_answer("What are the best CRM tools?")
             >>> print(response.answer_text[:100])
             "Based on market research, here are the top CRM tools..."
             >>> response.provider
@@ -213,7 +215,7 @@ class GeminiClient:
             - Only model name and status codes are logged
 
         Note:
-            The @retry decorator automatically handles retries.
+            The @retry decorator automatically handles async/await.
             If a non-retryable error occurs (e.g., 401), it checks the status
             code and raises immediately without retry.
         """
@@ -269,8 +271,8 @@ class GeminiClient:
 
         # Make HTTP request with context manager for proper cleanup
         try:
-            with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-                response = client.post(
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+                response = await client.post(
                     api_url,
                     json=payload,
                     headers=headers,

@@ -1,10 +1,11 @@
 """
 Mistral API client implementation for LLM Answer Watcher.
 
-Provides synchronous HTTP client for Mistral Chat Completions API with
+Provides asynchronous HTTP client for Mistral Chat Completions API with
 automatic retry logic, exponential backoff, and comprehensive error handling.
 
 Key features:
+- Async HTTP client for parallel execution (httpx.AsyncClient)
 - Retry on transient failures (429, 5xx) with exponential backoff
 - Fail fast on permanent errors (401, 400, 404)
 - Automatic cost estimation based on token usage
@@ -16,7 +17,7 @@ Example:
     >>> from llm_runner.mistral_client import MistralClient
     >>> client = MistralClient("mistral-large-latest", api_key="...",
     ...     system_prompt="You are a helpful assistant.")
-    >>> response = client.generate_answer("What are the best CRM tools?")
+    >>> response = await client.generate_answer("What are the best CRM tools?")
     >>> print(f"Answer: {response.answer_text[:100]}...")
     >>> print(f"Cost: ${response.cost_usd:.6f}")
 """
@@ -55,10 +56,11 @@ logger = logging.getLogger(__name__)
 
 class MistralClient:
     """
-    Mistral Chat Completions API client with retry logic and cost tracking.
+    Mistral Chat Completions API client with async retry logic and cost tracking.
 
     Implements the LLMClient protocol for Mistral's Chat Completions API with automatic retry
     on transient failures, exponential backoff, and integrated cost estimation.
+    Uses async HTTP client for non-blocking parallel execution.
 
     Attributes:
         model_name: Mistral model identifier (e.g., "mistral-large-latest", "mistral-small-latest")
@@ -67,7 +69,7 @@ class MistralClient:
 
     Example:
         >>> client = MistralClient("mistral-large-latest", "...", "You are a helpful assistant.")
-        >>> response = client.generate_answer("What are the best email warmup tools?")
+        >>> response = await client.generate_answer("What are the best email warmup tools?")
         >>> response.tokens_used
         450
         >>> response.cost_usd
@@ -86,7 +88,7 @@ class MistralClient:
         - Timeout: 30s per request (from retry_config.REQUEST_TIMEOUT)
 
     Note:
-        This implementation is synchronous (no async) per v1 requirements.
+        This implementation uses async/await for parallel execution.
         Streaming is not supported in v1.
     """
 
@@ -152,13 +154,14 @@ class MistralClient:
         logger.info(f"Initialized Mistral client for model: {model_name}")
 
     @create_retry_decorator()
-    def generate_answer(self, prompt: str) -> LLMResponse:
+    async def generate_answer(self, prompt: str) -> LLMResponse:
         """
-        Execute LLM query with automatic retry and cost tracking.
+        Execute LLM query asynchronously with automatic retry and cost tracking.
 
         Sends prompt to Mistral Chat Completions API with system message for
         unbiased analysis. Handles transient failures with exponential backoff
-        and calculates costs based on token usage.
+        and calculates costs based on token usage. Uses async HTTP client for
+        non-blocking parallel execution.
 
         Args:
             prompt: User intent prompt to send to the LLM
@@ -176,7 +179,7 @@ class MistralClient:
 
         Example:
             >>> client = MistralClient("mistral-large-latest", "...")
-            >>> response = client.generate_answer("What are the best CRM tools?")
+            >>> response = await client.generate_answer("What are the best CRM tools?")
             >>> print(response.answer_text[:100])
             "Based on market research, here are the top CRM tools..."
             >>> response.provider
@@ -196,7 +199,7 @@ class MistralClient:
             - Only model name and status codes are logged
 
         Note:
-            The @retry decorator automatically handles retries.
+            The @retry decorator automatically handles retries for async functions.
             If a non-retryable error occurs (e.g., 401), it checks the status
             code and raises immediately without retry.
         """
@@ -232,10 +235,10 @@ class MistralClient:
         # Log request (NEVER log api_key or headers)
         logger.debug(f"Sending request to Mistral: model={self.model_name}")
 
-        # Make HTTP request with context manager for proper cleanup
+        # Make async HTTP request with context manager for proper cleanup
         try:
-            with httpx.Client(timeout=REQUEST_TIMEOUT) as client:
-                response = client.post(
+            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+                response = await client.post(
                     MISTRAL_API_URL,
                     json=payload,
                     headers=headers,

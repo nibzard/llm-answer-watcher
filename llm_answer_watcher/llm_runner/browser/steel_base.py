@@ -151,28 +151,43 @@ class SteelBaseRunner:
         Returns:
             dict: Session data from Steel API with keys:
                 - id: Session identifier
-                - url: Session viewer URL
+                - cdp_url: CDP WebSocket URL for Playwright
                 - status: Session status
 
         Raises:
             Exception: If session creation fails
+
+        Note:
+            Steel sessions are created blank. Navigation to target_url
+            happens separately via Playwright CDP or scrape API calls.
         """
-        logger.debug(f"Creating Steel session for {self.config.target_url}")
+        logger.debug(f"Creating Steel session (will navigate to {self.config.target_url})")
 
         try:
             # Create session using Steel SDK
-            session = self._steel_client.sessions.create(
-                url=self.config.target_url,
-                timeout=self.config.session_timeout,
-                solver=self.config.solver if self.config.solver else None,
-                proxy=self.config.proxy if self.config.proxy else None,
-            )
+            # Note: sessions.create() doesn't take a 'url' parameter
+            # Sessions are created blank and you navigate via Playwright/scrape API
+            create_params = {
+                "api_timeout": self.config.session_timeout,
+            }
+
+            # Only add solve_captcha if solver is configured (not available on hobby plan)
+            if self.config.solver and self.config.solver != "capsolver":
+                # Hobby plan doesn't support captcha solving
+                logger.warning("CAPTCHA solving requires paid plan, skipping")
+
+            # Only add proxy if configured
+            if self.config.proxy:
+                create_params["use_proxy"] = {"value": self.config.proxy}
+
+            session = self._steel_client.sessions.create(**create_params)
 
             # Convert to dict for consistent interface
             session_data = {
                 "id": session.id,
-                "url": getattr(session, "url", None),
+                "cdp_url": getattr(session, "cdp_url", None) or getattr(session, "websocket_url", None),
                 "status": getattr(session, "status", "created"),
+                "url": self.config.target_url,  # Store target URL for navigation
             }
 
             logger.info(f"Created Steel session: {session_data['id']}")

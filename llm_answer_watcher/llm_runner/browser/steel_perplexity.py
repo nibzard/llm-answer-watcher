@@ -192,6 +192,10 @@ class SteelPerplexityRunner(SteelBaseRunner):
                 context = browser.contexts[0] if browser.contexts else browser.new_context()
                 page = context.pages[0] if context.pages else context.new_page()
 
+                # Navigate to target URL
+                logger.info(f"Navigating to {self.config.target_url}")
+                page.goto(self.config.target_url)
+
                 # Wait for page to be ready
                 page.wait_for_load_state("domcontentloaded")
                 logger.debug("Perplexity page loaded")

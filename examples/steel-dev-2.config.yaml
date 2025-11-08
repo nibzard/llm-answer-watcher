@@ -6,6 +6,29 @@ run_settings:
     - provider: "openai"
       model_name: "gpt-5-nano"
       env_api_key: "OPENAI_API_KEY"
+      system_prompt: "openai/gpt-5-default"
+
+    - provider: "openai"
+      model_name: "gpt-5-nano"
+      env_api_key: "OPENAI_API_KEY"
+      system_prompt: "openai/gpt-5-default"
+      tools:
+        - type: "web_search"
+      tool_choice: "required"
+
+    # Google Gemini with Google Search grounding
+    - provider: "google"
+      model_name: "gemini-2.5-flash"
+      env_api_key: "GEMINI_API_KEY"
+      system_prompt: "google/gemini-grounding"
+      tools:
+        - google_search: {}  # Enable Google Search grounding
+
+    # Google Gemini without web search
+    - provider: "google"
+      model_name: "gemini-2.5-flash-lite"
+      env_api_key: "GEMINI_API_KEY"
+      # system_prompt: "google/default"  # Optional: Uses provider default if not specified
 
   use_llm_rank_extraction: true
 
@@ -17,7 +40,6 @@ brands:
     - "Steel API"
     - "Steel browser"
     - "Steel AI"
-    - "steel.dev pricing"
 
   competitors:
     - "Browserbase"
@@ -74,7 +96,7 @@ intents:
 
   # 3) Browsers for AI agents
   - id: "browser-for-ai-agent"
-    prompt: "I’m building an AI agent — what’s the best way to give it a controllable browser?"
+    prompt: "I’m building an AI agent, what’s the best way to give it a controllable browser?"
 
   - id: "multi-agent-browsing"
     prompt: "How can multiple agents create or share separate browser sessions in the cloud?"
@@ -97,5 +119,5 @@ intents:
     prompt: "Should I build my own browser automation infrastructure or use a hosted browser/API service?"
 
   - id: "alternatives-to-current-browser-service"
-    prompt: "I’m using a browser hosting service today — what alternatives should I look at and why?"
+    prompt: "I’m using a browser hosting service today, what alternatives should I look at and why?"
 

@@ -271,7 +271,10 @@ class OpenAIClient:
         else:
             logger.debug(f"Using default temperature for model: {self.model_name}")
 
-        # Add tools configuration if provided
+        # Add tools configuration if provided (direct passthrough to OpenAI API)
+        # OpenAI format: [{"type": "web_search"}] with tool_choice control
+        # This differs from Google's format: [{"google_search": {}}] (no tool_choice)
+        # Config schema uses generic list[dict] to support provider-specific formats
         if self.tools:
             payload["tools"] = self.tools
             payload["tool_choice"] = self.tool_choice

@@ -247,7 +247,11 @@ class GeminiClient:
             },
         }
 
-        # Add tools if configured (e.g., Google Search grounding)
+        # Add tools if configured (direct passthrough to Gemini API)
+        # Google format: [{"google_search": {}}] - dictionary with tool name as key
+        # This differs from OpenAI's format: [{"type": "web_search"}] (typed specification)
+        # Gemini automatically decides when to use tools (no tool_choice parameter)
+        # Config schema uses generic list[dict] to support provider-specific formats
         if self.tools:
             payload["tools"] = self.tools
             logger.debug(f"Added tools to request: {len(self.tools)} tool(s)")

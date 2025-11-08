@@ -38,8 +38,13 @@ class ModelConfig(BaseModel):
         env_api_key: Environment variable name containing the API key
         system_prompt: Optional relative path to system prompt JSON (e.g., "openai/gpt-4-default")
                       If not specified, uses provider default (e.g., "openai/default")
-        tools: Optional list of tool configurations (e.g., [{"type": "web_search"}])
+        tools: Optional list of tool configurations. Format differs by provider:
+               - OpenAI: [{"type": "web_search"}] (typed tool specification)
+               - Google: [{"google_search": {}}] (dictionary with tool name as key)
+               - Perplexity: Not needed (native web search)
+               Config is passed directly to provider API without translation.
         tool_choice: Tool selection mode ("auto", "required", "none"). Default: "auto"
+                    Note: Only used by OpenAI. Google auto-decides when to use tools.
     """
 
     provider: Literal["openai", "anthropic", "google", "mistral"]

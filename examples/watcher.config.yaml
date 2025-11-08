@@ -26,12 +26,15 @@ run_settings:
       # system_prompt: "google/default"  # Optional: Uses provider default if not specified
 
     # Google Gemini with Google Search grounding
-    # - provider: "google"
-    #   model_name: "gemini-2.5-flash"
-    #   env_api_key: "GEMINI_API_KEY"
-    #   system_prompt: "google/gemini-grounding"
-    #   tools:
-    #     - google_search: {}  # Enable Google Search grounding
+    # NOTE: Google uses 'google_search: {}' format (dictionary with tool name as key)
+    # This differs from OpenAI's format: 'type: "web_search"' (typed specification)
+    # Each provider has different API requirements - config does direct passthrough
+    - provider: "google"
+      model_name: "gemini-2.5-flash"
+      env_api_key: "GEMINI_API_KEY"
+      system_prompt: "google/gemini-grounding"
+      tools:
+        - google_search: {}  # Google API format for Search grounding
 
     # - provider: "anthropic"
     #   model_name: "claude-3-5-haiku-20241022"

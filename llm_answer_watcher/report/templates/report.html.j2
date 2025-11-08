@@ -770,7 +770,7 @@
                                 {% for mention in result.my_mentions %}
                                 <li class="mention-item">
                                     <span class="mention-name">{{ mention.original_text }}</span>
-                                    <span class="mention-position">pos: {{ mention.match_position }}</span>
+                                    <span class="mention-position">pos: {{ mention.rank_position if mention.rank_position is not none else '—' }}</span>
                                 </li>
                                 {% endfor %}
                             </ul>
@@ -787,7 +787,7 @@
                                 {% for mention in result.competitor_mentions %}
                                 <li class="mention-item">
                                     <span class="mention-name">{{ mention.original_text }}</span>
-                                    <span class="mention-position">pos: {{ mention.match_position }}</span>
+                                    <span class="mention-position">pos: {{ mention.rank_position if mention.rank_position is not none else '—' }}</span>
                                 </li>
                                 {% endfor %}
                             </ul>

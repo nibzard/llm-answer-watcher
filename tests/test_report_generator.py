@@ -710,8 +710,8 @@ class TestMentionsDisplay:
         assert_html_contains(html, "My Mentions (1)")
         # Should display brand name
         assert_html_contains(html, "Warmly")
-        # Should display position
-        assert_html_contains(html, "pos: 45")
+        # Should display rank position from ranked_list (not match_position)
+        assert_html_contains(html, "pos: 1")
 
     def test_displays_competitor_mentions(
         self, tmp_path, runtime_config, sample_results, sample_parsed_data
@@ -732,9 +732,9 @@ class TestMentionsDisplay:
         # Should display competitor names
         assert_html_contains(html, "HubSpot")
         assert_html_contains(html, "Instantly")
-        # Should display positions
-        assert_html_contains(html, "pos: 89")
-        assert_html_contains(html, "pos: 123")
+        # Should display rank positions from ranked_list (not match_position)
+        assert_html_contains(html, "pos: 2")
+        assert_html_contains(html, "pos: 3")
 
     def test_empty_my_mentions_shows_placeholder(
         self, tmp_path, runtime_config, sample_results, sample_parsed_data_no_mine

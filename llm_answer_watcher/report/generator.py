@@ -497,11 +497,30 @@ def _load_model_result(
     rank_extraction_method = parsed_data.get("rank_extraction_method", "pattern")
     rank_confidence = parsed_data.get("rank_confidence", 0.0)
 
-    # Sort mentions by position for consistent display
-    my_mentions_sorted = sorted(my_mentions, key=lambda m: m.get("match_position", 0))
-    competitor_mentions_sorted = sorted(
-        competitor_mentions, key=lambda m: m.get("match_position", 0)
-    )
+    # Build a lookup map from ranked_list: brand_name -> rank_position
+    rank_lookup = {item["brand_name"]: item["rank_position"] for item in ranked_list}
+
+    # Enrich mentions with rank_position from ranked_list
+    def enrich_mention_with_rank(mention: dict) -> dict:
+        """Add rank_position to mention if brand is in ranked_list."""
+        enriched = mention.copy()
+        brand_name = mention.get("normalized_name")
+        enriched["rank_position"] = rank_lookup.get(brand_name)
+        return enriched
+
+    # Enrich and sort mentions
+    my_mentions_enriched = [enrich_mention_with_rank(m) for m in my_mentions]
+    competitor_mentions_enriched = [
+        enrich_mention_with_rank(m) for m in competitor_mentions
+    ]
+
+    # Sort by rank_position (None last), then by match_position
+    def sort_key(m):
+        rank = m.get("rank_position")
+        return (rank is None, rank if rank is not None else 0, m.get("match_position", 0))
+
+    my_mentions_sorted = sorted(my_mentions_enriched, key=sort_key)
+    competitor_mentions_sorted = sorted(competitor_mentions_enriched, key=sort_key)
 
     # Format cost
     cost_usd = result.get("cost_usd", 0.0)

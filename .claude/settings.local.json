@@ -31,7 +31,8 @@
       "Bash(for file in gemini anthropic mistral grok perplexity)",
       "Bash(do)",
       "Bash(pytest:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(jobs:*)"
     ],
     "deny": [],
     "ask": []

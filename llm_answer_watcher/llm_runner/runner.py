@@ -562,6 +562,9 @@ async def run_all(
                     f"Processing runner: intent={intent.id}, plugin={provider}"
                 )
 
+            # Construct query key for progress tracking
+            query_key = f"{intent.id}_{provider}_{model_name}"
+
             # Notify progress callback of query start (if supported)
             if progress_callback and hasattr(progress_callback, "start_query"):
                 await progress_callback.start_query(intent.id, provider, model_name)
@@ -884,7 +887,7 @@ async def run_all(
                     # Call progress callback if provided
                     if progress_callback:
                         if hasattr(progress_callback, "complete_query"):
-                            await progress_callback.complete_query(success=True)
+                            await progress_callback.complete_query(query_key, success=True)
                         else:
                             progress_callback()
 
@@ -1038,7 +1041,7 @@ async def run_all(
                 # Call progress callback if provided
                 if progress_callback:
                     if hasattr(progress_callback, "complete_query"):
-                        await progress_callback.complete_query(success=True)
+                        await progress_callback.complete_query(query_key, success=True)
                     else:
                         progress_callback()
 
@@ -1096,7 +1099,7 @@ async def run_all(
                 # Call progress callback if provided (even for errors)
                 if progress_callback:
                     if hasattr(progress_callback, "complete_query"):
-                        await progress_callback.complete_query(success=False)
+                        await progress_callback.complete_query(query_key, success=False)
                     else:
                         progress_callback()
 

@@ -375,18 +375,22 @@ def run(
                         )
                         self.active_tasks[query_key] = task_id
 
-                    async def complete_query(self, success: bool = True):
+                    async def complete_query(self, query_key: str, success: bool = True):
                         """
                         Called when a query completes (async-compatible).
 
-                        Updates overall progress. Individual task cleanup happens automatically.
+                        Updates both overall progress and individual task progress.
                         """
                         # Update overall progress (Rich Progress is sync)
                         progress.advance(main_task)
                         self.completed += 1
 
-                        # Note: We could remove individual tasks here, but leaving them
-                        # shows the full history of completed queries
+                        # Update individual task to 100% completion
+                        if query_key in self.active_tasks:
+                            task_id = self.active_tasks[query_key]
+                            progress.update(task_id, completed=100)
+
+                        # Note: We leave completed tasks visible to show full history
 
                 progress_tracker = ProgressTracker()
                 progress_callback = progress_tracker

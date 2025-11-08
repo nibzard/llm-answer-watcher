@@ -326,6 +326,20 @@
             color: var(--color-text-muted);
         }
 
+        /* Brand Highlighting in LLM Responses */
+        .highlight-mine {
+            background-color: #fef08a;  /* yellow-200 */
+            font-weight: 600;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        .highlight-competitor {
+            background-color: #fed7aa;  /* orange-200 */
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
         /* LLM Response Collapsible */
         .llm-response-section {
             margin-top: 1rem;
@@ -554,6 +568,82 @@
             color: var(--color-text);
         }
 
+        /* Toggle Switch Styles */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: all 0.3s;
+            border-radius: 26px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: all 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--color-success);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .toggle-switch input:focus + .toggle-slider {
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+
+        /* Hidden state for filtered model results */
+        .model-result.hidden {
+            display: none;
+        }
+
+        .model-result {
+            transition: opacity 0.2s ease-in-out;
+        }
+
+        /* Tool Badge (Web Search indicator) */
+        .tool-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            margin-left: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: #f0f9ff;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+            border-radius: 4px;
+            font-family: var(--font-sans);
+            vertical-align: middle;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             body {
@@ -649,6 +739,20 @@
         </section>
         {% endif %}
 
+        <!-- Filter Controls -->
+        <section class="summary-card">
+            <h2>Display Filters</h2>
+            <div style="display: flex; align-items: center; gap: 1rem; margin-top: 1rem;">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="hideEmptyToggle" />
+                    <span class="toggle-slider"></span>
+                </label>
+                <label for="hideEmptyToggle" style="cursor: pointer; font-size: 0.95rem; color: var(--color-text);">
+                    Show only results where my brand appeared
+                </label>
+            </div>
+        </section>
+
         <!-- Visibility Scores -->
         {% if visibility_scores and (visibility_scores.my_brands or visibility_scores.competitor_brands) %}
         <section class="visibility-section">
@@ -743,10 +847,15 @@
 
             <!-- Model Results for this Intent -->
             {% for result in intent.results %}
-            <div class="model-result">
+            <div class="model-result" data-has-my-brand="{{ 'true' if result.appeared_mine else 'false' }}">
                 <!-- Model Header with Appeared Badge -->
                 <div class="model-header">
-                    <span class="model-name">{{ result.provider }}/{{ result.model_name }}</span>
+                    <span class="model-name">
+                        {{ result.provider }}/{{ result.model_name }}
+                        {% if result.has_web_search %}
+                            <span class="tool-badge">🌐 Web Search: {{ result.web_search_count }}</span>
+                        {% endif %}
+                    </span>
                     <div style="display: flex; align-items: center; gap: 1rem;">
                         <span class="appeared-badge {{ 'yes' if result.appeared_mine else 'no' }}">
                             {% if result.appeared_mine %}
@@ -858,10 +967,127 @@
     </div>
 
     <script>
+        // Toggle LLM response visibility
         function toggleResponse(button) {
             const content = button.nextElementSibling;
+            const wasHidden = !content.classList.contains('show');
+
             content.classList.toggle('show');
             button.classList.toggle('expanded');
+
+            // Apply brand highlighting when first opened
+            if (wasHidden && content.dataset.highlighted !== 'true') {
+                const textDiv = content.querySelector('.llm-response-text');
+                const modelResult = button.closest('.model-result');
+
+                if (textDiv && modelResult) {
+                    // Extract brand names from the mentions columns
+                    // First column is "My Mentions", second is "Competitor Mentions"
+                    const mentionsColumns = modelResult.querySelectorAll('.mentions-column');
+                    const myBrands = mentionsColumns.length > 0 ?
+                        extractBrandNames(modelResult, '.mentions-column:nth-child(1)') : [];
+                    const competitorBrands = mentionsColumns.length > 1 ?
+                        extractBrandNames(modelResult, '.mentions-column:nth-child(2)') : [];
+
+                    // Apply highlighting
+                    highlightBrands(textDiv, myBrands, competitorBrands);
+
+                    // Mark as highlighted to avoid re-processing
+                    content.dataset.highlighted = 'true';
+                }
+            }
+        }
+
+        // Filter functionality for hiding empty results
+        const STORAGE_KEY = 'llm-watcher-hide-empty';
+
+        function applyFilter(hideEmpty) {
+            const modelResults = document.querySelectorAll('.model-result');
+            let hiddenCount = 0;
+
+            modelResults.forEach(result => {
+                const hasMyBrand = result.getAttribute('data-has-my-brand') === 'true';
+
+                if (hideEmpty && !hasMyBrand) {
+                    result.classList.add('hidden');
+                    hiddenCount++;
+                } else {
+                    result.classList.remove('hidden');
+                }
+            });
+
+            // Save preference to localStorage
+            try {
+                localStorage.setItem(STORAGE_KEY, hideEmpty ? 'true' : 'false');
+            } catch (e) {
+                // localStorage might be disabled in some browsers
+                console.warn('Could not save filter preference:', e);
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggle = document.getElementById('hideEmptyToggle');
+
+            // Load saved preference from localStorage
+            try {
+                const savedState = localStorage.getItem(STORAGE_KEY);
+                if (savedState === 'true') {
+                    toggle.checked = true;
+                    applyFilter(true);
+                }
+            } catch (e) {
+                // localStorage might be disabled
+                console.warn('Could not load filter preference:', e);
+            }
+
+            // Listen for toggle changes
+            toggle.addEventListener('change', function() {
+                applyFilter(this.checked);
+            });
+        });
+
+        // Brand highlighting functionality
+        function extractBrandNames(modelResult, selector) {
+            const column = modelResult.querySelector(selector);
+            if (!column) return [];
+
+            const mentionItems = column.querySelectorAll('.mention-name');
+            const brands = Array.from(mentionItems).map(el => el.textContent.trim());
+
+            // Remove duplicates
+            return [...new Set(brands)];
+        }
+
+        function highlightBrands(textElement, myBrands, competitorBrands) {
+            // Get the plain text content
+            let html = textElement.textContent;
+
+            // Build array of all brands with their type
+            const allBrands = [
+                ...myBrands.map(b => ({text: b, className: 'highlight-mine'})),
+                ...competitorBrands.map(b => ({text: b, className: 'highlight-competitor'}))
+            ];
+
+            // Sort by length (longest first) to avoid partial matches
+            // e.g., "Steel.dev" should be matched before "Steel"
+            allBrands.sort((a, b) => b.text.length - a.text.length);
+
+            // Replace each brand with highlighted span
+            allBrands.forEach(brand => {
+                // Escape special regex characters
+                const escapedBrand = brand.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+                // Use word boundaries to match whole words only
+                // This prevents "hub" matching in "GitHub"
+                const pattern = new RegExp(`\\b(${escapedBrand})\\b`, 'gi');
+
+                // Replace with highlighted span
+                html = html.replace(pattern, `<span class="${brand.className}">$1</span>`);
+            });
+
+            // Update the element's HTML
+            textElement.innerHTML = html;
         }
     </script>
 </body>

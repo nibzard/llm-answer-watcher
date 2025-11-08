@@ -531,6 +531,7 @@ def _load_model_result(
     raw_path = run_dir / raw_filename
     answer_text = None
     answer_length = 0
+    web_search_count = 0
 
     if raw_path.exists():
         try:
@@ -538,6 +539,7 @@ def _load_model_result(
                 raw_data = json.load(f)
                 answer_text = raw_data.get("answer_text", "")
                 answer_length = raw_data.get("answer_length", len(answer_text))
+                web_search_count = raw_data.get("web_search_count", 0)
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Failed to load raw answer text from {raw_path}: {e}")
 
@@ -553,4 +555,6 @@ def _load_model_result(
         "cost_formatted": cost_formatted,
         "answer_text": answer_text,
         "answer_length": answer_length,
+        "web_search_count": web_search_count,
+        "has_web_search": web_search_count > 0,
     }

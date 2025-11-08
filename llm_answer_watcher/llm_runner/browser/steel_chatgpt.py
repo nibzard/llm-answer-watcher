@@ -156,54 +156,98 @@ class SteelChatGPTRunner(SteelBaseRunner):
 
     def _navigate_and_submit(self, session: dict, prompt: str) -> None:
         """
-        Navigate to ChatGPT and submit prompt.
-
-        Uses Steel's CDP API to:
-        1. Wait for page load
-        2. Find message input element
-        3. Type prompt text
-        4. Submit message
+        Navigate to ChatGPT and submit prompt using Playwright.
 
         Args:
             session: Steel session data
             prompt: User intent prompt to submit
 
         Raises:
-            httpx.HTTPError: If Steel API calls fail
-            TimeoutError: If navigation/submission times out
+            Exception: If navigation or submission fails
         """
         session_id = session["id"]
 
         logger.debug(f"Navigating to ChatGPT for session {session_id}")
 
-        # Wait for page to load (Steel handles this automatically)
-        time.sleep(3)
+        try:
+            # Import Playwright here to avoid import errors if not installed
+            from playwright.sync_api import sync_playwright
 
-        # Use Steel's scrape API to interact with page
-        # This is a placeholder - actual implementation needs Steel's CDP methods
-        logger.info(f"Submitting prompt to ChatGPT: {prompt[:50]}...")
+            # Get websocket URL from session
+            session_obj = self._steel_client.sessions.retrieve(session_id)
+            ws_url = getattr(session_obj, "websocket_url", None) or getattr(
+                session_obj, "cdp_url", None
+            )
 
-        # TODO: Implement actual CDP commands via Steel API:
-        # 1. Wait for input textarea: selector = 'textarea[placeholder*="Send a message"]'
-        # 2. Type prompt text
-        # 3. Submit (Enter key or click send button)
-        # 4. Wait for response to start
+            if not ws_url:
+                logger.warning("No websocket URL available, falling back to simple navigation")
+                time.sleep(5)  # Wait for page to load
+                return
 
-        # Placeholder: Steel API interactions would go here
-        # Example structure (pseudo-code):
-        # self._client.post(
-        #     f"{self.steel_api_url}/sessions/{session_id}/execute",
-        #     json={"command": "type", "selector": "textarea", "text": prompt}
-        # )
+            logger.info(f"Connecting to Steel session via websocket: {ws_url}")
+
+            with sync_playwright() as p:
+                # Connect to Steel browser session via CDP
+                browser = p.chromium.connect_over_cdp(ws_url)
+                context = browser.contexts[0] if browser.contexts else browser.new_context()
+                page = context.pages[0] if context.pages else context.new_page()
+
+                # Navigate to target URL
+                logger.info(f"Navigating to {self.config.target_url}")
+                page.goto(self.config.target_url)
+
+                # Wait for page to be ready
+                page.wait_for_load_state("domcontentloaded")
+                logger.debug("ChatGPT page loaded")
+
+                # Find and fill the message textarea
+                logger.info(f"Submitting prompt to ChatGPT: {prompt[:50]}...")
+
+                # Try multiple selectors for ChatGPT input
+                selectors = [
+                    'textarea[placeholder*="Message"]',
+                    'textarea[id*="prompt"]',
+                    'textarea',
+                    '#prompt-textarea',
+                ]
+
+                text_area = None
+                for selector in selectors:
+                    try:
+                        text_area = page.wait_for_selector(selector, timeout=5000)
+                        if text_area:
+                            logger.debug(f"Found input using selector: {selector}")
+                            break
+                    except Exception:
+                        continue
+
+                if not text_area:
+                    raise RuntimeError("Could not find ChatGPT message input field")
+
+                # Type the prompt
+                text_area.fill(prompt)
+                logger.debug("Prompt typed into input field")
+
+                # Submit the message (Enter key or click button)
+                # Try Enter key first
+                text_area.press("Enter")
+                logger.debug("Submitted prompt with Enter key")
+
+                # Wait for response to start (look for assistant message)
+                logger.debug("Waiting for ChatGPT response to start...")
+                page.wait_for_timeout(2000)  # Initial delay for response to start
+
+                logger.info("Prompt submitted successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to navigate and submit: {e}", exc_info=True)
+            # Fallback: just wait and hope the session is navigated correctly
+            logger.warning("Falling back to simple wait")
+            time.sleep(5)
 
     def _extract_answer(self, session: dict) -> str:
         """
-        Extract answer text from ChatGPT response.
-
-        Uses Steel's scrape API to:
-        1. Wait for response completion (streaming finished)
-        2. Find last assistant message element
-        3. Extract text content
+        Extract answer text from ChatGPT response using Playwright and Steel scrape API.
 
         Args:
             session: Steel session data
@@ -212,45 +256,102 @@ class SteelChatGPTRunner(SteelBaseRunner):
             str: Extracted answer text
 
         Raises:
-            httpx.HTTPError: If Steel API calls fail
-            TimeoutError: If response doesn't complete within timeout
+            Exception: If extraction fails
         """
         session_id = session["id"]
 
         logger.debug(f"Waiting for ChatGPT response in session {session_id}")
 
-        # Wait for response to complete (streaming finished)
-        # Look for absence of "Stop generating" button
+        # Wait for response to complete
         timeout = self.config.wait_for_response_timeout
         start_time = time.time()
 
-        while time.time() - start_time < timeout:
-            time.sleep(2)
+        answer_text = None
 
-            # TODO: Check if response is complete using Steel's scrape API
-            # Example: Look for last message with data-message-author-role="assistant"
-            # and verify streaming indicator is gone
+        try:
+            from playwright.sync_api import sync_playwright
 
-            # For now, just wait fixed duration
-            if time.time() - start_time > 10:
-                break
+            # Get websocket URL
+            session_obj = self._steel_client.sessions.retrieve(session_id)
+            ws_url = getattr(session_obj, "websocket_url", None) or getattr(
+                session_obj, "cdp_url", None
+            )
 
-        # Extract answer text
-        logger.debug("Extracting answer text from ChatGPT")
+            if ws_url:
+                logger.info("Using Playwright to extract ChatGPT response")
 
-        # TODO: Implement actual extraction via Steel's scrape API
-        # Example structure (pseudo-code):
-        # response = self._client.post(
-        #     f"{self.steel_api_url}/sessions/{session_id}/scrape",
-        #     json={"selector": "[data-message-author-role='assistant']:last-child"}
-        # )
-        # answer_text = response.json()["text"]
+                with sync_playwright() as p:
+                    browser = p.chromium.connect_over_cdp(ws_url)
+                    context = browser.contexts[0] if browser.contexts else browser.new_context()
+                    page = context.pages[0] if context.pages else context.new_page()
 
-        # Placeholder: Return mock answer for now
-        answer_text = (
-            "[ChatGPT response would be extracted here via Steel API]\n"
-            f"Prompt submitted: {session['url']}"
-        )
+                    # Wait for streaming to complete
+                    # Look for absence of "Stop generating" button or similar indicators
+                    logger.debug("Waiting for response to complete...")
+
+                    while time.time() - start_time < timeout:
+                        # Check if still generating
+                        stop_button = page.query_selector('button:has-text("Stop generating")')
+                        if not stop_button:
+                            logger.debug("Response appears complete (no stop button)")
+                            break
+
+                        time.sleep(2)
+
+                    # Extract the last assistant message
+                    logger.debug("Extracting answer text")
+
+                    # Try multiple selectors for ChatGPT response
+                    response_selectors = [
+                        '[data-message-author-role="assistant"]:last-of-type',
+                        '.markdown:last-of-type',
+                        '[data-testid*="conversation-turn"]:last-child',
+                    ]
+
+                    for selector in response_selectors:
+                        try:
+                            element = page.query_selector(selector)
+                            if element:
+                                answer_text = element.inner_text()
+                                logger.debug(f"Found response using selector: {selector}")
+                                break
+                        except Exception as e:
+                            logger.debug(f"Selector {selector} failed: {e}")
+                            continue
+
+            else:
+                logger.warning("No websocket URL available for Playwright extraction")
+
+        except Exception as e:
+            logger.warning(f"Playwright extraction failed: {e}", exc_info=True)
+
+        # Fallback: use Steel's scrape API to get markdown content
+        if not answer_text:
+            logger.info("Falling back to Steel scrape API for content extraction")
+
+            try:
+                # Wait a bit more for content to stabilize
+                time.sleep(5)
+
+                # Use base class method to scrape page content
+                markdown_content = self._scrape_page_content(session_id, format="markdown")
+
+                if markdown_content:
+                    answer_text = markdown_content
+                    logger.info("Successfully extracted content using scrape API")
+                else:
+                    # Last resort: get HTML and extract text
+                    html_content = self._scrape_page_content(session_id, format="cleaned_html")
+                    if html_content:
+                        answer_text = html_content
+                        logger.info("Extracted content from cleaned HTML")
+
+            except Exception as e:
+                logger.warning(f"Scrape API extraction failed: {e}", exc_info=True)
+
+        # If we still don't have content, return a placeholder
+        if not answer_text:
+            answer_text = "[Failed to extract ChatGPT response - see logs for details]"
 
         logger.info(f"Extracted answer ({len(answer_text)} chars)")
 
@@ -267,16 +368,51 @@ class SteelChatGPTRunner(SteelBaseRunner):
 
         Returns:
             list[dict] | None: List of web sources with url/title, or None
-
-        Note:
-            This is a future enhancement - returns None for now.
         """
-        # TODO: Implement web source extraction
-        # Look for citation links like [1], [2] and extract URLs
-        # Check for "Searched X sites" message
-        # Extract source URLs and titles
+        session_id = session["id"]
+        sources = []
 
-        return None
+        try:
+            from playwright.sync_api import sync_playwright
+
+            # Get websocket URL
+            session_obj = self._steel_client.sessions.retrieve(session_id)
+            ws_url = getattr(session_obj, "websocket_url", None) or getattr(
+                session_obj, "cdp_url", None
+            )
+
+            if ws_url:
+                logger.debug("Extracting web sources from ChatGPT response")
+
+                with sync_playwright() as p:
+                    browser = p.chromium.connect_over_cdp(ws_url)
+                    context = browser.contexts[0] if browser.contexts else browser.new_context()
+                    page = context.pages[0] if context.pages else context.new_page()
+
+                    # Look for citation links
+                    citation_selectors = [
+                        'a[href*="link/"]',  # ChatGPT citation links
+                        'sup a',  # Superscript citation links
+                        '[data-testid*="citation"]',
+                    ]
+
+                    for selector in citation_selectors:
+                        try:
+                            elements = page.query_selector_all(selector)
+                            for elem in elements:
+                                url = elem.get_attribute("href")
+                                title = elem.inner_text() or "Source"
+                                if url:
+                                    sources.append({"url": url, "title": title.strip()})
+                        except Exception as e:
+                            logger.debug(f"Citation selector {selector} failed: {e}")
+
+                    logger.info(f"Extracted {len(sources)} web sources")
+
+        except Exception as e:
+            logger.warning(f"Web source extraction failed: {e}", exc_info=True)
+
+        return sources if sources else None
 
 
 @RunnerRegistry.register

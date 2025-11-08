@@ -262,9 +262,13 @@ def run(
         with spinner("Loading configuration..."):
             runtime_config = load_config(config)
 
+        # Build model summary
+        model_summary = f"{len(runtime_config.models)} models"
+        if runtime_config.operation_models:
+            model_summary += f", {len(runtime_config.operation_models)} operation models"
+
         success(
-            f"Loaded {len(runtime_config.intents)} intents, "
-            f"{len(runtime_config.models)} models"
+            f"Loaded {len(runtime_config.intents)} intents, {model_summary}"
         )
 
     except ConfigFileNotFoundError as e:
@@ -305,7 +309,20 @@ def run(
 
     # Calculate total work
     total_queries = len(runtime_config.intents) * len(runtime_config.models)
-    info(f"Will execute {total_queries} queries")
+
+    # Calculate total operations
+    total_operations = 0
+    if runtime_config.operation_models:
+        ops_per_intent = len(runtime_config.global_operations)
+        for intent in runtime_config.intents:
+            ops_per_intent += len(intent.operations)
+        total_operations = ops_per_intent * len(runtime_config.intents)
+
+    # Build execution summary
+    if total_operations > 0:
+        info(f"Will execute {total_queries} queries, {total_operations} operations")
+    else:
+        info(f"Will execute {total_queries} queries")
 
     # Estimate cost with detailed breakdown
     with spinner("Estimating costs..."):
@@ -405,7 +422,13 @@ def run(
                 if not output_mode.is_human()
                 else nullcontext()
             ):
-                results = asyncio.run(run_all(runtime_config, progress_callback=progress_callback))
+                results = asyncio.run(
+                    run_all(
+                        runtime_config,
+                        progress_callback=progress_callback,
+                        config_filename=config.name,
+                    )
+                )
 
         # Generate HTML report
         with spinner("Generating report..."):
@@ -1404,6 +1427,8 @@ def prices_refresh(
         elif result["status"] == "skipped":
             info(f"i  {result['reason']}")
             info(f"   Cached {result['model_count']} models from {result['cached_at']}")
+            if result.get("updated_at"):
+                info(f"   Upstream data last updated: {result['updated_at']}")
         else:
             error(
                 f"✗ Failed to refresh pricing: {result.get('error', 'Unknown error')}"
@@ -1522,20 +1547,17 @@ def main(
 
 def _read_version() -> str:
     """
-    Read version from VERSION file.
+    Read version from package metadata (pyproject.toml).
 
     Returns:
-        Version string (e.g., "0.1.0")
+        Version string (e.g., "0.2.0")
     """
     try:
-        version_file = Path(__file__).parent.parent / "VERSION"
-        if version_file.exists():
-            return version_file.read_text().strip()
+        from importlib.metadata import version
+        return version("llm-answer-watcher")
     except Exception:
-        pass
-
-    # Fallback version
-    return "0.1.0"
+        # Fallback if package metadata is not available
+        return "0.2.0"
 
 
 if __name__ == "__main__":

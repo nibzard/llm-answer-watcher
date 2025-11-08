@@ -27,6 +27,7 @@ from typing import Any
 
 import httpx
 
+from llm_answer_watcher.config.capabilities import get_model_capabilities
 from llm_answer_watcher.llm_runner.models import LLMResponse
 from llm_answer_watcher.llm_runner.retry_config import (
     NO_RETRY_STATUS_CODES,
@@ -35,50 +36,8 @@ from llm_answer_watcher.llm_runner.retry_config import (
 )
 from llm_answer_watcher.utils.time import utc_timestamp
 
-# Model-specific parameters to handle different model requirements
-MODEL_PARAMS = {
-    # Default parameters for most models
-    "default": {
-        "temperature": 0.7,
-    },
-    # Models that only support temperature 1.0 (default)
-    "temperature_fixed": {
-        # No temperature parameter - use model default
-    },
-    # GPT-5 models that use max_completion_tokens instead of max_tokens
-    "gpt_5_family": {
-        "temperature": 0.7,
-        "use_max_completion_tokens": True,
-    },
-}
-
-# Models that require fixed temperature (don't support custom temperature)
-# GPT-5 and GPT-4.1 models only support temperature=1 (default), not custom values
-TEMPERATURE_FIXED_MODELS = {
-    "gpt-5",
-    "gpt-5-mini",
-    "gpt-5-nano",
-    "gpt-5-pro",
-    "gpt-5-chat-latest",
-    "gpt-4.1-nano",
-    "gpt-4.1-nano-2025-04-14",
-    "gpt-4.1-mini",
-    "gpt-4.1-mini-2025-04-14",
-}
-
-# GPT-5 and GPT-4.1 model families that use different parameter names
-# These models require max_completion_tokens instead of max_tokens
-GPT_5_MODELS = {
-    "gpt-5",
-    "gpt-5-mini",
-    "gpt-5-nano",
-    "gpt-5-pro",
-    "gpt-5-chat-latest",
-    "gpt-4.1-nano",
-    "gpt-4.1-nano-2025-04-14",
-    "gpt-4.1-mini",
-    "gpt-4.1-mini-2025-04-14",
-}
+# Default temperature for models that support it
+DEFAULT_TEMPERATURE = 0.7
 
 # Suppress HTTPX request logging to prevent test interference
 httpx_logger = logging.getLogger("httpx")
@@ -265,11 +224,13 @@ class OpenAIClient:
         }
 
         # Add temperature parameter only if model supports it
-        if self.model_name not in TEMPERATURE_FIXED_MODELS:
-            payload["temperature"] = MODEL_PARAMS["default"]["temperature"]
-            logger.debug(f"Using temperature 0.7 for model: {self.model_name}")
+        # Load model capabilities from config
+        capabilities = get_model_capabilities()
+        if capabilities.supports_temperature("openai", self.model_name):
+            payload["temperature"] = DEFAULT_TEMPERATURE
+            logger.debug(f"Using temperature {DEFAULT_TEMPERATURE} for model: {self.model_name}")
         else:
-            logger.debug(f"Using default temperature for model: {self.model_name}")
+            logger.debug(f"Using default temperature for model: {self.model_name} (custom temperature not supported)")
 
         # Add tools configuration if provided (direct passthrough to OpenAI API)
         # OpenAI format: [{"type": "web_search"}] with tool_choice control

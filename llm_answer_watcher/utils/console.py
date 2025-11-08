@@ -460,7 +460,7 @@ def print_banner(version: str) -> None:
 
     banner = f"""
 [bold cyan]\u2554{"═" * 39}\u2557
-\u2551   LLM Answer Watcher v{version:>15} \u2551
+\u2551   LLM Answer Watcher v{version:<15} \u2551
 \u2551   Monitor LLM responses for brands    \u2551
 \u255a{"═" * 39}\u255d[/bold cyan]
 """
@@ -583,9 +583,12 @@ def print_cost_breakdown(
 
     if output_mode.quiet:
         # Quiet mode: tab-separated totals
+        # Format: <total_cost>\t<num_queries>\t<num_operations>\t<base_cost>
+        total_ops = cost_estimate.get("total_operations", 0)
         print(
             f"{cost_estimate['total_estimated_cost']:.6f}\t"
             f"{cost_estimate['total_queries']}\t"
+            f"{total_ops}\t"
             f"{cost_estimate['base_cost']:.6f}"
         )
         return
@@ -621,12 +624,47 @@ def print_cost_breakdown(
         )
 
     console.print(table)
+
+    # Show operation models if configured
+    if cost_estimate.get("per_operation_model_costs"):
+        console.print()  # Spacing
+
+        op_table = Table(
+            title="Operation Models (Post-Intent Analysis)",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold magenta",
+        )
+
+        op_table.add_column("Provider", style="yellow", no_wrap=True)
+        op_table.add_column("Model", style="cyan", no_wrap=False)
+        op_table.add_column("Operations", justify="right", style="blue")
+        op_table.add_column("Per Op", justify="right", style="green")
+        op_table.add_column("Total", justify="right", style="bold green")
+
+        for op_model in cost_estimate["per_operation_model_costs"]:
+            op_table.add_row(
+                op_model["provider"],
+                op_model["model_name"],
+                str(op_model["num_operations"]),
+                f"${op_model['cost_per_operation']:.6f}",
+                f"${op_model['total_cost']:.6f}",
+            )
+
+        console.print(op_table)
+
     console.print()
 
     # Print totals
+    # Build queries/operations summary
+    summary_parts = [f"{cost_estimate['total_queries']} queries"]
+    if cost_estimate.get("total_operations", 0) > 0:
+        summary_parts.append(f"{cost_estimate['total_operations']} operations")
+    summary_text = ", ".join(summary_parts)
+
     console.print(
         f"[bold]Subtotal:[/bold] ${cost_estimate['base_cost']:.6f} "
-        f"({cost_estimate['total_queries']} queries)"
+        f"({summary_text})"
     )
     buffer_pct = int(cost_estimate["buffer_percentage"] * 100)
     console.print(

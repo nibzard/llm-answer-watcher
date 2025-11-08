@@ -210,15 +210,17 @@ class TestRunSettings:
             )
         assert "sqlite_db_path cannot be empty" in str(exc_info.value)
 
-    def test_rejects_empty_models_list(self):
-        """RunSettings should reject empty models list."""
-        with pytest.raises(ValidationError) as exc_info:
-            RunSettings(
-                output_dir="./output",
-                sqlite_db_path="./output/watcher.db",
-                models=[],
-            )
-        assert "At least one model must be configured" in str(exc_info.value)
+    def test_allows_empty_models_list(self):
+        """RunSettings should allow empty models list (can use operation_models instead)."""
+        # Empty models is valid - operation_models can be used instead
+        settings = RunSettings(
+            output_dir="./output",
+            sqlite_db_path="./output/watcher.db",
+            models=[],
+            operation_models=[],  # Also empty is fine - validation happens at WatcherConfig level
+        )
+        assert settings.models == []
+        assert settings.operation_models == []
 
 
 class TestBrands:

@@ -289,7 +289,7 @@ def evaluate_condition(condition: str, context: OperationContext) -> bool:
     return True
 
 
-def execute_operation(
+async def execute_operation(
     operation: RuntimeOperation,
     context: OperationContext,
     runtime_config: RuntimeConfig,
@@ -362,15 +362,30 @@ def execute_operation(
     # Render template
     rendered_prompt = render_template(operation.prompt, context)
 
-    # Select model
+    # Select model (priority: explicit override > operation_models > models)
     if operation.runtime_model:
         # Operation has specific model override
         model = operation.runtime_model
-    else:
-        # Use first model from config as default
-        if not runtime_config.models:
-            raise ValueError("No models configured in runtime config")
+        logger.debug(f"Operation '{operation.id}' using explicit model override")
+    elif runtime_config.operation_models:
+        # Use first operation model as default
+        model = runtime_config.operation_models[0]
+        logger.debug(
+            f"Operation '{operation.id}' using operation_models pool "
+            f"({model.model_name})"
+        )
+    elif runtime_config.models:
+        # Fall back to intent models if no operation models configured
         model = runtime_config.models[0]
+        logger.debug(
+            f"Operation '{operation.id}' using models pool as fallback "
+            f"({model.model_name})"
+        )
+    else:
+        raise ValueError(
+            "No models configured for operations. "
+            "Please configure either run_settings.operation_models or run_settings.models"
+        )
 
     logger.info(
         f"Executing operation '{operation.id}' using {model.provider}/{model.model_name}"
@@ -388,7 +403,7 @@ def execute_operation(
         )
 
         # Execute
-        response: LLMResponse = client.generate_answer(rendered_prompt)
+        response: LLMResponse = await client.generate_answer(rendered_prompt)
 
         return OperationResult(
             operation_id=operation.id,
@@ -478,7 +493,7 @@ def topological_sort(operations: list[RuntimeOperation]) -> list[RuntimeOperatio
     return [op_map[op_id] for op_id in sorted_ids]
 
 
-def execute_operations_with_dependencies(
+async def execute_operations_with_dependencies(
     operations: list[RuntimeOperation],
     context: OperationContext,
     runtime_config: RuntimeConfig,
@@ -520,7 +535,7 @@ def execute_operations_with_dependencies(
 
     for operation in sorted_operations:
         # Execute operation
-        result = execute_operation(operation, context, runtime_config)
+        result = await execute_operation(operation, context, runtime_config)
         results[operation.id] = result
 
         # Update context with result for chaining

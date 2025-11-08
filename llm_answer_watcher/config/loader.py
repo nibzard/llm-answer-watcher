@@ -140,6 +140,19 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
                 f"Failed to resolve API keys from {config_path}: {e}"
             ) from e
 
+    # Resolve operation models (used only for operations, not intent queries)
+    resolved_operation_models = []
+    try:
+        resolved_operation_models = resolve_operation_api_keys(watcher_config)
+    except APIKeyMissingError:
+        raise
+    except ConfigValidationError:
+        raise
+    except Exception as e:
+        raise ConfigValidationError(
+            f"Failed to resolve operation models from {config_path}: {e}"
+        ) from e
+
     # Resolve extraction settings if present
     resolved_extraction_settings = None
     if watcher_config.extraction_settings:
@@ -155,12 +168,15 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
             ) from e
 
     # Resolve global operations if present
+    # Operations should use operation_models if available, otherwise fall back to models
     resolved_global_operations = []
     if watcher_config.global_operations:
         try:
+            # Use operation_models for operations if configured, otherwise fall back to models
+            operation_model_pool = resolved_operation_models if resolved_operation_models else resolved_models
             resolved_global_operations = resolve_operations(
                 watcher_config.global_operations,
-                resolved_models,
+                operation_model_pool,
             )
         except APIKeyMissingError:
             raise
@@ -178,6 +194,7 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
         brands=watcher_config.brands,
         intents=watcher_config.intents,
         models=resolved_models,
+        operation_models=resolved_operation_models,
         runner_configs=resolved_runner_configs,
         global_operations=resolved_global_operations,
     )
@@ -286,6 +303,115 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
         resolved_models.append(runtime_model)
 
     return resolved_models
+
+
+def resolve_operation_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
+    """
+    Resolve API key environment variables and system prompts for operation models.
+
+    Similar to resolve_api_keys() but processes config.run_settings.operation_models
+    instead of config.run_settings.models. Operation models are used exclusively
+    for post-query analysis operations, not for intent queries.
+
+    Args:
+        config: Validated WatcherConfig with operation model configurations
+
+    Returns:
+        List of RuntimeModel instances with resolved API keys and system prompts
+        Empty list if no operation models are configured
+
+    Raises:
+        APIKeyMissingError: If any required environment variable is not set
+        ConfigValidationError: If provider is unsupported or system prompt files cannot be loaded
+
+    Example:
+        >>> # Assuming OPENAI_API_KEY is set in environment
+        >>> config = WatcherConfig(...)
+        >>> operation_models = resolve_operation_api_keys(config)
+        >>> operation_models[0].model_name  # e.g., "o3-mini"
+        'o3-mini'
+
+    Security:
+        - NEVER logs API keys (not even partial values)
+        - Fails fast if environment variable is missing
+        - API keys are only held in memory, never persisted
+    """
+    # Return empty list if no operation models configured
+    if not config.run_settings.operation_models:
+        return []
+
+    # List of implemented providers (must match resolve_api_keys)
+    IMPLEMENTED_PROVIDERS = {"openai", "anthropic", "mistral", "grok", "google"}
+    PLANNED_PROVIDERS: set[str] = set()
+
+    resolved_operation_models: list[RuntimeModel] = []
+
+    for model_config in config.run_settings.operation_models:
+        # Validate provider is implemented
+        if model_config.provider not in IMPLEMENTED_PROVIDERS:
+            if model_config.provider in PLANNED_PROVIDERS:
+                raise ConfigValidationError(
+                    f"Provider '{model_config.provider}' is not yet implemented. "
+                    f"Currently supported providers: {', '.join(sorted(IMPLEMENTED_PROVIDERS))}. "
+                    f"Planned providers: {', '.join(sorted(PLANNED_PROVIDERS))}. "
+                    f"Please use an implemented provider or check back in a future release."
+                )
+            raise ConfigValidationError(
+                f"Unknown provider '{model_config.provider}'. "
+                f"Supported providers: {', '.join(sorted(IMPLEMENTED_PROVIDERS))}."
+            )
+
+        # Get environment variable name from config
+        env_var_name = model_config.env_api_key
+
+        # Resolve to actual API key value
+        api_key = os.environ.get(env_var_name)
+
+        # Fail fast if environment variable is not set
+        if not api_key:
+            raise APIKeyMissingError(
+                f"Environment variable ${env_var_name} not set "
+                f"(required for operation model {model_config.provider}/{model_config.model_name}). "
+                f"Please set it in your environment or .env file."
+            )
+
+        # Validate API key is not just whitespace
+        if api_key.isspace():
+            raise APIKeyMissingError(
+                f"Environment variable ${env_var_name} is empty or whitespace "
+                f"(required for operation model {model_config.provider}/{model_config.model_name})"
+            )
+
+        # Resolve system prompt from JSON file
+        try:
+            if model_config.system_prompt:
+                # Use specified system prompt
+                prompt_obj = load_prompt(model_config.system_prompt)
+            else:
+                # Fall back to provider default
+                prompt_obj = get_provider_default(model_config.provider)
+
+            system_prompt_text = prompt_obj.prompt
+
+        except Exception as e:
+            raise ConfigValidationError(
+                f"Failed to load system prompt for operation model "
+                f"{model_config.provider}/{model_config.model_name}: {e}"
+            ) from e
+
+        # Build RuntimeModel with resolved API key, system prompt, and tools
+        runtime_model = RuntimeModel(
+            provider=model_config.provider,
+            model_name=model_config.model_name,
+            api_key=api_key,
+            system_prompt=system_prompt_text,
+            tools=model_config.tools,
+            tool_choice=model_config.tool_choice,
+        )
+
+        resolved_operation_models.append(runtime_model)
+
+    return resolved_operation_models
 
 
 def resolve_runner_configs(config: WatcherConfig) -> list:
@@ -512,18 +638,19 @@ def resolve_extraction_settings(
 
 def resolve_operations(
     operations: list,  # list[Operation] from schema
-    resolved_models: list[RuntimeModel],
+    operation_models: list[RuntimeModel],
 ) -> list[RuntimeOperation]:
     """
     Resolve operations with model overrides.
 
     Takes list of Operation configurations and resolves any model overrides
     to RuntimeModel instances. Operations without model overrides will use
-    the default model at runtime (first model in resolved_models list).
+    the default model at runtime (first model in operation_models list).
 
     Args:
         operations: List of Operation configurations from WatcherConfig
-        resolved_models: List of resolved RuntimeModel instances
+        operation_models: List of resolved RuntimeModel instances from operation_models pool
+                         (or models pool if operation_models is not configured)
 
     Returns:
         List of RuntimeOperation instances with resolved model overrides
@@ -534,18 +661,18 @@ def resolve_operations(
     Example:
         >>> # Operations with and without model overrides
         >>> operations = [
-        ...     Operation(id="op1", model="gpt-4o-mini", ...),
+        ...     Operation(id="op1", model="o3-mini", ...),
         ...     Operation(id="op2", model=None, ...)  # Will use default
         ... ]
-        >>> resolved = resolve_operations(operations, resolved_models)
+        >>> resolved = resolve_operations(operations, operation_models)
         >>> resolved[0].runtime_model  # Specific model
-        RuntimeModel(provider='openai', model_name='gpt-4o-mini', ...)
+        RuntimeModel(provider='openai', model_name='o3-mini', ...)
         >>> resolved[1].runtime_model  # None - will use default at runtime
         None
 
     Note:
         - Operations with model=None will have runtime_model=None
-        - Runtime executor will use first model from config as default
+        - Runtime executor will use first model from operation_models as default
         - Model string format: "model_name" (must match a configured model)
     """
     from .schema import Operation
@@ -561,7 +688,7 @@ def resolve_operations(
         if op.model:
             # Find matching model by model_name
             matching_model = None
-            for model in resolved_models:
+            for model in operation_models:
                 if model.model_name == op.model:
                     matching_model = model
                     break
@@ -569,8 +696,8 @@ def resolve_operations(
             if not matching_model:
                 raise ConfigValidationError(
                     f"Operation '{op.id}' specifies model '{op.model}' "
-                    f"which is not configured in run_settings.models. "
-                    f"Available models: {', '.join(m.model_name for m in resolved_models)}"
+                    f"which is not configured in run_settings.models or run_settings.operation_models. "
+                    f"Available models: {', '.join(m.model_name for m in operation_models)}"
                 )
 
             runtime_model = matching_model

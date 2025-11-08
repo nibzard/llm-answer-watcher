@@ -698,7 +698,7 @@
         <header class="header">
             <h1>LLM Answer Watcher Report</h1>
             <div class="subtitle">
-                Run ID: {{ run_id }} | {{ timestamp_utc }}
+                Run ID: {{ run_id }} | {{ timestamp_utc }}{% if config_filename %} | Config: {{ config_filename }}{% endif %}
             </div>
         </header>
 
@@ -710,6 +710,16 @@
                     <div class="label">Total Cost</div>
                     <div class="value success">{{ total_cost_formatted }}</div>
                 </div>
+                {% if has_operations_cost %}
+                <div class="summary-item">
+                    <div class="label">LLM Queries Cost</div>
+                    <div class="value">{{ total_llm_cost_formatted }}</div>
+                </div>
+                <div class="summary-item">
+                    <div class="label">Operations Cost</div>
+                    <div class="value">{{ total_operations_cost_formatted }}</div>
+                </div>
+                {% endif %}
                 <div class="summary-item">
                     <div class="label">Intents Queried</div>
                     <div class="value">{{ total_intents }}</div>
@@ -924,6 +934,45 @@
                         {% endif %}
                     </div>
                     {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Operations Results (if any) -->
+                {% if result.has_operations %}
+                <div class="operations-section" style="margin-top: 1.5rem;">
+                    <div class="llm-response-toggle" onclick="toggleResponse(this)">
+                        <span class="arrow">▶</span>
+                        <span>Operations Results ({{ result.operations|length }} operations, {{ result.operations_cost_formatted }})</span>
+                    </div>
+                    <div class="llm-response-content">
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                            {% for operation in result.operations %}
+                            <div style="padding: 1rem; background: #f8f9fa; border-radius: 0.5rem; border-left: 3px solid {% if operation.error %}#dc2626{% elif operation.skipped %}#9ca3af{% else %}#10b981{% endif %};">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 600; color: var(--color-text-secondary);">
+                                        {{ operation.operation_id }}
+                                    </div>
+                                    <div style="display: flex; gap: 0.75rem; align-items: center;">
+                                        {% if operation.error %}
+                                        <span class="status-badge" style="background: #fee2e2; color: #dc2626;">Error</span>
+                                        {% elif operation.skipped %}
+                                        <span class="status-badge" style="background: #f3f4f6; color: #6b7280;">Skipped</span>
+                                        {% endif %}
+                                        <span class="cost-badge" style="font-size: 0.75rem;">{{ operation.cost_formatted }}</span>
+                                        <span style="color: #6b7280; font-size: 0.75rem;">{{ operation.tokens_used }} tokens</span>
+                                    </div>
+                                </div>
+                                {% if operation.error %}
+                                <div style="color: #dc2626; font-size: 0.875rem; margin-top: 0.5rem;">
+                                    <strong>Error:</strong> {{ operation.error }}
+                                </div>
+                                {% elif not operation.skipped %}
+                                <div style="color: var(--color-text); font-size: 0.875rem; line-height: 1.6; white-space: pre-wrap; font-family: 'SF Mono', Monaco, 'Courier New', monospace;">{{ operation.result_text }}</div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
                 {% endif %}
 

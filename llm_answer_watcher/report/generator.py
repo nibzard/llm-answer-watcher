@@ -365,9 +365,27 @@ def _build_template_data(
     total_count = len(results)
     success_rate = int(success_count / total_count * 100) if total_count > 0 else 0
 
-    # Calculate total cost
+    # Calculate total cost and operations cost from run_meta.json (if available)
     total_cost = sum(r.get("cost_usd", 0.0) for r in results)
+    total_operations_cost = 0.0
+    total_llm_cost = total_cost  # Default if run_meta doesn't exist
+    config_filename = None
+
+    # Try to load more accurate cost breakdown from run_meta.json
+    run_meta_path = run_dir / "run_meta.json"
+    if run_meta_path.exists():
+        try:
+            with run_meta_path.open(encoding="utf-8") as f:
+                run_meta = json.load(f)
+                total_operations_cost = run_meta.get("total_operations_cost_usd", 0.0)
+                total_llm_cost = run_meta.get("total_llm_cost_usd", total_cost)
+                config_filename = run_meta.get("config_filename")
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"Failed to load run_meta.json for cost breakdown: {e}")
+
     total_cost_formatted = format_cost_usd(total_cost)
+    total_operations_cost_formatted = format_cost_usd(total_operations_cost)
+    total_llm_cost_formatted = format_cost_usd(total_llm_cost)
 
     # Get timestamp from first result (if available)
     timestamp_utc = results[0].get("timestamp_utc", run_id) if results else run_id
@@ -416,7 +434,11 @@ def _build_template_data(
     return {
         "run_id": run_id,
         "timestamp_utc": timestamp_utc,
+        "config_filename": config_filename,
         "total_cost_formatted": total_cost_formatted,
+        "total_llm_cost_formatted": total_llm_cost_formatted,
+        "total_operations_cost_formatted": total_operations_cost_formatted,
+        "has_operations_cost": total_operations_cost > 0,
         "total_intents": total_intents,
         "total_models": total_models,
         "success_rate": success_rate,
@@ -543,6 +565,34 @@ def _load_model_result(
         except (json.JSONDecodeError, OSError) as e:
             logger.warning(f"Failed to load raw answer text from {raw_path}: {e}")
 
+    # Load operations results for this intent
+    # Note: Operations run with operation_models (e.g., o3-mini), not query models
+    # We show the same operations under each query model since they analyze all responses
+    operations = []
+    operations_cost_usd = 0.0
+
+    # Find all operation result files for this intent (regardless of operation model used)
+    # Pattern: intent_{intent_id}_operation_{operation_id}_{provider}_{model}.json
+    operation_pattern = f"intent_{intent_id}_operation_*.json"
+    operation_files = run_dir.glob(operation_pattern)
+
+    for op_file in operation_files:
+        try:
+            with op_file.open(encoding="utf-8") as f:
+                op_data = json.load(f)
+                operations.append({
+                    "operation_id": op_data.get("operation_id", ""),
+                    "result_text": op_data.get("result_text", ""),
+                    "cost_usd": op_data.get("cost_usd", 0.0),
+                    "cost_formatted": format_cost_usd(op_data.get("cost_usd", 0.0)),
+                    "tokens_used": op_data.get("tokens_used_input", 0) + op_data.get("tokens_used_output", 0),
+                    "skipped": op_data.get("skipped", False),
+                    "error": op_data.get("error"),
+                })
+                operations_cost_usd += op_data.get("cost_usd", 0.0)
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"Failed to load operation result from {op_file}: {e}")
+
     return {
         "provider": provider,
         "model_name": model_name,
@@ -557,4 +607,8 @@ def _load_model_result(
         "answer_length": answer_length,
         "web_search_count": web_search_count,
         "has_web_search": web_search_count > 0,
+        "operations": operations,
+        "operations_cost_usd": operations_cost_usd,
+        "operations_cost_formatted": format_cost_usd(operations_cost_usd),
+        "has_operations": len(operations) > 0,
     }

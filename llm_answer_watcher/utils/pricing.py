@@ -288,6 +288,7 @@ def refresh_pricing(force: bool = False) -> dict[str, Any]:
                 "status": "skipped",
                 "reason": "Cache is fresh (less than 24 hours old)",
                 "cached_at": cached.get("cached_at"),
+                "updated_at": cached.get("updated_at"),
                 "model_count": len(cached.get("prices", [])),
                 "source": "cache",
             }

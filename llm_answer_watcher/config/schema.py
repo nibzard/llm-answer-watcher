@@ -253,6 +253,9 @@ class RunSettings(BaseModel):
                                 Respects provider rate limits. Range: 1-50.
         models: List of LLM models to query for each intent (LEGACY - use runners instead)
                Optional when using the new runners format
+        operation_models: List of LLM models used ONLY for operations, not intent queries
+                         Enables strategic model selection (e.g., reasoning models for analysis)
+                         Optional - if empty, operations fall back to models list
         use_llm_rank_extraction: Enable LLM-assisted ranking (slower, more accurate)
         budget: Optional budget controls to prevent runaway costs
     """
@@ -261,6 +264,7 @@ class RunSettings(BaseModel):
     sqlite_db_path: str
     max_concurrent_requests: int = 10
     models: list[ModelConfig] = []  # Now optional with default empty list
+    operation_models: list[ModelConfig] = []  # Models used only for operations
     use_llm_rank_extraction: bool = False
     budget: BudgetConfig | None = None
 
@@ -310,6 +314,19 @@ class RunSettings(BaseModel):
         """
         # Just return the list - WatcherConfig.validate_models_or_runners
         # will ensure either models or runners is configured
+        return v
+
+    @field_validator("operation_models")
+    @classmethod
+    def validate_operation_models(cls, v: list[ModelConfig]) -> list[ModelConfig]:
+        """
+        Validate operation_models list format.
+
+        Note: Empty list is valid - operations will fall back to models list.
+        This field enables strategic model selection where expensive/specialized
+        models (e.g., o3-mini reasoning) are used only for post-query analysis,
+        not for the initial intent queries.
+        """
         return v
 
 
@@ -990,6 +1007,9 @@ class RuntimeConfig(BaseModel):
         brands: Brand aliases from config
         intents: Intent queries from config
         models: Resolved model configurations with API keys (LEGACY)
+        operation_models: Resolved model configurations used ONLY for operations
+                         Enables strategic model selection (e.g., reasoning models)
+                         Optional - if empty, operations fall back to models list
         runner_configs: Resolved runner configurations (NEW)
         global_operations: Operations that run for every intent
     """
@@ -999,23 +1019,26 @@ class RuntimeConfig(BaseModel):
     brands: Brands
     intents: list[Intent]
     models: list[RuntimeModel] = []  # Now optional for backward compatibility
+    operation_models: list[RuntimeModel] = []  # Models used only for operations
     runner_configs: list[RunnerConfig] | None = None  # New format
     global_operations: list[RuntimeOperation] = []
 
     @model_validator(mode="after")
     def validate_models_or_runners(self) -> "RuntimeConfig":
         """
-        Validate that either models or runner_configs is configured.
+        Validate that either models, operation_models, or runner_configs is configured.
 
         Raises:
-            ValueError: If neither is configured
+            ValueError: If none are configured
         """
         has_models = self.models and len(self.models) > 0
+        has_operation_models = self.operation_models and len(self.operation_models) > 0
         has_runners = self.runner_configs and len(self.runner_configs) > 0
 
-        if not has_models and not has_runners:
+        if not has_models and not has_operation_models and not has_runners:
             raise ValueError(
-                "Either models or runner_configs must be configured in runtime config"
+                "At least one of models, operation_models, or runner_configs "
+                "must be configured in runtime config"
             )
 
         return self

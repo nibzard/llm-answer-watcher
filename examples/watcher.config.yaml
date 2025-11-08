@@ -9,28 +9,17 @@ run_settings:
   max_concurrent_requests: 10
 
   models:
-    # - provider: "openai"
-    #   model_name: "gpt-5-nano"
-    #   env_api_key: "OPENAI_API_KEY"
-    #   system_prompt: "openai/gpt-4-default"  # Optional: Uses provider default if not specified
-
     - provider: "openai"
-      model_name: "gpt-4.1-nano"
+      model_name: "gpt-4o-mini"
       env_api_key: "OPENAI_API_KEY"
       system_prompt: "openai/gpt-4-default"  # Optional: Uses provider default if not specified
-
-    # Google Gemini without web search
-    - provider: "google"
-      model_name: "gemini-2.5-flash-lite"
-      env_api_key: "GEMINI_API_KEY"
-      # system_prompt: "google/default"  # Optional: Uses provider default if not specified
 
     # Google Gemini with Google Search grounding
     # NOTE: Google uses 'google_search: {}' format (dictionary with tool name as key)
     # This differs from OpenAI's format: 'type: "web_search"' (typed specification)
     # Each provider has different API requirements - config does direct passthrough
     - provider: "google"
-      model_name: "gemini-2.5-flash"
+      model_name: "gemini-2.0-flash-exp"
       env_api_key: "GEMINI_API_KEY"
       system_prompt: "google/gemini-grounding"
       tools:
@@ -53,7 +42,7 @@ run_settings:
 extraction_settings:
   extraction_model:
     provider: "openai"
-    model_name: "gpt-4.1-nano"  # Fast + cheap model optimized for extraction
+    model_name: "gpt-4o-mini"  # Fast + cheap model optimized for extraction
     env_api_key: "OPENAI_API_KEY"
     system_prompt: "openai/extraction-default"  # Specialized extraction prompt
 

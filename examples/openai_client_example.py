@@ -14,9 +14,10 @@ Usage:
 
 Note:
     This example requires the OpenAI API key to be set in the environment.
-    You will be charged for API usage based on OpenAI's pricing.
+    You will be charged for API usage based on OpenAI's pricing (~$0.001 per run).
 """
 
+import asyncio
 import os
 import sys
 
@@ -27,8 +28,8 @@ from llm_answer_watcher.llm_runner.models import build_client
 from llm_answer_watcher.llm_runner.openai_client import OpenAIClient
 
 
-def main():
-    """Demonstrate OpenAIClient usage."""
+async def main():
+    """Demonstrate OpenAIClient usage with async/await."""
     # Get API key from environment
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -41,7 +42,11 @@ def main():
     print("Example 1: Direct OpenAIClient instantiation")
     print("=" * 80)
 
-    client = OpenAIClient("gpt-4o-mini", api_key)
+    client = OpenAIClient(
+        model_name="gpt-4o-mini",
+        api_key=api_key,
+        system_prompt="You are a helpful assistant that provides concise answers about software tools."
+    )
     print(f"✓ Client created for model: {client.model_name}")
 
     prompt = "What are the best email warmup tools for 2025?"
@@ -49,12 +54,15 @@ def main():
     print("\nSending request to OpenAI...")
 
     try:
-        response = client.generate_answer(prompt)
+        # IMPORTANT: Use await with async client
+        response = await client.generate_answer(prompt)
 
         print("\n✓ Response received:")
         print(f"  - Provider: {response.provider}")
         print(f"  - Model: {response.model_name}")
         print(f"  - Tokens used: {response.tokens_used}")
+        print(f"  - Prompt tokens: {response.prompt_tokens}")
+        print(f"  - Completion tokens: {response.completion_tokens}")
         print(f"  - Cost: ${response.cost_usd:.6f}")
         print(f"  - Timestamp: {response.timestamp_utc}")
         print("\nAnswer (first 200 chars):")
@@ -69,7 +77,12 @@ def main():
     print("Example 2: Using build_client() factory")
     print("=" * 80)
 
-    client2 = build_client("openai", "gpt-4o-mini", api_key)
+    client2 = build_client(
+        provider="openai",
+        model_name="gpt-4o-mini",
+        api_key=api_key,
+        system_prompt="You are a helpful assistant."
+    )
     print("✓ Client created via factory")
 
     prompt2 = "What are the top CRM platforms?"
@@ -77,7 +90,8 @@ def main():
     print("\nSending request...")
 
     try:
-        response2 = client2.generate_answer(prompt2)
+        # IMPORTANT: Use await with async client
+        response2 = await client2.generate_answer(prompt2)
 
         print("\n✓ Response received:")
         print(f"  - Tokens: {response2.tokens_used}")
@@ -94,24 +108,31 @@ def main():
     print("Example 3: Error handling demonstration")
     print("=" * 80)
 
-    # Test empty prompt validation
+    # Test empty prompt validation (runtime validation happens in generate_answer)
     try:
-        client.generate_answer("")
+        await client.generate_answer("")
         print("✗ Should have raised ValueError for empty prompt")
     except ValueError as e:
         print(f"✓ Validation works: {e}")
 
-    # Test empty model name validation
+    # Test empty model name validation (happens at instantiation)
     try:
-        OpenAIClient("", api_key)
+        OpenAIClient("", api_key, "system prompt")
         print("✗ Should have raised ValueError for empty model_name")
     except ValueError as e:
         print(f"✓ Validation works: {e}")
 
-    # Test empty API key validation
+    # Test empty API key validation (happens at instantiation)
     try:
-        OpenAIClient("gpt-4o-mini", "")
+        OpenAIClient("gpt-4o-mini", "", "system prompt")
         print("✗ Should have raised ValueError for empty api_key")
+    except ValueError as e:
+        print(f"✓ Validation works: {e}")
+
+    # Test empty system prompt validation (happens at instantiation)
+    try:
+        OpenAIClient("gpt-4o-mini", api_key, "")
+        print("✗ Should have raised ValueError for empty system_prompt")
     except ValueError as e:
         print(f"✓ Validation works: {e}")
 
@@ -121,4 +142,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Run async main function
+    asyncio.run(main())

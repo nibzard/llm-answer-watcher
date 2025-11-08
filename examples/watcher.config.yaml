@@ -84,3 +84,6 @@ brands:
 intents:
   - id: "best-email-warmup-tools"
     prompt: "What are the best email warmup tools?"
+
+  - id: "email-warmup-comparison"
+    prompt: "Compare the top email warmup tools for improving deliverability"

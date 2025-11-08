@@ -1114,7 +1114,7 @@ async def run_all(
         ):
             try:
                 logger.info(f"Classifying intent: {intent.id}")
-                classification_result = classify_intent(
+                classification_result = await classify_intent(
                     query=intent.prompt,
                     extraction_settings=config.extraction_settings,
                     intent_id=intent.id,

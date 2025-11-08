@@ -23,10 +23,11 @@ Architecture:
 
 Example:
     >>> from config.schema import RuntimeExtractionSettings
-    >>> result = classify_intent(
+    >>> result = await classify_intent(
     ...     query="What are the best email warmup tools to buy now?",
     ...     extraction_settings=settings,
-    ...     intent_id="email-warmup"
+    ...     intent_id="email-warmup",
+    ...     db_path="./output/watcher.db"
     ... )
     >>> result.intent_type
     'transactional'
@@ -201,14 +202,14 @@ def parse_classification_response(llm_response: LLMResponse) -> dict:
     return function_call_data.get("arguments", {})
 
 
-def classify_intent(
+async def classify_intent(
     query: str,
     extraction_settings: RuntimeExtractionSettings,
     intent_id: str,
     db_path: str,
 ) -> IntentClassificationResult:
     """
-    Classify user query intent using function calling with caching.
+    Classify user query intent using function calling with caching (async).
 
     This is the main entry point for intent classification. It checks the cache
     first to avoid redundant API calls, then calls the extraction model with
@@ -237,7 +238,7 @@ def classify_intent(
 
     Example:
         >>> # First call - cache miss, calls LLM
-        >>> result1 = classify_intent(
+        >>> result1 = await classify_intent(
         ...     query="What are the best email warmup tools to buy now?",
         ...     extraction_settings=settings,
         ...     intent_id="email-warmup",
@@ -247,7 +248,7 @@ def classify_intent(
         0.00011  # LLM call cost
 
         >>> # Second call with same query - cache hit, no LLM call
-        >>> result2 = classify_intent(
+        >>> result2 = await classify_intent(
         ...     query="What are the best email warmup tools to buy now?",
         ...     extraction_settings=settings,
         ...     intent_id="email-warmup-2",
@@ -257,7 +258,7 @@ def classify_intent(
         0.0  # Cache hit, no cost!
 
     Note:
-        This function requires extraction_settings.extraction_model to be configured.
+        This async function requires extraction_settings.extraction_model to be configured.
         If extraction_model is None, raises ValueError.
 
         Cache is based on query text only, not intent_id. Multiple intents with
@@ -326,7 +327,7 @@ def classify_intent(
             f"Calling classification model {extraction_model.provider}/{extraction_model.model_name} "
             f"for intent {intent_id}"
         )
-        response: LLMResponse = client.generate_answer(prompt)
+        response: LLMResponse = await client.generate_answer(prompt)
 
         # Parse function call result
         function_result = parse_classification_response(response)

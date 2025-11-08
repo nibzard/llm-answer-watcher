@@ -72,14 +72,12 @@ Real-time web search across providers.
 ### **[04-extraction/](04-extraction/)**
 Brand mention extraction methods.
 
-*Coming soon - placeholders below*
-
-- `regex-only.config.yaml` - Fast regex extraction (~85% accuracy)
-- `function-calling.config.yaml` - LLM-based extraction (~95% accuracy)
-- `hybrid-fallback.config.yaml` - Best of both worlds
-- `intent-classification.config.yaml` - Buyer stage detection
-- `sentiment-analysis.config.yaml` - Brand sentiment tracking
-- `README.md` - Extraction methods guide
+- `regex-only.config.yaml` - Fast regex extraction (~85% accuracy) ✅
+- `function-calling.config.yaml` - LLM-based extraction (~95% accuracy) ✅
+- `hybrid-fallback.config.yaml` - Best of both worlds (RECOMMENDED) ✅
+- `intent-classification.config.yaml` - Buyer stage detection ✅
+- `sentiment-analysis.config.yaml` - Brand sentiment tracking ✅
+- `README.md` - Extraction methods guide ✅
 
 **When to use**: Need higher accuracy, sentiment analysis, buyer stage tracking
 
@@ -88,13 +86,11 @@ Brand mention extraction methods.
 ### **[05-operations/](05-operations/)**
 Automated analysis with LLM operations.
 
-*Coming soon - placeholders below*
-
-- `basic-operations.config.yaml` - Simple operations (quality scoring)
-- `chained-dependencies.config.yaml` - Multi-step analysis pipeline
-- `content-strategy.config.yaml` - Generate content recommendations
-- `competitive-intel.config.yaml` - Track competitor positioning
-- `README.md` - Operations system guide
+- `basic-operations.config.yaml` - Simple operations (quality scoring) ✅
+- `chained-dependencies.config.yaml` - Multi-step analysis pipeline ✅
+- `content-strategy.config.yaml` - Generate content recommendations ✅
+- `competitive-intel.config.yaml` - Track competitor positioning ✅
+- `README.md` - Operations system guide ✅
 
 **When to use**: Automated insights, content strategy, competitive intelligence
 
@@ -103,13 +99,11 @@ Automated analysis with LLM operations.
 ### **[06-advanced/](06-advanced/)**
 Advanced features and production configurations.
 
-*Coming soon - placeholders below*
-
-- `budget-controls.config.yaml` - Cost management
-- `browser-automation.config.yaml` - Steel browser runners
-- `high-concurrency.config.yaml` - Parallel processing at scale
-- `production-ready.config.yaml` - All features combined
-- `README.md` - Advanced features guide
+- `budget-controls.config.yaml` - Cost management ✅
+- `browser-automation.config.yaml` - Steel browser runners (see watcher.config.browser-runners.yaml)
+- `high-concurrency.config.yaml` - Parallel processing at scale ✅
+- `production-ready.config.yaml` - All features combined ✅
+- `README.md` - Advanced features guide ✅
 
 **When to use**: Production deployments, high-volume monitoring, cost control
 
@@ -118,13 +112,11 @@ Advanced features and production configurations.
 ### **[07-real-world/](07-real-world/)**
 Complete use case templates.
 
-*Coming soon - placeholders below*
-
-- `saas-brand-monitoring.config.yaml` - Track SaaS product mentions
-- `content-gap-analysis.config.yaml` - Find content opportunities
-- `competitive-intelligence.config.yaml` - Monitor competitors
-- `llm-seo-optimization.config.yaml` - Optimize for LLM visibility
-- `README.md` - Use cases guide
+- `saas-brand-monitoring.config.yaml` - Track SaaS product mentions ✅
+- `content-gap-analysis.config.yaml` - Find content opportunities ✅
+- `competitive-intelligence.config.yaml` - Monitor competitors ✅
+- `llm-seo-optimization.config.yaml` - Optimize for LLM visibility ✅
+- `README.md` - Use cases guide ✅
 
 **When to use**: Copy-paste starting points for specific use cases
 
@@ -133,12 +125,12 @@ Complete use case templates.
 ### **[code-examples/](code-examples/)**
 Python scripts for programmatic usage.
 
-- `basic_client_usage.py` - Direct LLM client usage (async/await)
+- `basic_client_usage.py` - Direct LLM client usage (see ../openai_client_example.py) ✅
 - `analyze_results.py` - Parse and analyze JSON output ✅
 - `export_to_csv.py` - Export SQLite data to CSV ✅
-- `automated_monitoring.py` - Cron job for daily monitoring
-- `slack_alerts.py` - Send Slack notifications
-- `dashboard_integration.py` - Custom dashboard queries
+- `automated_monitoring.py` - Cron job for daily monitoring ✅
+- `slack_alerts.py` - Send Slack notifications (coming soon)
+- `dashboard_integration.py` - Custom dashboard queries (coming soon)
 - `README.md` - Programming guide ✅
 
 **When to use**: Automation, custom integrations, data analysis
@@ -313,9 +305,8 @@ export OPENAI_API_KEY="sk-..."
 
 ## ✅ Status Legend
 
-- ✅ Complete and tested
-- 🚧 In progress
-- 📝 Placeholder (coming soon)
+- ✅ Complete with working examples
+- 📝 Coming soon (lower priority features)
 
 ---
 

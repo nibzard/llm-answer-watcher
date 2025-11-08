@@ -32,7 +32,7 @@ from ..utils.time import utc_timestamp
 logger = logging.getLogger(__name__)
 
 # Current schema version - increment when migrations are added
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 
 
 def init_db_if_needed(db_path: str) -> None:
@@ -192,9 +192,11 @@ def apply_migrations(
                 _migrate_to_v3(conn)
             elif target_version == 4:
                 _migrate_to_v4(conn)
+            elif target_version == 5:
+                _migrate_to_v5(conn)
             # Future migrations go here:
-            # elif target_version == 5:
-            #     _migrate_to_v5(conn)
+            # elif target_version == 6:
+            #     _migrate_to_v6(conn)
             else:
                 raise ValueError(f"No migration defined for version {target_version}")
 
@@ -616,6 +618,45 @@ def _migrate_to_v4(conn: sqlite3.Connection) -> None:
     logger.debug("Created intent_classification_cache table and indexes (schema v4)")
 
 
+def _migrate_to_v5(conn: sqlite3.Connection) -> None:
+    """
+    Migrate database schema to version 5.
+
+    Adds browser runner metadata columns to support browser-based intent execution.
+    Enables tracking of browser automation runs alongside API-based runs.
+
+    Changes:
+    - Add runner_type column to answers_raw (default 'api' for backward compatibility)
+    - Add runner_name column for human-readable runner identification
+    - Add screenshot_path, html_snapshot_path, session_id for browser runners
+    - Create indexes for runner_type and runner_name queries
+
+    Args:
+        conn: Active SQLite database connection
+
+    Note:
+        All existing rows will default to runner_type='api' for backward compatibility.
+    """
+    # Add runner type tracking
+    conn.execute("ALTER TABLE answers_raw ADD COLUMN runner_type TEXT DEFAULT 'api'")
+    conn.execute("ALTER TABLE answers_raw ADD COLUMN runner_name TEXT")
+
+    # Add browser-specific metadata columns
+    conn.execute("ALTER TABLE answers_raw ADD COLUMN screenshot_path TEXT")
+    conn.execute("ALTER TABLE answers_raw ADD COLUMN html_snapshot_path TEXT")
+    conn.execute("ALTER TABLE answers_raw ADD COLUMN session_id TEXT")
+
+    # Create indexes for filtering/grouping by runner type
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_answers_runner_type ON answers_raw(runner_type)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_answers_runner_name ON answers_raw(runner_name)"
+    )
+
+    logger.debug("Added browser runner metadata columns to answers_raw (schema v5)")
+
+
 # ============================================================================
 # Database Operations (CRUD)
 # ============================================================================
@@ -696,6 +737,11 @@ def insert_answer_raw(
     estimated_cost_usd: float | None = None,
     web_search_count: int = 0,
     web_search_results_json: str | None = None,
+    runner_type: str = "api",
+    runner_name: str | None = None,
+    screenshot_path: str | None = None,
+    html_snapshot_path: str | None = None,
+    session_id: str | None = None,
 ) -> None:
     """
     Insert a raw LLM answer into the answers_raw table.
@@ -720,6 +766,11 @@ def insert_answer_raw(
         estimated_cost_usd: Optional estimated cost in USD
         web_search_count: Number of web searches performed (default 0)
         web_search_results_json: Optional JSON-encoded web search results
+        runner_type: Runner type ("api", "browser", or "custom", default "api")
+        runner_name: Optional human-readable runner name (e.g., "steel-chatgpt")
+        screenshot_path: Optional path to screenshot file (browser runners only)
+        html_snapshot_path: Optional path to HTML snapshot file (browser runners only)
+        session_id: Optional browser session ID (browser runners only)
 
     Raises:
         sqlite3.Error: If database operation fails
@@ -727,6 +778,7 @@ def insert_answer_raw(
     Example:
         >>> import json
         >>> usage = {"prompt_tokens": 100, "completion_tokens": 500}
+        >>> # API runner example:
         >>> insert_answer_raw(
         ...     conn,
         ...     run_id="2025-11-02T08-00-00Z",
@@ -737,7 +789,25 @@ def insert_answer_raw(
         ...     prompt="What are the best email warmup tools?",
         ...     answer_text="Here are top email warmup tools: ...",
         ...     usage_meta_json=json.dumps(usage),
-        ...     estimated_cost_usd=0.0012
+        ...     estimated_cost_usd=0.0012,
+        ...     runner_type="api",
+        ...     runner_name="openai-gpt-4o-mini"
+        ... )
+        >>> # Browser runner example:
+        >>> insert_answer_raw(
+        ...     conn,
+        ...     run_id="2025-11-02T08-00-00Z",
+        ...     intent_id="email-warmup",
+        ...     model_provider="chatgpt-web",
+        ...     model_name="chatgpt-unknown",
+        ...     timestamp_utc="2025-11-02T08:00:05Z",
+        ...     prompt="What are the best email warmup tools?",
+        ...     answer_text="Based on web search: ...",
+        ...     runner_type="browser",
+        ...     runner_name="steel-chatgpt",
+        ...     screenshot_path="./output/2025-11-02T08-00-00Z/screenshot_chatgpt.png",
+        ...     html_snapshot_path="./output/2025-11-02T08-00-00Z/html_chatgpt.html",
+        ...     session_id="session-abc123"
         ... )
         >>> conn.commit()
 
@@ -765,8 +835,13 @@ def insert_answer_raw(
             usage_meta_json,
             estimated_cost_usd,
             web_search_count,
-            web_search_results_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            web_search_results_json,
+            runner_type,
+            runner_name,
+            screenshot_path,
+            html_snapshot_path,
+            session_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             run_id,
@@ -781,6 +856,11 @@ def insert_answer_raw(
             estimated_cost_usd,
             web_search_count,
             web_search_results_json,
+            runner_type,
+            runner_name,
+            screenshot_path,
+            html_snapshot_path,
+            session_id,
         ),
     )
 

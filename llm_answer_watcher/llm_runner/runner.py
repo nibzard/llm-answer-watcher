@@ -58,11 +58,13 @@ from ..storage.writer import (
     write_run_meta,
 )
 from ..utils.time import run_id_from_timestamp, utc_timestamp
+from .intent_runner import IntentResult
 from .models import build_client
 from .operation_executor import (
     OperationContext,
     execute_operations_with_dependencies,
 )
+from .plugin_registry import RunnerRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +89,14 @@ class RawAnswerRecord:
         estimated_cost_usd: Estimated API cost in USD based on token usage
         web_search_results: Optional list of web search results if tools were used
         web_search_count: Number of web searches performed (0 if no web search)
+        runner_type: Runner type ("api", "browser", or "custom", default "api")
+        runner_name: Optional human-readable runner name (e.g., "steel-chatgpt")
+        screenshot_path: Optional path to screenshot file (browser runners only)
+        html_snapshot_path: Optional path to HTML snapshot file (browser runners only)
+        session_id: Optional browser session ID (browser runners only)
 
     Example:
+        >>> # API runner example
         >>> record = RawAnswerRecord(
         ...     intent_id="email-warmup",
         ...     prompt="What are the best email warmup tools?",
@@ -100,7 +108,26 @@ class RawAnswerRecord:
         ...     usage_meta={"prompt_tokens": 100, "completion_tokens": 400},
         ...     estimated_cost_usd=0.001,
         ...     web_search_results=None,
-        ...     web_search_count=0
+        ...     web_search_count=0,
+        ...     runner_type="api",
+        ...     runner_name="openai-gpt-4o-mini"
+        ... )
+        >>> # Browser runner example
+        >>> record = RawAnswerRecord(
+        ...     intent_id="email-warmup",
+        ...     prompt="What are the best email warmup tools?",
+        ...     model_provider="chatgpt-web",
+        ...     model_name="chatgpt-unknown",
+        ...     timestamp_utc="2025-11-02T08:00:00Z",
+        ...     answer_text="Browser answer...",
+        ...     answer_length=800,
+        ...     usage_meta={},
+        ...     estimated_cost_usd=0.0,
+        ...     runner_type="browser",
+        ...     runner_name="steel-chatgpt",
+        ...     screenshot_path="./output/screenshot.png",
+        ...     html_snapshot_path="./output/snapshot.html",
+        ...     session_id="session-abc123"
         ... )
     """
 
@@ -115,6 +142,90 @@ class RawAnswerRecord:
     estimated_cost_usd: float
     web_search_results: list[dict] | None = None
     web_search_count: int = 0
+    runner_type: str = "api"
+    runner_name: str | None = None
+    screenshot_path: str | None = None
+    html_snapshot_path: str | None = None
+    session_id: str | None = None
+
+
+def intent_result_to_raw_record(
+    result: IntentResult, intent_id: str, prompt: str
+) -> RawAnswerRecord:
+    """
+    Convert IntentResult (from browser/custom runner) to RawAnswerRecord.
+
+    This adapter function enables browser and custom runners to integrate
+    seamlessly with the existing storage and reporting infrastructure which
+    expects RawAnswerRecord format.
+
+    Args:
+        result: IntentResult from runner.run_intent()
+        intent_id: Intent query identifier
+        prompt: The actual prompt text sent to runner
+
+    Returns:
+        RawAnswerRecord ready for JSON serialization and database storage
+
+    Example:
+        >>> from llm_runner.intent_runner import IntentResult
+        >>> result = IntentResult(
+        ...     answer_text="Browser answer...",
+        ...     runner_type="browser",
+        ...     runner_name="steel-chatgpt",
+        ...     provider="chatgpt-web",
+        ...     model_name="chatgpt-unknown",
+        ...     timestamp_utc="2025-11-07T10:00:00Z",
+        ...     cost_usd=0.0,
+        ...     screenshot_path="./output/screenshot.png",
+        ...     session_id="session-abc123"
+        ... )
+        >>> record = intent_result_to_raw_record(result, "crm-tools", "What are the best CRMs?")
+        >>> record.intent_id
+        'crm-tools'
+        >>> record.runner_type
+        'browser'
+        >>> record.screenshot_path
+        './output/screenshot.png'
+
+    Note:
+        - Browser runners typically have tokens_used=0 and empty usage_meta
+        - API runners converted via APIRunner adapter already have token data
+        - web_search_count is derived from len(web_search_results) or explicit value
+    """
+    # Calculate web search count
+    web_search_count = 0
+    if result.web_search_results:
+        web_search_count = len(result.web_search_results)
+
+    # Create usage metadata (empty for browser runners, may have data for API runners)
+    usage_meta = {}
+    if result.tokens_used > 0:
+        # If runner provides token count, include it in usage_meta
+        usage_meta = {
+            "total_tokens": result.tokens_used,
+            "prompt_tokens": 0,  # Not available from IntentResult
+            "completion_tokens": 0,  # Not available from IntentResult
+        }
+
+    return RawAnswerRecord(
+        intent_id=intent_id,
+        prompt=prompt,
+        model_provider=result.provider,
+        model_name=result.model_name,
+        timestamp_utc=result.timestamp_utc,
+        answer_text=result.answer_text,
+        answer_length=len(result.answer_text),
+        usage_meta=usage_meta,
+        estimated_cost_usd=result.cost_usd,
+        web_search_results=result.web_search_results,
+        web_search_count=web_search_count,
+        runner_type=result.runner_type,
+        runner_name=result.runner_name,
+        screenshot_path=result.screenshot_path,
+        html_snapshot_path=result.html_snapshot_path,
+        session_id=result.session_id,
+    )
 
 
 def estimate_run_cost(config: RuntimeConfig) -> dict:
@@ -364,10 +475,15 @@ def run_all(
     run_id = run_id_from_timestamp()
     timestamp_utc = utc_timestamp()
 
+    # Count execution units (models + runners)
+    num_models = len(config.models) if config.models else 0
+    num_runners = len(config.runner_configs) if config.runner_configs else 0
+    total_execution_units = num_models + num_runners
+
     logger.info(f"Starting run {run_id}")
     logger.info(
-        f"Config: {len(config.intents)} intents, {len(config.models)} models, "
-        f"output_dir={config.run_settings.output_dir}"
+        f"Config: {len(config.intents)} intents, {num_models} models, "
+        f"{num_runners} runners, output_dir={config.run_settings.output_dir}"
     )
 
     # Estimate cost and validate budget (if configured)
@@ -389,7 +505,7 @@ def run_all(
     logger.info(f"Created run directory: {run_dir}")
 
     # Initialize tracking variables
-    total_queries = len(config.intents) * len(config.models)
+    total_queries = len(config.intents) * total_execution_units
     success_count = 0
     error_count = 0
     total_cost_usd = 0.0
@@ -403,7 +519,7 @@ def run_all(
                 run_id=run_id,
                 timestamp_utc=timestamp_utc,
                 total_intents=len(config.intents),
-                total_models=len(config.models),
+                total_models=total_execution_units,  # Models + runners
             )
             conn.commit()
         logger.debug(f"Inserted run record: run_id={run_id}")
@@ -467,15 +583,17 @@ def run_all(
                 )
                 # Continue execution - classification is not critical
 
-        for model_config in config.models:
-            logger.info(
-                f"Processing: intent={intent.id}, provider={model_config.provider}, "
-                f"model={model_config.model_name}"
-            )
+        # Process API models (if configured)
+        if config.models:
+            for model_config in config.models:
+                logger.info(
+                    f"Processing: intent={intent.id}, provider={model_config.provider}, "
+                    f"model={model_config.model_name}"
+                )
 
-            # Notify progress callback of query start (if supported)
-            if progress_callback and hasattr(progress_callback, "start_query"):
-                progress_callback.start_query(
+                # Notify progress callback of query start (if supported)
+                if progress_callback and hasattr(progress_callback, "start_query"):
+                    progress_callback.start_query(
                     intent.id, model_config.provider, model_config.model_name
                 )
 
@@ -549,6 +667,11 @@ def run_all(
                             estimated_cost_usd=cost_usd,
                             web_search_count=response.web_search_count,
                             web_search_results_json=web_search_json,
+                            runner_type=raw_record.runner_type,
+                            runner_name=raw_record.runner_name,
+                            screenshot_path=raw_record.screenshot_path,
+                            html_snapshot_path=raw_record.html_snapshot_path,
+                            session_id=raw_record.session_id,
                         )
                         conn.commit()
                 except Exception as e:
@@ -833,6 +956,209 @@ def run_all(
                     else:
                         # Backward compatibility: call as function
                         progress_callback()
+
+        # Process browser/custom runners (if configured)
+        if config.runner_configs:
+            for runner_config in config.runner_configs:
+                try:
+                    logger.info(
+                        f"Processing runner: intent={intent.id}, plugin={runner_config.runner_plugin}"
+                    )
+
+                    # Notify progress callback of query start (if supported)
+                    if progress_callback and hasattr(progress_callback, "start_query"):
+                        progress_callback.start_query(
+                            intent.id, runner_config.runner_plugin, "runner"
+                        )
+
+                    # Create runner instance via plugin registry
+                    runner = RunnerRegistry.create_runner(
+                        plugin_name=runner_config.runner_plugin,
+                        config=runner_config.config,
+                    )
+
+                    # Execute intent via runner
+                    result = runner.run_intent(intent.prompt)
+
+                    # Check if execution was successful
+                    if not result.success:
+                        raise Exception(
+                            result.error_message or "Runner execution failed (no error message)"
+                        )
+
+                    # Convert IntentResult to RawAnswerRecord
+                    raw_record = intent_result_to_raw_record(
+                        result=result, intent_id=intent.id, prompt=intent.prompt
+                    )
+
+                    # Write raw answer JSON
+                    write_raw_answer(
+                        run_dir=run_dir,
+                        intent_id=intent.id,
+                        provider=result.provider,
+                        model=result.model_name,
+                        data=asdict(raw_record),
+                    )
+
+                    # Insert raw answer into database
+                    try:
+                        # Serialize web search results to JSON if present
+                        web_search_json = None
+                        if result.web_search_results:
+                            web_search_json = json.dumps(result.web_search_results)
+
+                        with sqlite3.connect(config.run_settings.sqlite_db_path) as conn:
+                            insert_answer_raw(
+                                conn=conn,
+                                run_id=run_id,
+                                intent_id=intent.id,
+                                model_provider=result.provider,
+                                model_name=result.model_name,
+                                timestamp_utc=raw_record.timestamp_utc,
+                                prompt=intent.prompt,
+                                answer_text=result.answer_text,
+                                usage_meta_json=json.dumps(raw_record.usage_meta),
+                                estimated_cost_usd=result.cost_usd,
+                                web_search_count=raw_record.web_search_count,
+                                web_search_results_json=web_search_json,
+                                runner_type=result.runner_type,
+                                runner_name=result.runner_name,
+                                screenshot_path=result.screenshot_path,
+                                html_snapshot_path=result.html_snapshot_path,
+                                session_id=result.session_id,
+                            )
+                            conn.commit()
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to insert runner answer into database: {e}",
+                            exc_info=True,
+                        )
+
+                    # Parse answer to extract mentions and rankings
+                    extraction_result = parse_answer(
+                        answer_text=result.answer_text,
+                        brands=config.brands,
+                        intent_id=intent.id,
+                        provider=result.provider,
+                        model_name=result.model_name,
+                        timestamp_utc=raw_record.timestamp_utc,
+                        extraction_settings=config.extraction_settings,
+                    )
+
+                    # Write parsed answer JSON
+                    write_parsed_answer(
+                        run_dir=run_dir,
+                        intent_id=intent.id,
+                        provider=result.provider,
+                        model=result.model_name,
+                        data=asdict(extraction_result),
+                    )
+
+                    # Insert mentions into database
+                    all_mentions = (
+                        extraction_result.my_mentions
+                        + extraction_result.competitor_mentions
+                    )
+                    for mention in all_mentions:
+                        try:
+                            # Determine if this is my brand
+                            is_mine = mention.brand_category == "mine"
+
+                            # Find rank position if this brand is in ranked list
+                            rank_position = None
+                            for ranked in extraction_result.ranked_list:
+                                if ranked.brand_name == mention.normalized_name:
+                                    rank_position = ranked.rank_position
+                                    break
+
+                            with sqlite3.connect(
+                                config.run_settings.sqlite_db_path
+                            ) as conn:
+                                insert_mention(
+                                    conn=conn,
+                                    run_id=run_id,
+                                    timestamp_utc=raw_record.timestamp_utc,
+                                    intent_id=intent.id,
+                                    model_provider=result.provider,
+                                    model_name=result.model_name,
+                                    brand_name=mention.original_text,
+                                    normalized_name=mention.normalized_name,
+                                    is_mine=is_mine,
+                                    rank_position=rank_position,
+                                    match_type="exact",  # Default match type
+                                    sentiment=mention.sentiment,
+                                    mention_context=mention.mention_context,
+                                )
+                                conn.commit()
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to insert runner mention into database: {e}",
+                                exc_info=True,
+                            )
+
+                    # Update success tracking
+                    success_count += 1
+                    total_cost_usd += result.cost_usd + extraction_result.extraction_cost_usd
+
+                    # Log success
+                    if extraction_result.extraction_cost_usd > 0:
+                        logger.info(
+                            f"Success: intent={intent.id}, runner={runner_config.runner_plugin}, "
+                            f"runner_cost=${result.cost_usd:.6f}, "
+                            f"extraction_cost=${extraction_result.extraction_cost_usd:.6f}, "
+                            f"total=${result.cost_usd + extraction_result.extraction_cost_usd:.6f}, "
+                            f"appeared_mine={extraction_result.appeared_mine}"
+                        )
+                    else:
+                        logger.info(
+                            f"Success: intent={intent.id}, runner={runner_config.runner_plugin}, "
+                            f"cost=${result.cost_usd:.6f}, "
+                            f"appeared_mine={extraction_result.appeared_mine}"
+                        )
+
+                    # Call progress callback if provided
+                    if progress_callback:
+                        if hasattr(progress_callback, "complete_query"):
+                            progress_callback.complete_query(success=True)
+                        else:
+                            # Backward compatibility: call as function
+                            progress_callback()
+
+                except Exception as e:
+                    # Runner execution failed - write error file and track
+                    error_message = str(e)
+                    logger.error(
+                        f"Failed runner: intent={intent.id}, "
+                        f"plugin={runner_config.runner_plugin}, "
+                        f"error={error_message}",
+                        exc_info=True,
+                    )
+
+                    write_error(
+                        run_dir=run_dir,
+                        intent_id=intent.id,
+                        provider=runner_config.runner_plugin,
+                        model="runner",
+                        error_message=error_message,
+                    )
+
+                    error_count += 1
+                    errors.append(
+                        {
+                            "intent_id": intent.id,
+                            "model_provider": runner_config.runner_plugin,
+                            "model_name": "runner",
+                            "error_message": error_message,
+                        }
+                    )
+
+                    # Call progress callback if provided (even for errors)
+                    if progress_callback:
+                        if hasattr(progress_callback, "complete_query"):
+                            progress_callback.complete_query(success=False)
+                        else:
+                            # Backward compatibility: call as function
+                            progress_callback()
 
     # Generate run metadata summary
     run_meta = {

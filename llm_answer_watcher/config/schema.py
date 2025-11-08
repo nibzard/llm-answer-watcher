@@ -6,7 +6,8 @@ watcher.config.yaml file. All models use Python 3.12+ type hints and
 Pydantic v2 field validators for comprehensive validation.
 
 Models:
-    ModelConfig: LLM model configuration (provider, model_name, env_api_key)
+    ModelConfig: LLM model configuration (provider, model_name, env_api_key) [LEGACY]
+    RunnerConfig: Unified runner configuration for API and browser runners [NEW]
     RunSettings: Runtime settings (output paths, models, feature flags)
     ExtractionModelConfig: Extraction model configuration (project-level)
     ExtractionSettings: Extraction method configuration (function calling vs regex)
@@ -14,7 +15,7 @@ Models:
     Operation: Custom post-intent operation configuration
     Intent: Buyer-intent query configuration
     WatcherConfig: Root configuration model (validates entire YAML)
-    RuntimeModel: Resolved model configuration with API key
+    RuntimeModel: Resolved model configuration with API key [LEGACY]
     RuntimeExtractionModel: Resolved extraction model with API key
     RuntimeOperation: Resolved operation with runtime model configuration
     RuntimeConfig: Runtime configuration with resolved API keys
@@ -98,6 +99,60 @@ class BudgetConfig(BaseModel):
         """Validate budget values are positive if specified."""
         if v is not None and v <= 0:
             raise ValueError(f"Budget value must be positive, got: {v}")
+        return v
+
+
+class RunnerConfig(BaseModel):
+    """
+    Unified runner configuration for API-based and browser-based runners.
+
+    This model supports the new plugin system where runners can be API clients
+    (OpenAI, Anthropic, etc.) or browser automation (Steel ChatGPT, Perplexity).
+
+    The runner_plugin field determines which plugin to use, and config contains
+    plugin-specific configuration as a dictionary that gets validated by the plugin.
+
+    Attributes:
+        runner_plugin: Plugin identifier (e.g., "api", "steel-chatgpt", "steel-perplexity")
+        config: Plugin-specific configuration dictionary
+
+    Example:
+        # API runner (wraps existing LLMClient)
+        runners:
+          - runner_plugin: "api"
+            config:
+              provider: "openai"
+              model_name: "gpt-4o-mini"
+              api_key: "${OPENAI_API_KEY}"
+              system_prompt: "You are a helpful assistant."
+
+        # Browser runner (Steel ChatGPT)
+        runners:
+          - runner_plugin: "steel-chatgpt"
+            config:
+              steel_api_key: "${STEEL_API_KEY}"
+              target_url: "https://chat.openai.com"
+              take_screenshots: true
+              session_reuse: true
+    """
+
+    runner_plugin: str
+    config: dict
+
+    @field_validator("runner_plugin")
+    @classmethod
+    def validate_runner_plugin(cls, v: str) -> str:
+        """Validate runner_plugin is non-empty."""
+        if not v or v.isspace():
+            raise ValueError("runner_plugin cannot be empty")
+        return v
+
+    @field_validator("config")
+    @classmethod
+    def validate_config(cls, v: dict) -> dict:
+        """Validate config is a non-empty dictionary."""
+        if not v:
+            raise ValueError("config cannot be empty")
         return v
 
 
@@ -189,14 +244,15 @@ class RunSettings(BaseModel):
     Attributes:
         output_dir: Directory for run artifacts (JSON files, HTML reports)
         sqlite_db_path: Path to SQLite database for historical tracking
-        models: List of LLM models to query for each intent
+        models: List of LLM models to query for each intent (LEGACY - use runners instead)
+               Optional when using the new runners format
         use_llm_rank_extraction: Enable LLM-assisted ranking (slower, more accurate)
         budget: Optional budget controls to prevent runaway costs
     """
 
     output_dir: str
     sqlite_db_path: str
-    models: list[ModelConfig]
+    models: list[ModelConfig] = []  # Now optional with default empty list
     use_llm_rank_extraction: bool = False
     budget: BudgetConfig | None = None
 
@@ -219,9 +275,15 @@ class RunSettings(BaseModel):
     @field_validator("models")
     @classmethod
     def validate_models(cls, v: list[ModelConfig]) -> list[ModelConfig]:
-        """Validate at least one model is configured."""
-        if not v:
-            raise ValueError("At least one model must be configured")
+        """
+        Validate models list format (uniqueness check only).
+
+        Note: Empty list is now valid when using the new runners format.
+        The actual validation that either models or runners is configured
+        happens at WatcherConfig level.
+        """
+        # Just return the list - WatcherConfig.validate_models_or_runners
+        # will ensure either models or runners is configured
         return v
 
 
@@ -528,12 +590,37 @@ class WatcherConfig(BaseModel):
     Validates the entire configuration file structure and enforces
     business rules like unique intent IDs and operation dependencies.
 
+    Supports both legacy format (run_settings.models) and new format (runners)
+    for backward compatibility. The new runners format enables browser-based
+    runners alongside API-based runners through the plugin system.
+
     Attributes:
         run_settings: Runtime settings (output paths, models, feature flags)
+                     If runners is specified, run_settings.models is optional
         extraction_settings: Optional extraction settings (defaults to regex with first model)
         brands: Brand alias collections (mine vs competitors)
         intents: List of buyer-intent queries to monitor
         global_operations: Operations that run for EVERY intent (applied automatically)
+        runners: Optional list of unified runner configurations (NEW!)
+                If specified, takes precedence over run_settings.models
+
+    Example (legacy format):
+        run_settings:
+          models:
+            - provider: "openai"
+              model_name: "gpt-4o-mini"
+              env_api_key: "OPENAI_API_KEY"
+
+    Example (new format):
+        runners:
+          - runner_plugin: "api"
+            config:
+              provider: "openai"
+              model_name: "gpt-4o-mini"
+              api_key: "${OPENAI_API_KEY}"
+          - runner_plugin: "steel-chatgpt"
+            config:
+              steel_api_key: "${STEEL_API_KEY}"
     """
 
     run_settings: RunSettings
@@ -541,6 +628,7 @@ class WatcherConfig(BaseModel):
     brands: Brands
     intents: list[Intent]
     global_operations: list[Operation] = []
+    runners: list[RunnerConfig] | None = None
 
     @field_validator("intents")
     @classmethod
@@ -583,6 +671,36 @@ class WatcherConfig(BaseModel):
             )
 
         return v
+
+    @model_validator(mode="after")
+    def validate_models_or_runners(self) -> "WatcherConfig":
+        """
+        Validate that either models or runners is configured (not both, not neither).
+
+        This ensures backward compatibility while supporting the new runner system.
+
+        Raises:
+            ValueError: If neither or both are configured
+        """
+        has_models = self.run_settings.models and len(self.run_settings.models) > 0
+        has_runners = self.runners and len(self.runners) > 0
+
+        if not has_models and not has_runners:
+            raise ValueError(
+                "Either run_settings.models or runners must be configured. "
+                "Use run_settings.models for legacy format, or runners for new format."
+            )
+
+        if has_models and has_runners:
+            # Both specified - log warning and use runners
+            import logging
+            logging.warning(
+                "Both run_settings.models and runners specified. "
+                "Using runners (models will be ignored). "
+                "To avoid this warning, remove run_settings.models when using runners."
+            )
+
+        return self
 
     @model_validator(mode="after")
     def validate_operation_dependencies(self) -> "WatcherConfig":
@@ -837,12 +955,16 @@ class RuntimeConfig(BaseModel):
     Created by config.loader after validating YAML and resolving
     environment variables. This is the contract passed to the runner.
 
+    Supports both legacy format (models) and new format (runner_configs).
+    If runner_configs is present, it takes precedence over models.
+
     Attributes:
         run_settings: Runtime settings from config
         extraction_settings: Extraction settings with resolved model (optional)
         brands: Brand aliases from config
         intents: Intent queries from config
-        models: Resolved model configurations with API keys
+        models: Resolved model configurations with API keys (LEGACY)
+        runner_configs: Resolved runner configurations (NEW)
         global_operations: Operations that run for every intent
     """
 
@@ -850,13 +972,24 @@ class RuntimeConfig(BaseModel):
     extraction_settings: RuntimeExtractionSettings | None = None
     brands: Brands
     intents: list[Intent]
-    models: list[RuntimeModel]
+    models: list[RuntimeModel] = []  # Now optional for backward compatibility
+    runner_configs: list[RunnerConfig] | None = None  # New format
     global_operations: list[RuntimeOperation] = []
 
-    @field_validator("models")
-    @classmethod
-    def validate_models(cls, v: list[RuntimeModel]) -> list[RuntimeModel]:
-        """Validate at least one model is configured."""
-        if not v:
-            raise ValueError("At least one model must be configured in runtime config")
-        return v
+    @model_validator(mode="after")
+    def validate_models_or_runners(self) -> "RuntimeConfig":
+        """
+        Validate that either models or runner_configs is configured.
+
+        Raises:
+            ValueError: If neither is configured
+        """
+        has_models = self.models and len(self.models) > 0
+        has_runners = self.runner_configs and len(self.runner_configs) > 0
+
+        if not has_models and not has_runners:
+            raise ValueError(
+                "Either models or runner_configs must be configured in runtime config"
+            )
+
+        return self

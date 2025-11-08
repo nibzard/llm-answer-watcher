@@ -107,20 +107,38 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
             + "\n".join(error_messages)
         ) from e
 
-    # Resolve API keys from environment variables
-    try:
-        resolved_models = resolve_api_keys(watcher_config)
-    except APIKeyMissingError:
-        # Re-raise API key errors as-is
-        raise
-    except ConfigValidationError:
-        # Re-raise config validation errors as-is
-        raise
-    except Exception as e:
-        # Wrap unexpected errors
-        raise ConfigValidationError(
-            f"Failed to resolve API keys from {config_path}: {e}"
-        ) from e
+    # Determine which format is used: legacy (models) or new (runners)
+    has_runners = watcher_config.runners and len(watcher_config.runners) > 0
+    has_models = watcher_config.run_settings.models and len(watcher_config.run_settings.models) > 0
+
+    # Resolve API keys or runner configs based on format
+    resolved_models = []
+    resolved_runner_configs = None
+
+    if has_runners:
+        # New format: resolve runner configs
+        try:
+            resolved_runner_configs = resolve_runner_configs(watcher_config)
+        except APIKeyMissingError:
+            raise
+        except ConfigValidationError:
+            raise
+        except Exception as e:
+            raise ConfigValidationError(
+                f"Failed to resolve runner configs from {config_path}: {e}"
+            ) from e
+    else:
+        # Legacy format: resolve API keys for models
+        try:
+            resolved_models = resolve_api_keys(watcher_config)
+        except APIKeyMissingError:
+            raise
+        except ConfigValidationError:
+            raise
+        except Exception as e:
+            raise ConfigValidationError(
+                f"Failed to resolve API keys from {config_path}: {e}"
+            ) from e
 
     # Resolve extraction settings if present
     resolved_extraction_settings = None
@@ -153,13 +171,14 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
                 f"Failed to resolve global operations from {config_path}: {e}"
             ) from e
 
-    # Build RuntimeConfig with resolved API keys
+    # Build RuntimeConfig with resolved API keys or runner configs
     return RuntimeConfig(
         run_settings=watcher_config.run_settings,
         extraction_settings=resolved_extraction_settings,
         brands=watcher_config.brands,
         intents=watcher_config.intents,
         models=resolved_models,
+        runner_configs=resolved_runner_configs,
         global_operations=resolved_global_operations,
     )
 
@@ -267,6 +286,117 @@ def resolve_api_keys(config: WatcherConfig) -> list[RuntimeModel]:
         resolved_models.append(runtime_model)
 
     return resolved_models
+
+
+def resolve_runner_configs(config: WatcherConfig) -> list:
+    """
+    Resolve environment variables in runner configurations.
+
+    Takes RunnerConfig objects from WatcherConfig and resolves ${ENV_VAR}
+    references in the config dictionaries to actual environment variable values.
+
+    Supports env var substitution in string values like:
+    - api_key: "${OPENAI_API_KEY}"
+    - steel_api_key: "${STEEL_API_KEY}"
+
+    Args:
+        config: Validated WatcherConfig with runner configurations
+
+    Returns:
+        List of RunnerConfig instances with resolved environment variables
+
+    Raises:
+        APIKeyMissingError: If any referenced environment variable is not set
+        ConfigValidationError: If env var format is invalid
+
+    Example:
+        >>> # config.yaml has: api_key: "${OPENAI_API_KEY}"
+        >>> config = WatcherConfig(runners=[...])
+        >>> runners = resolve_runner_configs(config)
+        >>> runners[0].config["api_key"]  # Now contains actual key
+        'sk-proj-...'
+
+    Security:
+        - NEVER logs resolved values (may contain API keys)
+        - Fails fast if environment variable is missing
+    """
+    import re
+    from .schema import RunnerConfig
+
+    if not config.runners:
+        return []
+
+    resolved_runners: list[RunnerConfig] = []
+
+    for runner_config in config.runners:
+        # Deep copy config dict to avoid mutating original
+        resolved_config = _resolve_env_vars_recursive(runner_config.config.copy())
+
+        # Create new RunnerConfig with resolved values
+        resolved_runner = RunnerConfig(
+            runner_plugin=runner_config.runner_plugin,
+            config=resolved_config
+        )
+
+        resolved_runners.append(resolved_runner)
+
+    return resolved_runners
+
+
+def _resolve_env_vars_recursive(obj):
+    """
+    Recursively resolve ${ENV_VAR} references in nested dicts/lists.
+
+    Args:
+        obj: Dict, list, or scalar value to process
+
+    Returns:
+        Object with all ${ENV_VAR} references resolved
+
+    Raises:
+        APIKeyMissingError: If referenced env var is not set
+    """
+    import re
+
+    # Pattern to match ${ENV_VAR_NAME}
+    env_var_pattern = re.compile(r'\$\{([A-Z_][A-Z0-9_]*)\}')
+
+    if isinstance(obj, dict):
+        # Recursively process dictionary values
+        return {key: _resolve_env_vars_recursive(value) for key, value in obj.items()}
+
+    elif isinstance(obj, list):
+        # Recursively process list items
+        return [_resolve_env_vars_recursive(item) for item in obj]
+
+    elif isinstance(obj, str):
+        # Check if string contains ${ENV_VAR} pattern
+        match = env_var_pattern.search(obj)
+        if match:
+            env_var_name = match.group(1)
+
+            # Get value from environment
+            env_value = os.environ.get(env_var_name)
+
+            if env_value is None:
+                raise APIKeyMissingError(
+                    f"Environment variable ${{{env_var_name}}} not set. "
+                    f"Please set it in your environment or .env file."
+                )
+
+            # Replace ${ENV_VAR} with actual value
+            # If the entire string is just ${ENV_VAR}, return the value directly
+            # Otherwise, perform string substitution (allows "prefix-${VAR}-suffix")
+            if obj == f"${{{env_var_name}}}":
+                return env_value
+            else:
+                return env_var_pattern.sub(env_value, obj)
+
+        return obj
+
+    else:
+        # Return scalar values as-is (int, bool, float, None)
+        return obj
 
 
 def resolve_extraction_settings(

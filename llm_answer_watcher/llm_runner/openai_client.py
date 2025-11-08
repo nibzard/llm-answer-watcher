@@ -52,22 +52,31 @@ MODEL_PARAMS = {
 }
 
 # Models that require fixed temperature (don't support custom temperature)
-# GPT-5 models only support temperature=1 (default), not custom values
+# GPT-5 and GPT-4.1 models only support temperature=1 (default), not custom values
 TEMPERATURE_FIXED_MODELS = {
     "gpt-5",
     "gpt-5-mini",
     "gpt-5-nano",
     "gpt-5-pro",
     "gpt-5-chat-latest",
+    "gpt-4.1-nano",
+    "gpt-4.1-nano-2025-04-14",
+    "gpt-4.1-mini",
+    "gpt-4.1-mini-2025-04-14",
 }
 
-# GPT-5 model family that uses different parameter names
+# GPT-5 and GPT-4.1 model families that use different parameter names
+# These models require max_completion_tokens instead of max_tokens
 GPT_5_MODELS = {
     "gpt-5",
     "gpt-5-mini",
     "gpt-5-nano",
     "gpt-5-pro",
     "gpt-5-chat-latest",
+    "gpt-4.1-nano",
+    "gpt-4.1-nano-2025-04-14",
+    "gpt-4.1-mini",
+    "gpt-4.1-mini-2025-04-14",
 }
 
 # Suppress HTTPX request logging to prevent test interference

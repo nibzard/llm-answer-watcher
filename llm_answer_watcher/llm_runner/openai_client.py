@@ -208,15 +208,21 @@ class OpenAIClient:
             )
 
         # Build request payload with model-specific parameters
-        # Responses API uses 'input' array with typed content objects
+        # Responses API uses 'input' array with typed message objects
+        # Each message requires: type="message", role, and content array
         payload = {
             "model": self.model_name,
             "input": [
                 {
+                    "type": "message",
                     "role": "developer",
                     "content": [{"type": "input_text", "text": self.system_prompt}],
                 },
-                {"role": "user", "content": [{"type": "input_text", "text": prompt}]},
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": prompt}],
+                },
             ],
         }
 

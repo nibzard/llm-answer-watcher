@@ -168,9 +168,11 @@ class TestGenerateAnswerSuccess:
 
         assert data["model"] == "gpt-4o-mini"
         assert len(data["input"]) == 2
+        assert data["input"][0]["type"] == "message"
         assert data["input"][0]["role"] == "developer"
         assert data["input"][0]["content"][0]["type"] == "input_text"
         assert data["input"][0]["content"][0]["text"] == TEST_SYSTEM_PROMPT
+        assert data["input"][1]["type"] == "message"
         assert data["input"][1]["role"] == "user"
         assert data["input"][1]["content"][0]["type"] == "input_text"
         assert data["input"][1]["content"][0]["text"] == "Test prompt"

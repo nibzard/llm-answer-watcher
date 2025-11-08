@@ -408,8 +408,8 @@ async def execute_operation(
         return OperationResult(
             operation_id=operation.id,
             result_text=response.answer_text,
-            tokens_used_input=response.tokens_used,  # Total tokens used
-            tokens_used_output=response.tokens_used,  # TODO: Split input/output properly
+            tokens_used_input=response.prompt_tokens,
+            tokens_used_output=response.completion_tokens,
             cost_usd=response.cost_usd,
             timestamp_utc=response.timestamp_utc,
             model_provider=response.provider,

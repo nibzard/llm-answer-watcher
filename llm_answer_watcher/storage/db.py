@@ -707,6 +707,16 @@ def insert_run(
         Always call conn.commit() after insert to persist changes.
         Uses INSERT OR IGNORE to make operation idempotent.
     """
+    # Validate required string parameters are not empty or whitespace
+    if not run_id or run_id.isspace():
+        raise ValueError("run_id cannot be empty or whitespace")
+    if not timestamp_utc or timestamp_utc.isspace():
+        raise ValueError("timestamp_utc cannot be empty or whitespace")
+    if total_intents < 0:
+        raise ValueError("total_intents cannot be negative")
+    if total_models < 0:
+        raise ValueError("total_models cannot be negative")
+
     conn.execute(
         """
         INSERT OR IGNORE INTO runs (
@@ -819,6 +829,22 @@ def insert_answer_raw(
         Always call conn.commit() after insert to persist changes.
         Uses INSERT OR IGNORE to make operation idempotent.
     """
+    # Validate required string parameters are not empty or whitespace
+    if not run_id or run_id.isspace():
+        raise ValueError("run_id cannot be empty or whitespace")
+    if not intent_id or intent_id.isspace():
+        raise ValueError("intent_id cannot be empty or whitespace")
+    if not model_provider or model_provider.isspace():
+        raise ValueError("model_provider cannot be empty or whitespace")
+    if not model_name or model_name.isspace():
+        raise ValueError("model_name cannot be empty or whitespace")
+    if not timestamp_utc or timestamp_utc.isspace():
+        raise ValueError("timestamp_utc cannot be empty or whitespace")
+    if not prompt or prompt.isspace():
+        raise ValueError("prompt cannot be empty or whitespace")
+    if not answer_text or answer_text.isspace():
+        raise ValueError("answer_text cannot be empty or whitespace")
+
     answer_length = len(answer_text)
 
     conn.execute(
@@ -949,6 +975,24 @@ def insert_mention(
         Uses INSERT OR IGNORE to make operation idempotent.
         is_mine is stored as INTEGER (0/1) per SQLite convention.
     """
+    # Validate required string parameters are not empty or whitespace
+    if not run_id or run_id.isspace():
+        raise ValueError("run_id cannot be empty or whitespace")
+    if not timestamp_utc or timestamp_utc.isspace():
+        raise ValueError("timestamp_utc cannot be empty or whitespace")
+    if not intent_id or intent_id.isspace():
+        raise ValueError("intent_id cannot be empty or whitespace")
+    if not model_provider or model_provider.isspace():
+        raise ValueError("model_provider cannot be empty or whitespace")
+    if not model_name or model_name.isspace():
+        raise ValueError("model_name cannot be empty or whitespace")
+    if not brand_name or brand_name.isspace():
+        raise ValueError("brand_name cannot be empty or whitespace")
+    if not normalized_name or normalized_name.isspace():
+        raise ValueError("normalized_name cannot be empty or whitespace")
+    if not match_type or match_type.isspace():
+        raise ValueError("match_type cannot be empty or whitespace")
+
     is_mine_int = 1 if is_mine else 0
 
     conn.execute(
@@ -1336,6 +1380,24 @@ def insert_operation(
         Always call conn.commit() after insert to persist changes.
         Uses INSERT OR IGNORE to make operation idempotent.
     """
+    # Validate required string parameters are not empty or whitespace
+    if not run_id or run_id.isspace():
+        raise ValueError("run_id cannot be empty or whitespace")
+    if not intent_id or intent_id.isspace():
+        raise ValueError("intent_id cannot be empty or whitespace")
+    if not model_provider or model_provider.isspace():
+        raise ValueError("model_provider cannot be empty or whitespace")
+    if not model_name or model_name.isspace():
+        raise ValueError("model_name cannot be empty or whitespace")
+    if not operation_id or operation_id.isspace():
+        raise ValueError("operation_id cannot be empty or whitespace")
+    if not operation_prompt or operation_prompt.isspace():
+        raise ValueError("operation_prompt cannot be empty or whitespace")
+    if not result_text or result_text.isspace():
+        raise ValueError("result_text cannot be empty or whitespace")
+    if not timestamp_utc or timestamp_utc.isspace():
+        raise ValueError("timestamp_utc cannot be empty or whitespace")
+
     import json
 
     # Convert depends_on list to JSON

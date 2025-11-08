@@ -119,10 +119,14 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
         # New format: resolve runner configs
         try:
             resolved_runner_configs = resolve_runner_configs(watcher_config)
-        except APIKeyMissingError:
-            raise
-        except ConfigValidationError:
-            raise
+        except APIKeyMissingError as e:
+            raise APIKeyMissingError(
+                f"Failed to resolve API keys for runner configs in {config_path}: {e}"
+            ) from e
+        except ConfigValidationError as e:
+            raise ConfigValidationError(
+                f"Invalid runner configuration in {config_path}: {e}"
+            ) from e
         except Exception as e:
             raise ConfigValidationError(
                 f"Failed to resolve runner configs from {config_path}: {e}"
@@ -131,10 +135,14 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
         # Legacy format: resolve API keys for models
         try:
             resolved_models = resolve_api_keys(watcher_config)
-        except APIKeyMissingError:
-            raise
-        except ConfigValidationError:
-            raise
+        except APIKeyMissingError as e:
+            raise APIKeyMissingError(
+                f"Failed to resolve API keys for models in {config_path}: {e}"
+            ) from e
+        except ConfigValidationError as e:
+            raise ConfigValidationError(
+                f"Invalid model configuration in {config_path}: {e}"
+            ) from e
         except Exception as e:
             raise ConfigValidationError(
                 f"Failed to resolve API keys from {config_path}: {e}"
@@ -144,10 +152,14 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
     resolved_operation_models = []
     try:
         resolved_operation_models = resolve_operation_api_keys(watcher_config)
-    except APIKeyMissingError:
-        raise
-    except ConfigValidationError:
-        raise
+    except APIKeyMissingError as e:
+        raise APIKeyMissingError(
+            f"Failed to resolve API keys for operation models in {config_path}: {e}"
+        ) from e
+    except ConfigValidationError as e:
+        raise ConfigValidationError(
+            f"Invalid operation model configuration in {config_path}: {e}"
+        ) from e
     except Exception as e:
         raise ConfigValidationError(
             f"Failed to resolve operation models from {config_path}: {e}"
@@ -158,10 +170,14 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
     if watcher_config.extraction_settings:
         try:
             resolved_extraction_settings = resolve_extraction_settings(watcher_config)
-        except APIKeyMissingError:
-            raise
-        except ConfigValidationError:
-            raise
+        except APIKeyMissingError as e:
+            raise APIKeyMissingError(
+                f"Failed to resolve API keys for extraction settings in {config_path}: {e}"
+            ) from e
+        except ConfigValidationError as e:
+            raise ConfigValidationError(
+                f"Invalid extraction settings configuration in {config_path}: {e}"
+            ) from e
         except Exception as e:
             raise ConfigValidationError(
                 f"Failed to resolve extraction settings from {config_path}: {e}"

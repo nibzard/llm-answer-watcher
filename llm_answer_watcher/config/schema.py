@@ -47,7 +47,7 @@ class ModelConfig(BaseModel):
                     Note: Only used by OpenAI. Google auto-decides when to use tools.
     """
 
-    provider: Literal["openai", "anthropic", "google", "mistral"]
+    provider: Literal["openai", "anthropic", "google", "mistral", "grok", "perplexity"]
     model_name: str
     env_api_key: str
     system_prompt: str | None = None
@@ -175,7 +175,7 @@ class ExtractionModelConfig(BaseModel):
         system_prompt: Optional relative path to system prompt JSON
     """
 
-    provider: Literal["openai", "anthropic", "google", "mistral"]
+    provider: Literal["openai", "anthropic", "google", "mistral", "grok", "perplexity"]
     model_name: str
     env_api_key: str
     system_prompt: str | None = None
@@ -509,8 +509,7 @@ class Operation(BaseModel):
         if not v or v.isspace():
             raise ValueError("Operation prompt cannot be empty")
 
-        # Import at function level to avoid circular dependency
-        from llm_answer_watcher.llm_runner.openai_client import MAX_PROMPT_LENGTH
+        from llm_answer_watcher.config.constants import MAX_PROMPT_LENGTH
 
         if len(v) > MAX_PROMPT_LENGTH:
             raise ValueError(
@@ -595,8 +594,7 @@ class Intent(BaseModel):
         if not v or v.isspace():
             raise ValueError("Intent prompt cannot be empty")
 
-        # Import at function level to avoid circular dependency
-        from llm_answer_watcher.llm_runner.openai_client import MAX_PROMPT_LENGTH
+        from llm_answer_watcher.config.constants import MAX_PROMPT_LENGTH
 
         if len(v) > MAX_PROMPT_LENGTH:
             raise ValueError(
@@ -849,7 +847,7 @@ class RuntimeModel(BaseModel):
     provider: str
     model_name: str
     api_key: str
-    system_prompt: str = "You are ChatGPT, a large language model trained by OpenAI."
+    system_prompt: str = "You are a helpful AI assistant."
     tools: list[dict] | None = None
     tool_choice: str = "auto"
 

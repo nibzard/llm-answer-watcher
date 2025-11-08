@@ -28,6 +28,7 @@ from typing import Any
 import httpx
 
 from llm_answer_watcher.config.capabilities import get_model_capabilities
+from llm_answer_watcher.config.constants import MAX_PROMPT_LENGTH
 from llm_answer_watcher.llm_runner.models import LLMResponse
 from llm_answer_watcher.llm_runner.retry_config import (
     NO_RETRY_STATUS_CODES,
@@ -45,10 +46,6 @@ httpx_logger.setLevel(logging.WARNING)
 
 # OpenAI API endpoint
 OPENAI_API_URL = "https://api.openai.com/v1/responses"
-
-# Maximum prompt length to prevent excessive API costs
-# ~25k tokens at 4 chars/token average - prevents runaway costs from extremely long prompts
-MAX_PROMPT_LENGTH = 100_000
 
 # Get logger for this module
 logger = logging.getLogger(__name__)

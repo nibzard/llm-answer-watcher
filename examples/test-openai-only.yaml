@@ -4,7 +4,7 @@ run_settings:
 
   models:
     - provider: "openai"
-      model_name: "gpt-5-nano"
+      model_name: "gpt-4o-mini"
       env_api_key: "OPENAI_API_KEY"
       system_prompt: "openai/gpt-4-default"
 

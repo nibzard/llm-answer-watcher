@@ -240,23 +240,39 @@ Get your API key from: [console.x.ai](https://console.x.ai)
 
 **Supported models:**
 
-- `gemini-2.0-flash-exp`: Experimental flash model ($0.075/$0.30 per 1M tokens)
-- `gemini-1.5-pro`: Production model ($1.25/$5 per 1M tokens)
-- `gemini-1.5-flash`: Fast and cheap ($0.075/$0.30 per 1M tokens)
+| Model | Cost (Input/Output) | Grounding | Best For |
+|-------|---------------------|-----------|----------|
+| `gemini-2.5-flash` | $0.04/$0.12 per 1M | ✅ Yes | **Recommended** - production |
+| `gemini-2.5-flash-lite` | $0.02/$0.06 per 1M | ❌ No | High-volume, non-grounded |
+| `gemini-2.5-pro` | $0.60/$1.80 per 1M | ✅ Yes | Highest quality |
+| `gemini-2.0-flash-exp` | $0.075/$0.30 per 1M | ⚠️ Experimental | Testing |
+| `gemini-1.5-pro` | $1.25/$5 per 1M | ❌ No | Legacy (not recommended) |
 
-**Basic configuration:**
+**Basic configuration** (without grounding):
 
 ```yaml
 models:
   - provider: "google"
-    model_name: "gemini-2.0-flash-exp"
-    env_api_key: "GOOGLE_API_KEY"
+    model_name: "gemini-2.5-flash-lite"
+    env_api_key: "GEMINI_API_KEY"
+```
+
+**With Google Search grounding** (recommended for brand monitoring):
+
+```yaml
+models:
+  - provider: "google"
+    model_name: "gemini-2.5-flash"
+    env_api_key: "GEMINI_API_KEY"
+    system_prompt: "google/gemini-grounding"
+    tools:
+      - google_search: {}  # Enable Google Search
 ```
 
 **API key setup:**
 
 ```bash
-export GOOGLE_API_KEY=AIza-your-google-api-key-here
+export GEMINI_API_KEY=AIza-your-google-api-key-here
 ```
 
 Get your API key from: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
@@ -264,10 +280,14 @@ Get your API key from: [aistudio.google.com/app/apikey](https://aistudio.google.
 !!! info "Gemini Strengths"
     Gemini models excel at:
 
+    - **Google Search grounding**: Real-time web data with no per-request fees
     - **Speed**: Very fast inference
-    - **Cost**: Extremely competitive pricing
+    - **Cost**: Most cost-effective for web-grounded queries
     - **Multimodal**: Built for text, image, video, audio
     - **Long context**: Up to 2M token context window
+
+!!! tip "Configuration Format Difference"
+    Google uses `google_search: {}` (dictionary format) while OpenAI uses `type: "web_search"` (typed format). This reflects different provider API specifications. See [Google provider docs](../../providers/google.md) for details.
 
 ---
 

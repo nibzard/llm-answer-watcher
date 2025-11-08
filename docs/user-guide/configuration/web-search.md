@@ -116,6 +116,45 @@ models:
 !!! warning "Perplexity Request Fees"
     Request fees are **not yet included** in cost estimates. Budget accordingly.
 
+---
+
+### Google Search Grounding
+
+Google Gemini models support Google Search grounding, which enables the LLM to search the web and ground responses in current information.
+
+**Configuration**:
+
+```yaml
+models:
+  - provider: "google"
+    model_name: "gemini-2.5-flash"
+    env_api_key: "GEMINI_API_KEY"
+    system_prompt: "google/gemini-grounding"  # Recommended
+    tools:
+      - google_search: {}  # Enable Google Search
+```
+
+**How it works**:
+
+1. LLM receives user prompt
+2. Gemini automatically decides if search is needed
+3. Performs Google Search if beneficial
+4. Grounds response in search results
+5. Returns answer with grounding metadata
+
+**Models**:
+
+- `gemini-2.0-flash-lite`: Not supported (no grounding)
+- `gemini-2.0-flash-exp`: Supported (experimental)
+- `gemini-2.5-flash`: Supported (best for grounding)
+- `gemini-2.5-flash-lite`: Not supported
+- `gemini-2.5-pro`: Supported (highest quality)
+
+**Pricing**: Base model token costs (no additional fees for grounding)
+
+!!! tip "Configuration Format Difference"
+    Google uses `google_search: {}` (dictionary format) while OpenAI uses `type: "web_search"` (typed format). This reflects different provider API specifications. See [detailed configuration](#google-search-grounding-configuration) below.
+
 ## OpenAI Web Search Configuration
 
 ### Basic Configuration
@@ -343,6 +382,277 @@ Perplexity provides source citations:
     - Monitor competitor content
     - Find content opportunities
     - Track source diversity
+
+## Google Search Grounding Configuration
+
+### Basic Configuration
+
+Enable Google Search grounding for Gemini models:
+
+```yaml
+models:
+  - provider: "google"
+    model_name: "gemini-2.5-flash"
+    env_api_key: "GEMINI_API_KEY"
+    system_prompt: "google/gemini-grounding"
+    tools:
+      - google_search: {}
+```
+
+**Key configuration points**:
+
+- **`model_name`**: Must be a grounding-capable model (see [supported models](#supported-models) below)
+- **`system_prompt`**: Use `"google/gemini-grounding"` for optimized grounding behavior
+- **`tools`**: Use `google_search: {}` format (Google API specification)
+
+### Configuration Format
+
+Google uses a different tools format than OpenAI:
+
+**Google format** (dictionary with tool name as key):
+```yaml
+tools:
+  - google_search: {}
+```
+
+**OpenAI format** (dictionary with `type` field):
+```yaml
+tools:
+  - type: "web_search"
+tool_choice: "auto"
+```
+
+**Why the difference?**
+
+- Each provider has different API specifications
+- OpenAI uses typed tool specification with `tool_choice` control
+- Google uses named tool objects with automatic decision-making
+- The config does direct passthrough to each provider's API
+
+!!! tip "No Tool Choice"
+    Google Gemini automatically decides when to use Google Search based on the query. There's no `tool_choice` parameter - the model intelligently determines when grounding would improve the response.
+
+### Supported Models
+
+Not all Gemini models support Google Search grounding:
+
+| Model | Grounding Support | Best For |
+|-------|-------------------|----------|
+| `gemini-2.0-flash-lite` | ❌ No | Fast, non-grounded queries |
+| `gemini-2.0-flash-exp` | ⚠️ Experimental | Testing new features |
+| `gemini-2.5-flash` | ✅ Yes | **Recommended** - balanced speed/quality |
+| `gemini-2.5-flash-lite` | ❌ No | Fast, non-grounded queries |
+| `gemini-2.5-pro` | ✅ Yes | Highest quality grounding |
+
+**Recommendation**: Use `gemini-2.5-flash` for production. It provides excellent grounding quality at reasonable cost.
+
+### System Prompt Optimization
+
+Use the specialized `google/gemini-grounding` system prompt:
+
+```yaml
+models:
+  - provider: "google"
+    model_name: "gemini-2.5-flash"
+    env_api_key: "GEMINI_API_KEY"
+    system_prompt: "google/gemini-grounding"  # Optimized for grounding
+    tools:
+      - google_search: {}
+```
+
+**What it does**:
+
+- Instructs Gemini to use Google Search when beneficial
+- Emphasizes grounding responses in search results
+- Requests comprehensive source coverage
+- Improves answer quality for brand monitoring
+
+**Default system prompt** (`google/default.json`) also works but is less optimized for web search use cases.
+
+### Configuration Examples
+
+**With grounding** (recommended for brand monitoring):
+
+```yaml
+models:
+  - provider: "google"
+    model_name: "gemini-2.5-flash"
+    env_api_key: "GEMINI_API_KEY"
+    system_prompt: "google/gemini-grounding"
+    tools:
+      - google_search: {}
+
+intents:
+  - id: "email-warmup-tools"
+    prompt: "What are the best email warmup tools in 2025?"
+```
+
+**Without grounding** (faster, uses only training data):
+
+```yaml
+models:
+  - provider: "google"
+    model_name: "gemini-2.5-flash-lite"
+    env_api_key: "GEMINI_API_KEY"
+    # No tools or system_prompt specified
+
+intents:
+  - id: "email-warmup-tools"
+    prompt: "What are the best email warmup tools?"
+```
+
+### Grounding Metadata
+
+When Google Search is used, the response includes grounding metadata:
+
+```json
+{
+  "intent_id": "email-warmup-tools",
+  "model_provider": "google",
+  "model_name": "gemini-2.5-flash",
+  "answer_text": "Based on current research, the best email warmup tools are...",
+  "web_search_results": {
+    "web_search_queries": [
+      "best email warmup tools 2025",
+      "email warmup service comparison"
+    ],
+    "grounding_chunks": [
+      {
+        "web_source": "https://www.g2.com/categories/email-warmup",
+        "retrieved_context": "Top-rated email warmup tools include..."
+      }
+    ],
+    "grounding_supports": [
+      {
+        "segment": {
+          "start_index": 150,
+          "end_index": 200,
+          "text": "Warmly is a leading email warmup solution"
+        },
+        "grounding_chunk_indices": [0, 2],
+        "confidence_scores": [0.95, 0.88]
+      }
+    ]
+  },
+  "web_search_count": 2
+}
+```
+
+**Key fields**:
+
+- **`web_search_queries`**: Google Search queries Gemini performed
+- **`grounding_chunks`**: Source URLs and retrieved context
+- **`grounding_supports`**: Which text segments were grounded in which sources
+- **`confidence_scores`**: How confident Gemini is in the grounding (0.0-1.0)
+
+### Pricing
+
+**Good news**: Google Search grounding has **no additional per-request fees**.
+
+You only pay standard token costs:
+
+| Model | Input Cost | Output Cost |
+|-------|------------|-------------|
+| `gemini-2.5-flash` | $0.04 / 1M tokens | $0.12 / 1M tokens |
+| `gemini-2.5-pro` | $0.60 / 1M tokens | $1.80 / 1M tokens |
+
+**Example cost** (email warmup query with grounding):
+
+```
+Query: 100 tokens input
+Response: 300 tokens output (with grounding context)
+
+gemini-2.5-flash cost:
+= (100 × $0.04/1M) + (300 × $0.12/1M)
+= $0.000004 + $0.000036
+= $0.00004 per query
+```
+
+**vs. OpenAI with web search**:
+```
+OpenAI gpt-4o-mini with web_search:
+= $0.0116 per query (~290x more expensive)
+```
+
+!!! success "Cost Advantage"
+    Google Search grounding is significantly cheaper than OpenAI web search for high-volume monitoring. Grounding tokens are included in base pricing.
+
+### When to Use Google Search Grounding
+
+**Use Google Search Grounding when**:
+
+- ✅ You need current, real-time information
+- ✅ You want Google's search quality and coverage
+- ✅ You're running high-volume monitoring (cost-effective)
+- ✅ You want automatic search decision-making
+- ✅ You need grounding metadata with source attribution
+
+**Use OpenAI web search when**:
+
+- ✅ You need explicit `tool_choice` control (force or disable search)
+- ✅ You prefer OpenAI's LLM reasoning quality
+- ✅ You're already invested in OpenAI ecosystem
+
+**Use Perplexity when**:
+
+- ✅ You need explicit source citations with URLs
+- ✅ You want always-on web search (no configuration)
+- ✅ You prefer Perplexity's citation format
+
+### Complete Example Configuration
+
+Multi-provider comparison with side-by-side grounding:
+
+```yaml
+run_settings:
+  output_dir: "./output"
+  sqlite_db_path: "./output/watcher.db"
+
+  models:
+    # Google with grounding (cost-effective, automatic)
+    - provider: "google"
+      model_name: "gemini-2.5-flash"
+      env_api_key: "GEMINI_API_KEY"
+      system_prompt: "google/gemini-grounding"
+      tools:
+        - google_search: {}
+
+    # OpenAI with controlled web search
+    - provider: "openai"
+      model_name: "gpt-4o-mini"
+      env_api_key: "OPENAI_API_KEY"
+      tools:
+        - type: "web_search"
+      tool_choice: "auto"
+
+    # Perplexity with always-on citations
+    - provider: "perplexity"
+      model_name: "sonar-pro"
+      env_api_key: "PERPLEXITY_API_KEY"
+
+brands:
+  mine:
+    - "Warmly"
+    - "Lemlist"
+  competitors:
+    - "HubSpot"
+    - "Instantly"
+
+intents:
+  - id: "best-email-tools-2025"
+    prompt: "What are the best email warmup tools in 2025?"
+```
+
+**This configuration enables**:
+
+- Google: Automatic grounding with lowest cost
+- OpenAI: LLM-controlled web search with reasoning
+- Perplexity: Always-on search with explicit citations
+
+Compare results across all three to understand:
+- How each provider uses web search
+- Cost vs. quality trade-offs
+- Grounding vs. citation differences
 
 ## Cost Management for Web Search
 

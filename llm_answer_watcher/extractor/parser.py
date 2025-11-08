@@ -99,7 +99,7 @@ class ExtractionResult:
             )
 
 
-def parse_answer(
+async def parse_answer(
     answer_text: str,
     brands: Brands,
     intent_id: str,
@@ -111,10 +111,13 @@ def parse_answer(
     extraction_settings: RuntimeExtractionSettings | None = None,
 ) -> ExtractionResult:
     """
-    Parse LLM answer and extract all signals.
+    Parse LLM answer and extract all signals (async).
 
     Orchestrates mention detection and rank extraction to produce a complete
     ExtractionResult with all structured data extracted from the answer.
+
+    This function is async when function calling is enabled because it calls
+    LLM clients which are async.
 
     Processing pipeline (with function calling):
     1. If extraction_settings provided and method=function_calling:
@@ -147,7 +150,7 @@ def parse_answer(
         >>> from config.schema import Brands
         >>> brands = Brands(mine=["Warmly"], competitors=["HubSpot", "Instantly"])
         >>> text = "I recommend:\\n1. Warmly\\n2. HubSpot\\n3. Instantly"
-        >>> result = parse_answer(
+        >>> result = await parse_answer(
         ...     answer_text=text,
         ...     brands=brands,
         ...     intent_id="email-warmup",
@@ -187,7 +190,7 @@ def parse_answer(
         try:
             from .function_extractor import extract_with_function_calling
 
-            func_result = extract_with_function_calling(
+            func_result = await extract_with_function_calling(
                 answer_text=answer_text,
                 brands=brands,
                 extraction_settings=extraction_settings,

@@ -564,7 +564,7 @@ async def run_all(
 
             # Notify progress callback of query start (if supported)
             if progress_callback and hasattr(progress_callback, "start_query"):
-                progress_callback.start_query(intent.id, provider, model_name)
+                await progress_callback.start_query(intent.id, provider, model_name)
 
             try:
                 # Process API model
@@ -651,7 +651,7 @@ async def run_all(
                         )
 
                     # Parse answer to extract mentions and rankings
-                    extraction_result = parse_answer(
+                    extraction_result = await parse_answer(
                         answer_text=answer_text,
                         brands=config.brands,
                         intent_id=intent.id,
@@ -884,7 +884,7 @@ async def run_all(
                     # Call progress callback if provided
                     if progress_callback:
                         if hasattr(progress_callback, "complete_query"):
-                            progress_callback.complete_query(success=True)
+                            await progress_callback.complete_query(success=True)
                         else:
                             progress_callback()
 
@@ -955,7 +955,7 @@ async def run_all(
                     )
 
                 # Parse answer to extract mentions and rankings
-                extraction_result = parse_answer(
+                extraction_result = await parse_answer(
                     answer_text=result.answer_text,
                     brands=config.brands,
                     intent_id=intent.id,
@@ -1038,7 +1038,7 @@ async def run_all(
                 # Call progress callback if provided
                 if progress_callback:
                     if hasattr(progress_callback, "complete_query"):
-                        progress_callback.complete_query(success=True)
+                        await progress_callback.complete_query(success=True)
                     else:
                         progress_callback()
 
@@ -1096,7 +1096,7 @@ async def run_all(
                 # Call progress callback if provided (even for errors)
                 if progress_callback:
                     if hasattr(progress_callback, "complete_query"):
-                        progress_callback.complete_query(success=False)
+                        await progress_callback.complete_query(success=False)
                     else:
                         progress_callback()
 

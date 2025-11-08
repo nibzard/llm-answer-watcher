@@ -190,18 +190,20 @@ def parse_function_call_response(llm_response: LLMResponse) -> dict:
     return function_call_data.get("arguments", {})
 
 
-def extract_with_function_calling(
+async def extract_with_function_calling(
     answer_text: str,
     brands: Brands,
     extraction_settings: RuntimeExtractionSettings,
     intent_id: str,
 ) -> FunctionExtractionResult:
     """
-    Extract brand mentions using OpenAI function calling.
+    Extract brand mentions using OpenAI function calling (async).
 
     This is the main entry point for function calling-based extraction.
     It calls the extraction model with structured output requirements,
     validates the result, and falls back to regex if needed.
+
+    This function is async because it calls LLM clients which are async.
 
     Args:
         answer_text: Raw LLM answer to analyze
@@ -216,7 +218,7 @@ def extract_with_function_calling(
         RuntimeError: If extraction fails and fallback is disabled
 
     Example:
-        >>> result = extract_with_function_calling(
+        >>> result = await extract_with_function_calling(
         ...     answer_text="I recommend 1. Lemwarm 2. Instantly",
         ...     brands=Brands(mine=["Lemwarm"], competitors=["Instantly"]),
         ...     extraction_settings=settings,
@@ -251,7 +253,7 @@ def extract_with_function_calling(
             f"Calling extraction model {extraction_model.provider}/{extraction_model.model_name} "
             f"for intent {intent_id}"
         )
-        response: LLMResponse = client.generate_answer(prompt)
+        response: LLMResponse = await client.generate_answer(prompt)
 
         # Parse function call result
         function_result = parse_function_call_response(response)

@@ -449,9 +449,12 @@ class Operation(BaseModel):
         depends_on: List of operation IDs this depends on (for chaining)
         condition: Optional condition string for conditional execution
         output_format: Expected output format ("text" or "json")
-        type: Operation type ("standard", "structured", or "webhook")
+        type: Operation type - "standard" (default), "structured" (function calling), or "webhook"
+        function_schema: Optional inline function calling schema (for type="structured")
+        function_template: Optional built-in function template name (for type="structured")
+        function_params: Optional parameters to override in function template
 
-    Example:
+    Example (standard operation - backward compatible):
         operations:
           - id: "content-gaps"
             description: "Identify content opportunities"
@@ -460,14 +463,33 @@ class Operation(BaseModel):
               Current rank: {rank:mine}
               Response: {intent:response}
             model: "gpt-4o-mini"
-            enabled: true
+            # type: "standard" is default, no need to specify
 
-          - id: "action-items"
-            description: "Generate action items"
-            prompt: |
-              Based on this analysis: {operation:content-gaps}
-              Create 3 specific action items.
-            depends_on: ["content-gaps"]
+    Example (structured operation with inline schema):
+        operations:
+          - id: "extract-features"
+            type: "structured"
+            function_schema:
+              type: "function"
+              name: "extract_features"
+              parameters:
+                type: "object"
+                properties:
+                  products:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        name: {type: "string"}
+                        features: {type: "array", items: {type: "string"}}
+            prompt: "Extract features from: {intent:response}"
+
+    Example (structured operation with built-in template):
+        operations:
+          - id: "generate-actions"
+            type: "structured"
+            function_template: "generate_action_items"
+            prompt: "Generate action items based on: {operation:gap-analysis}"
     """
 
     id: str
@@ -479,6 +501,11 @@ class Operation(BaseModel):
     condition: str | None = None
     output_format: Literal["text", "json"] = "text"
     type: Literal["standard", "structured", "webhook"] = "standard"
+
+    # Function calling support (for type="structured")
+    function_schema: dict | None = None
+    function_template: str | None = None
+    function_params: dict | None = None
 
     @field_validator("id")
     @classmethod
@@ -546,6 +573,36 @@ class Operation(BaseModel):
                 )
 
         return cleaned
+
+    @model_validator(mode="after")
+    def validate_structured_operations(self) -> "Operation":
+        """
+        Validate structured operations have function schema or template.
+
+        For type="structured", either function_schema or function_template
+        must be specified. Standard operations don't need these fields.
+
+        Raises:
+            ValueError: If structured operation missing function definition
+        """
+        if self.type == "structured":
+            if not self.function_schema and not self.function_template:
+                raise ValueError(
+                    f"Operation '{self.id}' has type='structured' but no "
+                    f"function_schema or function_template defined. "
+                    f"Structured operations require function calling schema."
+                )
+
+            # Warn if both are specified (function_schema takes precedence)
+            if self.function_schema and self.function_template:
+                import logging
+
+                logging.warning(
+                    f"Operation '{self.id}' has both function_schema and function_template. "
+                    f"Using function_schema (function_template will be ignored)."
+                )
+
+        return self
 
 
 class Intent(BaseModel):
@@ -976,6 +1033,9 @@ class RuntimeOperation(BaseModel):
         condition: Optional condition string for conditional execution
         output_format: Expected output format ("text" or "json")
         type: Operation type ("standard", "structured", or "webhook")
+        function_schema: Resolved function calling schema (for type="structured")
+        function_template: Function template name (for type="structured")
+        function_params: Function template parameters (for type="structured")
     """
 
     id: str
@@ -987,6 +1047,11 @@ class RuntimeOperation(BaseModel):
     condition: str | None = None
     output_format: Literal["text", "json"] = "text"
     type: Literal["standard", "structured", "webhook"] = "standard"
+
+    # Function calling support (for type="structured")
+    function_schema: dict | None = None
+    function_template: str | None = None
+    function_params: dict | None = None
 
 
 class RuntimeConfig(BaseModel):

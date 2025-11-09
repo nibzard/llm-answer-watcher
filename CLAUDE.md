@@ -395,6 +395,47 @@ The project uses **5 automated hooks** (see `.claude/HOOKS.md`):
 - **.claude/HOOKS.md** - Hooks documentation and configuration
 - **ruff.toml** - Code quality rules (Python 3.12+, timezone enforcement, etc.)
 
+## Testing Utilities
+
+### MockLLMClient & ChaosLLMClient
+
+LLM Answer Watcher provides advanced testing utilities inspired by modern LLM abstraction layers:
+
+**MockLLMClient** - Deterministic responses without API calls:
+```python
+from llm_answer_watcher.llm_runner.mock_client import MockLLMClient
+
+client = MockLLMClient(
+    responses={"best CRM": "HubSpot and Salesforce"},
+    tokens_per_response=300,
+    cost_per_response=0.001
+)
+
+response = await client.generate_answer("best CRM")
+# Test extraction, storage, orchestration without HTTP mocking
+```
+
+**ChaosLLMClient** - Resilience testing with controlled failures:
+```python
+from llm_answer_watcher.llm_runner.chaos_client import ChaosLLMClient
+
+chaos = ChaosLLMClient(
+    base_client=mock_client,
+    success_rate=0.7,  # 70% success, 30% failures
+    seed=42  # Reproducible
+)
+
+# Validates retry logic under adverse conditions
+```
+
+**Benefits:**
+- ✅ Cleaner tests (no brittle HTTP mocking with pytest-httpx)
+- ✅ Test entire pipeline (extraction + storage + orchestration)
+- ✅ Chaos engineering for retry validation
+- ✅ Protocol-compliant implementations
+
+See `docs/contributing/testing-utilities.md` for full documentation.
+
 ## Common Commands
 
 ### Setup
@@ -444,8 +485,17 @@ git commit -m "refactor: extract retry logic to utils module"
 git commit -m "chore: add ruff and pytest to dependencies"
 ```
 
-### Running the CLI (Future - After Implementation)
+### Running the CLI
 ```bash
+# Try it first: Interactive demo (no API keys needed!)
+llm-answer-watcher demo
+llm-answer-watcher demo --mode agent  # JSON output
+llm-answer-watcher demo --mode quiet  # Minimal output
+
+# Run as Python module
+python -m llm_answer_watcher demo
+python -m llm_answer_watcher run --config examples/watcher.config.yaml
+
 # Human mode (default) - Beautiful Rich output
 llm-answer-watcher run --config examples/watcher.config.yaml
 

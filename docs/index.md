@@ -2,15 +2,15 @@
 
 <div align="center">
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/nibzard/llm-answer-watcher/blob/main/LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/nibzard/llm-answer-watcher/workflows/Tests/badge.svg)](https://github.com/nibzard/llm-answer-watcher/actions/workflows/test.yml)
+[![Coverage](https://codecov.io/gh/nibzard/llm-answer-watcher/branch/main/graph/badge.svg)](https://codecov.io/gh/nibzard/llm-answer-watcher)
 
 **Monitor how Large Language Models talk about your brand versus competitors in buyer-intent queries**
 
 [Get Started](getting-started/quick-start.md){ .md-button .md-button--primary }
-[View on GitHub](https://github.com/nikolabalic/llm-answer-watcher){ .md-button }
+[View on GitHub](https://github.com/nibzard/llm-answer-watcher){ .md-button }
 
 </div>
 
@@ -234,12 +234,12 @@ LLM Answer Watcher is built on these principles:
 
 ## Community & Support
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/nikolabalic/llm-answer-watcher/issues)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/nibzard/llm-answer-watcher/issues)
 - **Contributing**: [Read our contributing guide](contributing/development-setup.md)
-- **License**: MIT - see [LICENSE](https://github.com/nikolabalic/llm-answer-watcher/blob/main/LICENSE)
+- **License**: MIT - see [LICENSE](https://github.com/nibzard/llm-answer-watcher/blob/main/LICENSE)
 
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/nikolabalic">Nikola Balić</a></sub>
+  <sub>Built with ❤️ by <a href="https://github.com/nibzard">Nikola Balić</a></sub>
 </div>

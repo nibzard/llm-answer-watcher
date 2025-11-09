@@ -51,10 +51,10 @@ dev = [
 llm-answer-watcher = "llm_answer_watcher.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/nikolabalic/llm-answer-watcher"
-Documentation = "https://github.com/nikolabalic/llm-answer-watcher#readme"
-Repository = "https://github.com/nikolabalic/llm-answer-watcher"
-Issues = "https://github.com/nikolabalic/llm-answer-watcher/issues"
+Homepage = "https://github.com/nibzard/llm-answer-watcher"
+Documentation = "https://github.com/nibzard/llm-answer-watcher#readme"
+Repository = "https://github.com/nibzard/llm-answer-watcher"
+Issues = "https://github.com/nibzard/llm-answer-watcher/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["llm_answer_watcher"]

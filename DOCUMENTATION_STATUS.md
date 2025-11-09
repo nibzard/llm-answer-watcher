@@ -182,8 +182,8 @@ For remaining files, use this template:
 ## Need Help Now?
 
 - Check the [FAQ](../faq.md)
-- View [examples/](https://github.com/nikolabalic/llm-answer-watcher/tree/main/examples) in the repository
-- [Open an issue](https://github.com/nikolabalic/llm-answer-watcher/issues)
+- View [examples/](https://github.com/nibzard/llm-answer-watcher/tree/main/examples) in the repository
+- [Open an issue](https://github.com/nibzard/llm-answer-watcher/issues)
 ```
 
 ## Building the Docs

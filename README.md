@@ -22,6 +22,20 @@ LLM Answer Watcher is a production-ready CLI tool that asks LLMs specific questi
 - **📋 HTML Reports**: Auto-generated reports with historical data visualizations
 - **🔒 Local-First**: All data stored locally, BYOK (Bring Your Own Keys)
 
+## 🎬 Demo
+
+See LLM Answer Watcher in action:
+
+![LLM Answer Watcher Demo](demo.gif)
+
+**What you're seeing:**
+- Configuration validation with brand and competitor definitions
+- Real-time progress bars showing query execution across LLM providers
+- Brand mention extraction and ranking from AI responses
+- Cost tracking and results summary
+
+**Watch the full recording:** [asciinema.org](https://asciinema.org) (upload `demo.cast`) or play locally with `asciinema play demo.cast`
+
 ## 🚀 Quick Start
 
 ```bash

@@ -919,6 +919,241 @@ def eval(
     raise typer.Exit(EXIT_SUCCESS)  # All tests passed and thresholds met
 
 
+@app.command()
+def demo(
+    mode: str = typer.Option(
+        "human",
+        "--mode",
+        "-m",
+        help="Output mode: 'human' (Rich), 'agent' (JSON), or 'quiet' (tab-separated)",
+    ),
+):
+    """
+    Run interactive demo with sample data.
+
+    Demonstrates LLM Answer Watcher with pre-configured queries and mock responses.
+    Perfect for trying the tool before setting up API keys or configuration files.
+
+    The demo runs a sample brand monitoring query and shows:
+    - Brand mention detection
+    - Rank extraction
+    - Cost tracking
+    - Output in all three modes (human/agent/quiet)
+
+    Examples:
+      # Run demo with beautiful Rich output
+      llm-answer-watcher demo
+
+      # Run demo with JSON output
+      llm-answer-watcher demo --mode agent
+
+      # Run demo with minimal output
+      llm-answer-watcher demo --mode quiet
+    """
+    import tempfile
+    from pathlib import Path
+
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.syntax import Syntax
+
+    from llm_answer_watcher.config.schema import Brands, Intent, ModelConfig, RuntimeConfig
+    from llm_answer_watcher.llm_runner.mock_client import MockLLMClient
+
+    # Set output mode
+    output_mode.format = "json" if mode == "agent" else "text"
+    output_mode.quiet = mode == "quiet"
+
+    console = Console()
+
+    # Welcome message (only in human mode)
+    if not output_mode.is_agent() and not output_mode.quiet:
+        console.print()
+        console.print(
+            Panel.fit(
+                "[bold cyan]LLM Answer Watcher - Interactive Demo[/bold cyan]\n\n"
+                "This demo shows how LLM Answer Watcher monitors brand mentions.\n"
+                "We'll run a sample query with mock LLM responses - no API keys needed!",
+                border_style="cyan",
+            )
+        )
+        console.print()
+
+    # Create sample configuration
+    demo_brands = Brands(
+        mine=["Warmly", "Warmly.ai"],
+        competitors=["HubSpot", "Instantly", "Lemlist", "Outreach", "Salesforce"],
+    )
+
+    demo_intent = Intent(
+        id="email-warmup-demo",
+        prompt="What are the best email warmup tools for 2025?",
+    )
+
+    # Mock LLM response with brand mentions
+    demo_response = """Based on extensive testing, here are the top email warmup tools for 2025:
+
+1. **Warmly** - Best overall choice with excellent deliverability tracking and real-time analytics. Their AI-powered warmup sequences are industry-leading.
+
+2. **HubSpot** - Comprehensive CRM with built-in email capabilities. Great for enterprises but can be expensive.
+
+3. **Instantly** - Fast and reliable warmup service with competitive pricing. Popular among startups.
+
+4. **Lemlist** - Excellent for personalization and customization. Strong community support.
+
+5. **Outreach** - Enterprise-grade sales engagement platform. Best for large teams.
+
+For most users, I'd recommend starting with Warmly due to its balance of features, ease of use, and pricing."""
+
+    # Create mock client
+    mock_client = MockLLMClient(
+        responses={demo_intent.prompt: demo_response},
+        model_name="demo-gpt-4",
+        provider="demo-openai",
+        tokens_per_response=450,
+        cost_per_response=0.0015,
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create minimal runtime config
+        temp_db_path = Path(tmpdir) / "demo.db"
+        temp_output_dir = Path(tmpdir) / "output"
+
+        # Initialize database
+        init_db_if_needed(str(temp_db_path))
+
+        # Create runtime config
+        config = RuntimeConfig(
+            brands=demo_brands,
+            intents=[demo_intent],
+            models=[
+                ModelConfig(
+                    provider="demo-openai",
+                    name="demo-gpt-4",
+                    system_prompt="You are a helpful assistant.",
+                )
+            ],
+            db_path=str(temp_db_path),
+            output_dir=str(temp_output_dir),
+        )
+
+        if not output_mode.is_agent() and not output_mode.quiet:
+            console.print("[bold]Demo Configuration:[/bold]")
+            console.print(f"  Brands to monitor: {', '.join(demo_brands.mine)}")
+            console.print(f"  Competitors: {', '.join(demo_brands.competitors[:3])}...")
+            console.print(f"  Intent: {demo_intent.prompt}")
+            console.print()
+
+        # Run extraction with mock response
+        with spinner("Running demo query..."):
+            # Manually run extraction since we're using mock client
+            from llm_answer_watcher.extractor.parser import parse_answer
+            from llm_answer_watcher.utils.time import run_id_from_timestamp
+
+            # Generate answer from mock client
+            import asyncio
+
+            response = asyncio.run(mock_client.generate_answer(demo_intent.prompt))
+
+            # Parse answer
+            extraction = parse_answer(response.answer_text, demo_brands)
+
+            # Create run directory
+            run_id = run_id_from_timestamp()
+            run_dir = temp_output_dir / run_id
+            run_dir.mkdir(parents=True, exist_ok=True)
+
+        # Show results
+        if output_mode.is_agent():
+            # JSON output
+            result = {
+                "demo": True,
+                "run_id": run_id,
+                "intent": demo_intent.id,
+                "appeared_mine": extraction.appeared_mine,
+                "my_brands_mentioned": [m.normalized_name for m in extraction.my_mentions],
+                "my_brands_count": len(extraction.my_mentions),
+                "competitor_brands_mentioned": [
+                    m.normalized_name for m in extraction.competitor_mentions
+                ],
+                "competitor_count": len(extraction.competitor_mentions),
+                "ranked_list_found": extraction.ranked_list is not None,
+                "top_5_brands": [
+                    rb.brand_name for rb in (extraction.ranked_list or [])[:5]
+                ],
+                "cost_usd": response.cost_usd,
+                "tokens_used": response.tokens_used,
+            }
+            import json
+
+            print(json.dumps(result, indent=2))
+        elif output_mode.quiet:
+            # Tab-separated output
+            print(
+                f"{run_id}\t{demo_intent.id}\t{extraction.appeared_mine}\t{len(extraction.my_mentions)}\t{len(extraction.competitor_mentions)}\t{response.cost_usd}"
+            )
+        else:
+            # Human-friendly output
+            success("Demo completed successfully!")
+            console.print()
+
+            # Show extraction results
+            from rich.table import Table
+
+            table = Table(title="Brand Mention Detection Results", show_header=True)
+            table.add_column("Metric", style="cyan", no_wrap=True)
+            table.add_column("Value", style="yellow")
+
+            table.add_row("Our brands appeared?", "✓ YES" if extraction.appeared_mine else "✗ NO")
+            table.add_row("Our brands mentioned", str(len(extraction.my_mentions)))
+            table.add_row("Competitor brands mentioned", str(len(extraction.competitor_mentions)))
+            table.add_row(
+                "Ranked list found?", "✓ YES" if extraction.ranked_list else "✗ NO"
+            )
+            table.add_row("Total tokens used", str(response.tokens_used))
+            table.add_row("Estimated cost", f"${response.cost_usd:.6f}")
+
+            console.print(table)
+            console.print()
+
+            # Show our mentions
+            if extraction.my_mentions:
+                console.print("[bold green]✓ Our Brands Found:[/bold green]")
+                for mention in extraction.my_mentions:
+                    console.print(
+                        f"  • {mention.normalized_name} (matched by alias: '{mention.matched_alias}')"
+                    )
+                console.print()
+
+            # Show ranked list
+            if extraction.ranked_list:
+                console.print("[bold cyan]Ranking Detected:[/bold cyan]")
+                for i, ranked_brand in enumerate(extraction.ranked_list[:5], 1):
+                    is_ours = ranked_brand.brand_name in [
+                        m.normalized_name for m in extraction.my_mentions
+                    ]
+                    style = "bold green" if is_ours else "white"
+                    marker = "★" if is_ours else " "
+                    console.print(f"  {marker} {i}. [{style}]{ranked_brand.brand_name}[/{style}]")
+                console.print()
+
+            # Show sample answer snippet
+            console.print("[bold]Sample LLM Answer (first 300 chars):[/bold]")
+            snippet = response.answer_text[:300] + "..." if len(response.answer_text) > 300 else response.answer_text
+            console.print(Panel(snippet, border_style="dim"))
+            console.print()
+
+            # Show next steps
+            console.print("[bold cyan]Next Steps:[/bold cyan]")
+            console.print("  1. Create your own config file (see examples/watcher.config.yaml)")
+            console.print("  2. Set up API keys for real LLM providers (OpenAI, Anthropic, etc.)")
+            console.print("  3. Run: llm-answer-watcher run --config your-config.yaml")
+            console.print()
+            console.print("[dim]See full documentation at: https://github.com/nikolabalic/llm-answer-watcher[/dim]")
+
+    raise typer.Exit(EXIT_SUCCESS)
+
+
 # Create export command subapp
 export_app = typer.Typer(help="Export data to CSV or JSON")
 app.add_typer(export_app, name="export")
@@ -1542,6 +1777,7 @@ def main(
         console.print("  run       Execute LLM queries and generate report")
         console.print("  validate  Validate configuration without running")
         console.print("  eval      Run evaluation suite to test extraction accuracy")
+        console.print("  demo      Run interactive demo with sample data (no API keys needed)")
         console.print("  prices    Manage LLM pricing data (show, refresh, list)")
 
 

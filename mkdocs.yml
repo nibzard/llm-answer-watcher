@@ -1,7 +1,7 @@
 site_name: LLM Answer Watcher
 site_description: Monitor how Large Language Models talk about your brand versus competitors in buyer-intent queries
 site_author: Nikola Balić
-site_url: https://github.com/nikolabalic/llm-answer-watcher
+site_url: https://nikolabalic.github.io/llm-answer-watcher/
 
 repo_name: nikolabalic/llm-answer-watcher
 repo_url: https://github.com/nikolabalic/llm-answer-watcher
@@ -192,6 +192,7 @@ nav:
       - contributing/development-setup.md
       - contributing/code-standards.md
       - contributing/testing.md
+      - contributing/testing-utilities.md
       - contributing/documentation.md
   - FAQ: faq.md
   - Changelog: changelog.md

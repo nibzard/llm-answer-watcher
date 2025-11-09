@@ -462,7 +462,6 @@ def resolve_runner_configs(config: WatcherConfig) -> list:
         - NEVER logs resolved values (may contain API keys)
         - Fails fast if environment variable is missing
     """
-    import re
     from .schema import RunnerConfig
 
     if not config.runners:
@@ -507,11 +506,11 @@ def _resolve_env_vars_recursive(obj):
         # Recursively process dictionary values
         return {key: _resolve_env_vars_recursive(value) for key, value in obj.items()}
 
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         # Recursively process list items
         return [_resolve_env_vars_recursive(item) for item in obj]
 
-    elif isinstance(obj, str):
+    if isinstance(obj, str):
         # Check if string contains ${ENV_VAR} pattern
         match = env_var_pattern.search(obj)
         if match:
@@ -531,14 +530,12 @@ def _resolve_env_vars_recursive(obj):
             # Otherwise, perform string substitution (allows "prefix-${VAR}-suffix")
             if obj == f"${{{env_var_name}}}":
                 return env_value
-            else:
-                return env_var_pattern.sub(env_value, obj)
+            return env_var_pattern.sub(env_value, obj)
 
         return obj
 
-    else:
-        # Return scalar values as-is (int, bool, float, None)
-        return obj
+    # Return scalar values as-is (int, bool, float, None)
+    return obj
 
 
 def resolve_extraction_settings(
@@ -729,6 +726,10 @@ def resolve_operations(
             condition=op.condition,
             output_format=op.output_format,
             type=op.type,
+            # Function calling support
+            function_schema=op.function_schema,
+            function_template=op.function_template,
+            function_params=op.function_params,
         )
 
         runtime_operations.append(runtime_operation)

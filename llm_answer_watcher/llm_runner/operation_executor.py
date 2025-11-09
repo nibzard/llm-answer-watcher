@@ -392,22 +392,82 @@ async def execute_operation(
     )
 
     try:
-        # Build client
+        # Determine if function calling should be used
+        tools = None
+        tool_choice = "auto"
+
+        if operation.type == "structured":
+            # Build function calling tools for structured operations
+            if operation.function_schema:
+                # Use inline schema
+                tools = [operation.function_schema]
+                tool_choice = "required"  # Force function call
+                logger.debug(
+                    f"Operation '{operation.id}' using inline function_schema: "
+                    f"{operation.function_schema.get('name')}"
+                )
+
+            elif operation.function_template:
+                # Load from built-in templates
+                from .operation_templates import (
+                    apply_function_params,
+                    load_function_template,
+                )
+
+                schema = load_function_template(operation.function_template)
+
+                # Apply any parameter overrides
+                if operation.function_params:
+                    schema = apply_function_params(schema, operation.function_params)
+                    logger.debug(
+                        f"Operation '{operation.id}' applied function_params overrides"
+                    )
+
+                tools = [schema]
+                tool_choice = "required"  # Force function call
+                logger.debug(
+                    f"Operation '{operation.id}' using function_template: "
+                    f"{operation.function_template}"
+                )
+
+        # Build client with tools if needed
         client = build_client(
             provider=model.provider,
             model_name=model.model_name,
             api_key=model.api_key,
             system_prompt=model.system_prompt,
-            tools=model.tools,
-            tool_choice=model.tool_choice,
+            tools=tools,  # None for standard, schema for structured
+            tool_choice=tool_choice,  # "auto" for standard, "required" for structured
         )
 
         # Execute
         response: LLMResponse = await client.generate_answer(rendered_prompt)
 
+        # Parse response based on operation type
+        result_text = response.answer_text
+
+        if operation.type == "structured":
+            # Parse function call result and format as JSON
+            try:
+                import json
+
+                from ..extractor.function_extractor import parse_function_call_response
+
+                function_result = parse_function_call_response(response)
+                result_text = json.dumps(function_result, indent=2)
+                logger.debug(
+                    f"Operation '{operation.id}' successfully parsed function call result"
+                )
+            except Exception as parse_error:
+                logger.warning(
+                    f"Failed to parse function call for operation '{operation.id}': {parse_error}. "
+                    f"Using raw response as fallback."
+                )
+                # Keep raw response as fallback
+
         return OperationResult(
             operation_id=operation.id,
-            result_text=response.answer_text,
+            result_text=result_text,
             tokens_used_input=response.prompt_tokens,
             tokens_used_output=response.completion_tokens,
             cost_usd=response.cost_usd,

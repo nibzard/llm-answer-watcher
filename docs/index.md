@@ -27,6 +27,27 @@ As AI-powered search becomes mainstream, monitoring your brand's presence in LLM
 - **Market Positioning**: Understand your ranking compared to alternatives
 - **Trend Analysis**: Historical data shows how your presence changes over time
 
+## Demo
+
+See LLM Answer Watcher in action:
+
+<div align="center">
+
+![LLM Answer Watcher Demo](../demo.gif)
+
+</div>
+
+**What you're seeing:**
+
+- Configuration validation with brand and competitor definitions
+- Real-time progress bars showing query execution across LLM providers
+- Brand mention extraction and ranking from AI responses
+- Cost tracking and results summary
+
+**Try it yourself:** Run `llm-answer-watcher demo` for an interactive demo (no API keys needed!)
+
+---
+
 ## Key Features
 
 ### 🔍 Brand Mention Detection

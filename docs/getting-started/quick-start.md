@@ -74,16 +74,18 @@ LLM Answer Watcher includes example configurations you can use immediately.
 
 ### 1. Choose an Example Config
 
-The repository includes several example configs in the `examples/` directory:
+The repository includes organized example configs in the `examples/` directory:
 
-- `watcher.config.yaml` - Basic configuration with OpenAI
-- `steel-dev-quick.config.yaml` - Quick test configuration
-- `watcher-with-web-search.config.yaml` - Configuration with web search enabled
+- **Quick Start**: `examples/01-quickstart/minimal.config.yaml` - Simplest possible config (1 provider, 1 intent)
+- **Explained**: `examples/01-quickstart/explained.config.yaml` - Same config with detailed comments
+- **Multi-Provider**: `examples/02-providers/multi-provider-comparison.config.yaml` - Compare all 6 providers
+
+Start with the minimal example:
 
 ### 2. Run the Tool
 
 ```bash
-llm-answer-watcher run --config examples/watcher.config.yaml
+llm-answer-watcher run --config examples/01-quickstart/minimal.config.yaml
 ```
 
 ### 3. View the Output
@@ -249,6 +251,20 @@ Re-install the package:
 ```bash
 pip install -e .
 ```
+
+## Explore More Examples
+
+The `examples/` directory is organized by use case:
+
+- **[01-quickstart/](https://github.com/nibzard/llm-answer-watcher/tree/main/examples/01-quickstart)** - Minimal examples for first-time users
+- **[02-providers/](https://github.com/nibzard/llm-answer-watcher/tree/main/examples/02-providers)** - All 6 LLM providers (OpenAI, Anthropic, Google, Mistral, Grok, Perplexity)
+- **[03-web-search/](https://github.com/nibzard/llm-answer-watcher/tree/main/examples/03-web-search)** - Real-time web search integration
+- **[04-extraction/](https://github.com/nibzard/llm-answer-watcher/tree/main/examples/04-extraction)** - Brand extraction methods (regex, function calling, hybrid)
+- **[05-operations/](https://github.com/nibzard/llm-answer-watcher/tree/main/examples/05-operations)** - Automated analysis and insights
+- **[06-advanced/](https://github.com/nibzard/llm-answer-watcher/tree/main/examples/06-advanced)** - Budget controls, high concurrency, production configs
+- **[07-real-world/](https://github.com/nibzard/llm-answer-watcher/tree/main/examples/07-real-world)** - Complete use case templates
+
+Each directory includes a README with detailed explanations.
 
 ## Getting Help
 

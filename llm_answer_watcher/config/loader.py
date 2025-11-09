@@ -203,12 +203,42 @@ def load_config(config_path: str | Path) -> RuntimeConfig:
                 f"Failed to resolve global operations from {config_path}: {e}"
             ) from e
 
+    # Resolve intent operations
+    # Convert Intent objects to RuntimeIntent objects with resolved operations
+    from .schema import RuntimeIntent
+
+    resolved_intents = []
+    operation_model_pool = resolved_operation_models if resolved_operation_models else resolved_models
+
+    for intent in watcher_config.intents:
+        # Resolve intent-specific operations
+        resolved_ops = []
+        if intent.operations:
+            try:
+                resolved_ops = resolve_operations(intent.operations, operation_model_pool)
+            except APIKeyMissingError:
+                raise
+            except ConfigValidationError:
+                raise
+            except Exception as e:
+                raise ConfigValidationError(
+                    f"Failed to resolve operations for intent '{intent.id}' in {config_path}: {e}"
+                ) from e
+
+        # Create RuntimeIntent with resolved operations
+        runtime_intent = RuntimeIntent(
+            id=intent.id,
+            prompt=intent.prompt,
+            operations=resolved_ops,
+        )
+        resolved_intents.append(runtime_intent)
+
     # Build RuntimeConfig with resolved API keys or runner configs
     return RuntimeConfig(
         run_settings=watcher_config.run_settings,
         extraction_settings=resolved_extraction_settings,
         brands=watcher_config.brands,
-        intents=watcher_config.intents,
+        intents=resolved_intents,
         models=resolved_models,
         operation_models=resolved_operation_models,
         runner_configs=resolved_runner_configs,

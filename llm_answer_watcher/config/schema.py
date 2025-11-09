@@ -1054,6 +1054,24 @@ class RuntimeOperation(BaseModel):
     function_params: dict | None = None
 
 
+class RuntimeIntent(BaseModel):
+    """
+    Runtime intent with resolved operations.
+
+    Created by config.loader after resolving operation model overrides.
+    This ensures operations have runtime_model properly set.
+
+    Attributes:
+        id: Intent identifier
+        prompt: Intent prompt text
+        operations: Resolved operations with runtime models
+    """
+
+    id: str
+    prompt: str
+    operations: list[RuntimeOperation] = []
+
+
 class RuntimeConfig(BaseModel):
     """
     Runtime configuration with resolved API keys.
@@ -1068,7 +1086,7 @@ class RuntimeConfig(BaseModel):
         run_settings: Runtime settings from config
         extraction_settings: Extraction settings with resolved model (optional)
         brands: Brand aliases from config
-        intents: Intent queries from config
+        intents: Intent queries with resolved operations
         models: Resolved model configurations with API keys (LEGACY)
         operation_models: Resolved model configurations used ONLY for operations
                          Enables strategic model selection (e.g., reasoning models)
@@ -1080,7 +1098,7 @@ class RuntimeConfig(BaseModel):
     run_settings: RunSettings
     extraction_settings: RuntimeExtractionSettings | None = None
     brands: Brands
-    intents: list[Intent]
+    intents: list[RuntimeIntent]
     models: list[RuntimeModel] = []  # Now optional for backward compatibility
     operation_models: list[RuntimeModel] = []  # Models used only for operations
     runner_configs: list[RunnerConfig] | None = None  # New format

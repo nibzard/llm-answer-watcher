@@ -451,13 +451,27 @@ async def execute_operation(
             try:
                 import json
 
-                from ..extractor.function_extractor import parse_function_call_response
+                # Parse the response JSON
+                parsed = json.loads(response.answer_text)
 
-                function_result = parse_function_call_response(response)
-                result_text = json.dumps(function_result, indent=2)
-                logger.debug(
-                    f"Operation '{operation.id}' successfully parsed function call result"
-                )
+                # Check for function call marker
+                if "_function_call" in parsed:
+                    function_call_data = parsed["_function_call"]
+                    # Extract just the arguments (the actual structured data)
+                    function_arguments = function_call_data.get("arguments", {})
+                    result_text = json.dumps(function_arguments, indent=2)
+                    logger.debug(
+                        f"Operation '{operation.id}' successfully parsed function call "
+                        f"'{function_call_data.get('name')}'"
+                    )
+                else:
+                    # No function call marker, keep original response
+                    result_text = response.answer_text
+                    logger.warning(
+                        f"Operation '{operation.id}' response missing _function_call marker. "
+                        f"Using raw response."
+                    )
+
             except Exception as parse_error:
                 logger.warning(
                     f"Failed to parse function call for operation '{operation.id}': {parse_error}. "

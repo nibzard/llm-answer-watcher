@@ -93,7 +93,7 @@ export PERPLEXITY_API_KEY=pplx-your-perplexity-key-here
 
 ```bash
 # Clone the repository
-git clone https://github.com/nikolabalic/llm-answer-watcher.git
+git clone https://github.com/nibzard/llm-answer-watcher.git
 cd llm-answer-watcher
 
 # Install dependencies and create virtual environment
@@ -107,7 +107,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 ```bash
 # Clone the repository
-git clone https://github.com/nikolabalic/llm-answer-watcher.git
+git clone https://github.com/nibzard/llm-answer-watcher.git
 cd llm-answer-watcher
 
 # Create virtual environment
@@ -824,7 +824,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ```bash
 # Clone and install development dependencies
-git clone https://github.com/nikolabalic/llm-answer-watcher.git
+git clone https://github.com/nibzard/llm-answer-watcher.git
 cd llm-answer-watcher
 uv sync --dev
 
@@ -854,8 +854,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/nikolabalic/llm-answer-watcher/issues)
-- **Documentation**: [GitHub Wiki](https://github.com/nikolabalic/llm-answer-watcher/wiki)
+- **Issues**: [GitHub Issues](https://github.com/nibzard/llm-answer-watcher/issues)
+- **Documentation**: [GitHub Wiki](https://github.com/nibzard/llm-answer-watcher/wiki)
 - **Author**: Nikola Balić
 
 ---

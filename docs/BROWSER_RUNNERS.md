@@ -349,5 +349,5 @@ For issues with browser runners:
 
 1. Check Steel API status: https://status.steel.dev
 2. Review logs with `--verbose` flag
-3. Report issues: https://github.com/nikolabalic/llm-answer-watcher/issues
+3. Report issues: https://github.com/nibzard/llm-answer-watcher/issues
 4. Tag with `browser-runner` label

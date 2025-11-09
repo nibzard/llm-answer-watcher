@@ -12,7 +12,7 @@ Set up your development environment for contributing.
 
 ```bash
 # Clone repository
-git clone https://github.com/nikolabalic/llm-answer-watcher.git
+git clone https://github.com/nibzard/llm-answer-watcher.git
 cd llm-answer-watcher
 
 # Install with uv (recommended)

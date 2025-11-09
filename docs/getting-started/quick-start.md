@@ -18,7 +18,7 @@ Before you begin, ensure you have:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nikolabalic/llm-answer-watcher.git
+git clone https://github.com/nibzard/llm-answer-watcher.git
 cd llm-answer-watcher
 
 # Install dependencies
@@ -32,7 +32,7 @@ source .venv/bin/activate
 
 ```bash
 # Clone the repository
-git clone https://github.com/nikolabalic/llm-answer-watcher.git
+git clone https://github.com/nibzard/llm-answer-watcher.git
 cd llm-answer-watcher
 
 # Create virtual environment
@@ -254,7 +254,7 @@ pip install -e .
 
 - **Documentation**: Browse this site for comprehensive guides
 - **Examples**: Check the `examples/` directory in the repository
-- **Issues**: [Report bugs or ask questions](https://github.com/nikolabalic/llm-answer-watcher/issues)
+- **Issues**: [Report bugs or ask questions](https://github.com/nibzard/llm-answer-watcher/issues)
 - **Contributing**: [Read the contributing guide](../contributing/development-setup.md)
 
 ---

@@ -841,6 +841,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#explore-more-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Explore More Examples
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#getting-help" class="md-nav__link">
     <span class="md-ellipsis">
       Getting Help
@@ -3008,6 +3017,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#explore-more-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Explore More Examples
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#getting-help" class="md-nav__link">
     <span class="md-ellipsis">
       Getting Help
@@ -3092,14 +3110,15 @@
 <h2 id="your-first-run">Your First Run<a class="headerlink" href="#your-first-run" title="Permanent link">&para;</a></h2>
 <p>LLM Answer Watcher includes example configurations you can use immediately.</p>
 <h3 id="1-choose-an-example-config">1. Choose an Example Config<a class="headerlink" href="#1-choose-an-example-config" title="Permanent link">&para;</a></h3>
-<p>The repository includes several example configs in the <code>examples/</code> directory:</p>
+<p>The repository includes organized example configs in the <code>examples/</code> directory:</p>
 <ul>
-<li><code>watcher.config.yaml</code> - Basic configuration with OpenAI</li>
-<li><code>steel-dev-quick.config.yaml</code> - Quick test configuration</li>
-<li><code>watcher-with-web-search.config.yaml</code> - Configuration with web search enabled</li>
+<li><strong>Quick Start</strong>: <code>examples/01-quickstart/minimal.config.yaml</code> - Simplest possible config (1 provider, 1 intent)</li>
+<li><strong>Explained</strong>: <code>examples/01-quickstart/explained.config.yaml</code> - Same config with detailed comments</li>
+<li><strong>Multi-Provider</strong>: <code>examples/02-providers/multi-provider-comparison.config.yaml</code> - Compare all 6 providers</li>
 </ul>
+<p>Start with the minimal example:</p>
 <h3 id="2-run-the-tool">2. Run the Tool<a class="headerlink" href="#2-run-the-tool" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>llm-answer-watcher<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>examples/watcher.config.yaml
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>llm-answer-watcher<span class="w"> </span>run<span class="w"> </span>--config<span class="w"> </span>examples/01-quickstart/minimal.config.yaml
 </span></code></pre></div>
 <h3 id="3-view-the-output">3. View the Output<a class="headerlink" href="#3-view-the-output" title="Permanent link">&para;</a></h3>
 <p>You'll see a beautiful progress display:</p>
@@ -3218,6 +3237,18 @@
 <p>Re-install the package:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </span></code></pre></div>
+<h2 id="explore-more-examples">Explore More Examples<a class="headerlink" href="#explore-more-examples" title="Permanent link">&para;</a></h2>
+<p>The <code>examples/</code> directory is organized by use case:</p>
+<ul>
+<li><strong><a href="https://github.com/nibzard/llm-answer-watcher/tree/main/examples/01-quickstart">01-quickstart/</a></strong> - Minimal examples for first-time users</li>
+<li><strong><a href="https://github.com/nibzard/llm-answer-watcher/tree/main/examples/02-providers">02-providers/</a></strong> - All 6 LLM providers (OpenAI, Anthropic, Google, Mistral, Grok, Perplexity)</li>
+<li><strong><a href="https://github.com/nibzard/llm-answer-watcher/tree/main/examples/03-web-search">03-web-search/</a></strong> - Real-time web search integration</li>
+<li><strong><a href="https://github.com/nibzard/llm-answer-watcher/tree/main/examples/04-extraction">04-extraction/</a></strong> - Brand extraction methods (regex, function calling, hybrid)</li>
+<li><strong><a href="https://github.com/nibzard/llm-answer-watcher/tree/main/examples/05-operations">05-operations/</a></strong> - Automated analysis and insights</li>
+<li><strong><a href="https://github.com/nibzard/llm-answer-watcher/tree/main/examples/06-advanced">06-advanced/</a></strong> - Budget controls, high concurrency, production configs</li>
+<li><strong><a href="https://github.com/nibzard/llm-answer-watcher/tree/main/examples/07-real-world">07-real-world/</a></strong> - Complete use case templates</li>
+</ul>
+<p>Each directory includes a README with detailed explanations.</p>
 <h2 id="getting-help">Getting Help<a class="headerlink" href="#getting-help" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Documentation</strong>: Browse this site for comprehensive guides</li>

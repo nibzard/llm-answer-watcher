@@ -1,0 +1,139 @@
+# API vs Browser Comparison - Evidence-Based GEO Demo
+#
+# This configuration runs the SAME queries through:
+# 1. OpenAI API (with web search)
+# 2. ChatGPT Browser (via Steel)
+# 3. Perplexity Browser (via Steel)
+#
+# Use this to demonstrate divergence between channels and prove that
+# API responses != Browser UI responses for the same provider.
+#
+# REQUIRED ENVIRONMENT VARIABLES:
+# - OPENAI_API_KEY: Your OpenAI API key
+# - STEEL_API_KEY: Your Steel API key for browser automation
+#
+# USAGE:
+#   llm-answer-watcher run --config examples/internal/api-vs-browser-comparison.config.yaml
+#   llm-answer-watcher compare --run-id <run-id>  # Generate comparison report
+
+project:
+  name: "Evidence-Based GEO: API vs Browser Comparison"
+  description: |
+    Demonstrate how LLM responses differ between API and Browser channels.
+    This is the foundation for "evidence-based GEO" positioning.
+
+brands:
+  mine:
+    - "Instantly.ai"
+    - "Warmup Inbox"
+  competitors:
+    - "Mailreach"
+    - "Lemlist"
+    - "Warmbox"
+    - "GMass"
+    - "Woodpecker"
+
+# Run BOTH API and Browser runners for same queries
+runners:
+  # 1. OpenAI API with web search (controlled environment)
+  - runner_plugin: "api"
+    config:
+      provider: "openai"
+      model_name: "gpt-4o-mini"
+      api_key: "${OPENAI_API_KEY}"
+      system_prompt: "You are a helpful assistant."
+      tools:
+        - type: "web_search"
+      tool_choice: "auto"
+
+  # 2. ChatGPT Browser (real user experience)
+  - runner_plugin: "steel-chatgpt"
+    config:
+      steel_api_key: "${STEEL_API_KEY}"
+      target_url: "https://chat.openai.com"
+      session_timeout: 300
+      wait_for_response_timeout: 60
+      take_screenshots: true
+      save_html_snapshot: true
+      session_reuse: true
+      output_dir: "./output"
+
+  # 3. Perplexity Browser (for additional comparison)
+  - runner_plugin: "steel-perplexity"
+    config:
+      steel_api_key: "${STEEL_API_KEY}"
+      target_url: "https://www.perplexity.ai"
+      session_timeout: 300
+      wait_for_response_timeout: 60
+      take_screenshots: true
+      save_html_snapshot: true
+      session_reuse: true
+      output_dir: "./output"
+
+# Buyer-intent queries designed to trigger brand mentions
+intents:
+  # Email warmup tools
+  - id: "email-warmup"
+    prompt: "What are the best email warmup tools for cold outreach?"
+
+  # CRM software
+  - id: "crm-tools"
+    prompt: "Which CRM tools do small businesses recommend?"
+
+  # SEO platforms
+  - id: "seo-tools"
+    prompt: "What are the top SEO tools for keyword research?"
+
+  # Project management
+  - id: "project-management"
+    prompt: "Which project management software is best for remote teams?"
+
+  # Marketing automation
+  - id: "marketing-automation"
+    prompt: "What are the leading marketing automation platforms?"
+
+extraction_settings:
+  method: "regex"  # Use regex for consistency (browser may not support function calling)
+  fuzzy_matching_threshold: 85
+
+run_settings:
+  output_dir: "./output"
+  sqlite_db_path: "./llm_answers.db"
+
+  budget:
+    enabled: true
+    max_per_run_usd: 2.0
+    warn_threshold_usd: 1.0
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# EXPECTED OUTCOMES (for documentation/marketing):
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#
+# After running this config, you'll have:
+#
+# 1. DATABASE RECORDS:
+#    - 5 intents × 3 runners = 15 total responses
+#    - Each response tagged with runner_type ('api' or 'browser')
+#    - Screenshots for browser responses
+#    - Cost tracking (API only, browser shows $0)
+#
+# 2. COMPARISON OPPORTUNITIES:
+#    - OpenAI API vs ChatGPT Browser (same provider, different channel)
+#    - ChatGPT Browser vs Perplexity Browser (different providers, same channel)
+#    - Brand mention differences
+#    - Rank position changes
+#    - Response length/style differences
+#
+# 3. MARKETING ASSETS:
+#    - Side-by-side screenshots (API text vs Browser UI)
+#    - Divergence statistics (X% of queries differ)
+#    - Specific examples ("Brand X appears in API but not Browser!")
+#    - Time-series data (track changes over weeks)
+#
+# 4. THOUGHT LEADERSHIP:
+#    - Blog post: "We tested ChatGPT API vs Web UI on 100 queries. Here's what we found."
+#    - Twitter thread with screenshots
+#    - Conference talk: "The API vs Browser Gap in Generative Engine Optimization"
+#    - Research report: "Evidence-Based GEO: Why You Can't Trust Vendor Claims"
+#
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

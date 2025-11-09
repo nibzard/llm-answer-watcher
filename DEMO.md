@@ -1,13 +1,13 @@
 # LLM Answer Watcher - asciinema Demo
 
-This directory contains an asciinema recording demonstrating the LLM Answer Watcher tool in action.
+This directory contains an asciinema recording and animated GIF demonstrating the LLM Answer Watcher tool in action.
 
-## Recording Details
+## Files
 
-- **File**: `demo.cast`
-- **Duration**: ~30 seconds
-- **Size**: 144KB
-- **Terminal Size**: 80x24
+- **demo.cast** - asciinema recording (144KB, ~30 seconds, 80x24 terminal)
+- **demo.gif** - Animated GIF for social media (266KB, 688x490px, Monokai theme)
+- **demo.config.yaml** - Demo configuration file
+- **demo-clean.sh** - Recording script
 
 ## What's in the Demo
 
@@ -45,15 +45,17 @@ This will give you a shareable URL like: `https://asciinema.org/a/123456`
 <script src="https://asciinema.org/a/123456.js" id="asciicast-123456" async></script>
 ```
 
-### Option 4: Convert to GIF (for social media)
+### Option 4: Use the Pre-Generated GIF (Quickest!)
 
+The `demo.gif` file is already included and ready to use on social media!
+
+**To regenerate the GIF:**
 ```bash
 # Install agg (asciinema GIF generator)
-# https://github.com/asciinema/agg
 cargo install --git https://github.com/asciinema/agg
 
-# Convert to GIF
-agg demo.cast demo.gif
+# Convert with custom settings
+agg --theme monokai --font-size 14 --speed 1.2 demo.cast demo.gif
 
 # Or use asciicast2gif (Python-based)
 pip install asciicast2gif

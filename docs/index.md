@@ -33,7 +33,7 @@ See LLM Answer Watcher in action:
 
 <div align="center" markdown>
 
-![LLM Answer Watcher Demo](../demo.gif)
+![LLM Answer Watcher Demo](assets/demo.gif)
 
 </div>
 

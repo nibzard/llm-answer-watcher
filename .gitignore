@@ -58,6 +58,7 @@ dmypy.json
 
 # Project-specific output directory
 output/
+demo-output/
 *.db
 *.sqlite
 *.sqlite3

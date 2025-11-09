@@ -1,5 +1,6 @@
 # LLM Answer Watcher
 
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://nibzard.github.io/llm-answer-watcher/)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -8,6 +9,25 @@
 > Monitor how Large Language Models talk about your brand versus competitors in buyer-intent queries
 
 LLM Answer Watcher is a production-ready CLI tool that asks LLMs specific questions (e.g., "best email warmup tools"), extracts structured signals (Did we appear? Who else appeared? In what rank?), and stores results in SQLite for historical tracking.
+
+## 🎬 Demo
+
+Try the interactive demo with no configuration needed:
+
+```bash
+# Run demo (no API keys required!)
+python -m llm_answer_watcher demo
+```
+
+<div align="center">
+
+![Demo](docs/assets/demo-placeholder.svg)
+
+_Interactive demo showing brand detection, ranking, and cost tracking_
+
+</div>
+
+> 💡 **Tip**: Run `./scripts/record-demo.sh` to create an actual demo.gif recording
 
 ## ✨ Key Features
 

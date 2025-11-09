@@ -2,6 +2,7 @@
 
 <div align="center">
 
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://nibzard.github.io/llm-answer-watcher/)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
@@ -76,6 +77,27 @@ Auto-generated reports with:
 - BYOK (Bring Your Own Keys) - use your own API keys
 - No external dependencies except LLM APIs
 - Built-in SQL injection and XSS protection
+
+## Demo
+
+Try the interactive demo with no configuration needed:
+
+```bash
+# Run demo (no API keys required!)
+python -m llm_answer_watcher demo
+```
+
+<div align="center">
+
+![Demo](assets/demo-placeholder.svg)
+
+<sub>_Interactive demo showing brand detection, ranking, and cost tracking_</sub>
+
+</div>
+
+!!! tip "Recording the Demo"
+    The demo.gif placeholder will be replaced with an actual recording.
+    See [DEMO_RECORDING.md](DEMO_RECORDING.md) for instructions on creating it.
 
 ## Quick Example
 

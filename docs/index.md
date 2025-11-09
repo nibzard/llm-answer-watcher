@@ -89,15 +89,14 @@ python -m llm_answer_watcher demo
 
 <div align="center">
 
-![Demo](assets/demo-placeholder.svg)
+![Demo](assets/demo.gif)
 
 <sub>_Interactive demo showing brand detection, ranking, and cost tracking_</sub>
 
 </div>
 
-!!! tip "Recording the Demo"
-    The demo.gif placeholder will be replaced with an actual recording.
-    See [DEMO_RECORDING.md](DEMO_RECORDING.md) for instructions on creating it.
+!!! tip "Recording Your Own Demo"
+    Want to update the demo.gif? See [DEMO_RECORDING.md](DEMO_RECORDING.md) for instructions.
 
 ## Quick Example
 

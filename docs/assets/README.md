@@ -6,12 +6,14 @@ This directory contains images and media files for the documentation.
 
 ### Current Status
 
-- ⏳ **demo.gif**: Placeholder (needs to be recorded)
-- ✅ **demo-placeholder.svg**: Temporary placeholder image
+- ✅ **demo.gif**: Active demo recording (266KB, 688x490px)
+  - Shows brand monitoring workflow
+  - Created with asciinema
+  - Optimized for GitHub
 
-### Recording the Demo
+### Updating the Demo
 
-To create the actual `demo.gif`:
+To update `demo.gif` with a new recording:
 
 ```bash
 # Quick method
@@ -21,15 +23,25 @@ To create the actual `demo.gif`:
 # See: ../DEMO_RECORDING.md
 ```
 
-### Requirements
+### Current Demo Specifications
 
-The `demo.gif` should:
+The existing `demo.gif`:
+
+- **Size**: 266KB (well under 5MB GitHub limit)
+- **Dimensions**: 688×490 pixels
+- **Format**: GIF (version 89a)
+- **Content**: Terminal recording showing validation & execution
+- **Created with**: asciinema + agg converter
+
+### Requirements for New Recordings
+
+When creating a new `demo.gif`:
 
 - Show the `python -m llm_answer_watcher demo` command
 - Display the full demo output (brand detection, ranking, cost)
-- Be optimized (< 5MB for GitHub)
+- Keep optimized (< 5MB for GitHub)
 - Use dark terminal theme for consistency
-- Dimensions: ~1000x600px (100 cols × 30 rows terminal)
+- Target dimensions: ~700x500px or 1000x600px
 
 ### Tools Used
 
@@ -37,25 +49,12 @@ The `demo.gif` should:
 - **agg**: Convert asciinema recordings to GIF
 - **gifsicle**: GIF optimization
 
-### Once Recorded
-
-1. Replace `demo-placeholder.svg` with actual `demo.gif`
-2. Update references in documentation
-3. Commit and push:
-
-```bash
-git add docs/assets/demo.gif
-git commit -m "docs: add actual demo.gif recording"
-git push
-```
-
 ## File Structure
 
 ```
 docs/assets/
-├── README.md              # This file
-├── demo-placeholder.svg   # Temporary placeholder (remove after recording)
-└── demo.gif              # Actual demo recording (to be created)
+├── README.md    # This file
+└── demo.gif     # Active demo recording
 ```
 
 ## Guidelines

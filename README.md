@@ -21,13 +21,11 @@ python -m llm_answer_watcher demo
 
 <div align="center">
 
-![Demo](docs/assets/demo-placeholder.svg)
+![Demo](demo.gif)
 
 _Interactive demo showing brand detection, ranking, and cost tracking_
 
 </div>
-
-> 💡 **Tip**: Run `./scripts/record-demo.sh` to create an actual demo.gif recording
 
 ## ✨ Key Features
 

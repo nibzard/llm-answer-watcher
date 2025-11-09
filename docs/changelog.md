@@ -225,7 +225,7 @@ We welcome contributions! See [CONTRIBUTING.md](contributing/development-setup.m
 
 ## Links
 
-- **Repository**: [github.com/nikolabalic/llm-answer-watcher](https://github.com/nikolabalic/llm-answer-watcher)
-- **Issues**: [github.com/nikolabalic/llm-answer-watcher/issues](https://github.com/nikolabalic/llm-answer-watcher/issues)
+- **Repository**: [github.com/nibzard/llm-answer-watcher](https://github.com/nibzard/llm-answer-watcher)
+- **Issues**: [github.com/nibzard/llm-answer-watcher/issues](https://github.com/nibzard/llm-answer-watcher/issues)
 - **Documentation**: This site
 - **License**: MIT

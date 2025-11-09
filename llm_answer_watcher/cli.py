@@ -1149,7 +1149,7 @@ For most users, I'd recommend starting with Warmly due to its balance of feature
             console.print("  2. Set up API keys for real LLM providers (OpenAI, Anthropic, etc.)")
             console.print("  3. Run: llm-answer-watcher run --config your-config.yaml")
             console.print()
-            console.print("[dim]See full documentation at: https://github.com/nikolabalic/llm-answer-watcher[/dim]")
+            console.print("[dim]See full documentation at: https://github.com/nibzard/llm-answer-watcher[/dim]")
 
     raise typer.Exit(EXIT_SUCCESS)
 

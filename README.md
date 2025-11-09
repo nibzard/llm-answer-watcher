@@ -1,9 +1,9 @@
 # LLM Answer Watcher
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/nibzard/llm-answer-watcher/blob/main/LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/nibzard/llm-answer-watcher/workflows/Tests/badge.svg)](https://github.com/nibzard/llm-answer-watcher/actions/workflows/test.yml)
+[![Coverage](https://codecov.io/gh/nibzard/llm-answer-watcher/branch/main/graph/badge.svg)](https://codecov.io/gh/nibzard/llm-answer-watcher)
 
 > Monitor how Large Language Models talk about your brand versus competitors in buyer-intent queries
 

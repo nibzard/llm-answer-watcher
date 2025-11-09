@@ -1,6 +1,6 @@
 # LLM Answer Watcher
 
-<div align="center">
+<div align="center" markdown>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/nibzard/llm-answer-watcher/blob/main/LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
@@ -31,7 +31,7 @@ As AI-powered search becomes mainstream, monitoring your brand's presence in LLM
 
 See LLM Answer Watcher in action:
 
-<div align="center">
+<div align="center" markdown>
 
 ![LLM Answer Watcher Demo](../demo.gif)
 

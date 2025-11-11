@@ -184,6 +184,15 @@ Deep dives into architecture, security, and extending the system.
 ### [Reference](reference/cli-reference.md)
 Complete CLI command reference and configuration schemas.
 
+## For LLMs & AI Agents
+
+This documentation is available in LLM-optimized formats following the [llmstxt.org](https://llmstxt.org) standard:
+
+- **[llms.txt](https://nibzard.github.io/llm-answer-watcher/llms.txt)** - Concise navigation index (~800 tokens)
+- **[llms-full.txt](https://nibzard.github.io/llm-answer-watcher/llms-full.txt)** - Complete documentation (~59K tokens)
+
+These files are auto-generated on every documentation build and provide structured, markdown-formatted content optimized for LLM context injection.
+
 ## Philosophy
 
 LLM Answer Watcher is built on these principles:

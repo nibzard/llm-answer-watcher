@@ -55,6 +55,107 @@ plugins:
   - search:
       lang: en
       separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - llmstxt:
+      markdown_description: |
+        Production-ready CLI tool that monitors how large language models mention brands versus competitors in buyer-intent queries.
+
+        Key Features:
+        - Multi-provider support: OpenAI, Anthropic, Mistral, Grok, Google Gemini, Perplexity
+        - Local-first SQLite storage with historical tracking
+        - Dual-mode CLI: Beautiful Rich output for humans, structured JSON for AI agents
+        - BYOK model: Bring Your Own API Keys
+        - Word-boundary brand detection to prevent false positives
+        - Cost management and budget controls
+        - HTML reports with Jinja2
+        - Evaluation framework with metrics
+
+      full_output: llms-full.txt
+
+      sections:
+        "Quick Start":
+          - getting-started/installation.md: Install via pipx or uv
+          - getting-started/quick-start.md: Run your first monitoring query in 5 minutes
+          - getting-started/first-run.md: Step-by-step walkthrough with examples
+          - getting-started/basic-configuration.md: Configure brands, intents, and models
+
+        "Configuration":
+          - user-guide/configuration/overview.md: YAML-based config with Pydantic validation
+          - user-guide/configuration/models.md: Multi-provider LLM setup with API keys
+          - user-guide/configuration/brands.md: Define your brand and competitors with aliases
+          - user-guide/configuration/intents.md: Buyer-intent queries to monitor
+          - user-guide/configuration/budget.md: Cost limits and token budgets
+          - user-guide/configuration/web-search.md: Enable web search for Perplexity provider
+          - user-guide/configuration/operations.md: Post-intent operations and hooks
+
+        "Core Features":
+          - user-guide/features/brand-detection.md: Word-boundary regex matching to prevent false positives
+          - user-guide/features/rank-extraction.md: Pattern-based and LLM-assisted ranking
+          - user-guide/features/function-calling.md: Structured extraction via tool use
+          - user-guide/features/sentiment-analysis.md: Intent classification and sentiment scoring
+          - user-guide/features/historical-tracking.md: SQLite database for time-series analysis
+          - user-guide/features/cost-management.md: Budget controls and cost estimation
+          - user-guide/features/html-reports.md: Beautiful static reports with Jinja2
+
+        "CLI Usage":
+          - user-guide/usage/cli-commands.md: Complete command reference
+          - user-guide/usage/output-modes.md: Human (Rich), Agent (JSON), Quiet modes
+          - user-guide/usage/exit-codes.md: Status codes 0-4 for automation
+          - user-guide/usage/automation.md: CI/CD integration and scheduling
+
+        "Supported Providers":
+          - providers/overview.md: All supported LLM providers
+          - providers/openai.md: GPT-4o, GPT-4o-mini, o1-preview, o1-mini
+          - providers/anthropic.md: Claude 3.5 Sonnet, Claude 3 Opus/Haiku
+          - providers/mistral.md: Mistral Large, Mistral Small, Codestral
+          - providers/grok.md: Grok Beta, Grok Vision Beta
+          - providers/google.md: Gemini 2.0 Flash, Gemini 1.5 Pro/Flash
+          - providers/perplexity.md: Sonar Pro, Sonar with web search
+
+        "Examples":
+          - examples/basic-monitoring.md: Single-brand, single-provider setup
+          - examples/multi-provider.md: Compare results across OpenAI, Anthropic, Perplexity
+          - examples/competitor-analysis.md: Track multiple competitors
+          - examples/budget-constrained.md: Cost control strategies
+          - examples/ci-cd-integration.md: Automated monitoring in pipelines
+
+        "Data & Analytics":
+          - data-analytics/output-structure.md: Directory layout and artifact types
+          - data-analytics/sqlite-database.md: Schema design with versioning
+          - data-analytics/query-examples.md: SQL queries for analysis
+          - data-analytics/trends-analysis.md: Time-series tracking and visualization
+
+        "Evaluation Framework":
+          - evaluation/overview.md: Comprehensive testing framework
+          - evaluation/running-evals.md: Running evaluations via CLI
+          - evaluation/metrics.md: Precision, recall, F1 for brand detection
+          - evaluation/test-cases.md: Test case structure and examples
+          - evaluation/ci-integration.md: Automated evaluation in CI/CD
+
+        "Advanced Topics":
+          - advanced/architecture.md: Domain-driven design and internal structure
+          - advanced/api-contract.md: Internal API designed for future HTTP exposure
+          - advanced/extending-providers.md: Add new LLM providers
+          - advanced/custom-system-prompts.md: Override default prompts
+          - advanced/security.md: Injection prevention, secret management
+          - advanced/performance.md: Retry logic, rate limiting, optimization
+
+        "Reference":
+          - reference/cli-reference.md: Complete CLI documentation
+          - reference/configuration-schema.md: Pydantic models and validation
+          - reference/database-schema.md: SQLite tables and indexes
+          - reference/python-api.md: Programmatic usage
+
+        "Contributing":
+          - contributing/development-setup.md: Local environment with uv or pip
+          - contributing/code-standards.md: Python 3.12+, Ruff, type hints
+          - contributing/testing.md: pytest, 80%+ coverage, httpx mocking
+          - contributing/testing-utilities.md: MockLLMClient and ChaosLLMClient
+          - contributing/documentation.md: MkDocs contribution guide
+
+        "Special Optional":
+          - index.md: Home page with overview
+          - faq.md: Frequently asked questions
+          - changelog.md: Version history and release notes
 
 markdown_extensions:
   # Python Markdown

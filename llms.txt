@@ -1,0 +1,114 @@
+# LLM Answer Watcher
+
+> Monitor how Large Language Models talk about your brand versus competitors in buyer-intent queries
+
+Production-ready CLI tool that monitors how large language models mention brands versus competitors in buyer-intent queries.
+
+Key Features:
+- Multi-provider support: OpenAI, Anthropic, Mistral, Grok, Google Gemini, Perplexity
+- Local-first SQLite storage with historical tracking
+- Dual-mode CLI: Beautiful Rich output for humans, structured JSON for AI agents
+- BYOK model: Bring Your Own API Keys
+- Word-boundary brand detection to prevent false positives
+- Cost management and budget controls
+- HTML reports with Jinja2
+- Evaluation framework with metrics
+
+
+## Quick Start
+
+- [Installation](https://nibzard.github.io/llm-answer-watcher/getting-started/installation/index.md): Install via pipx or uv
+- [Quick Start](https://nibzard.github.io/llm-answer-watcher/getting-started/quick-start/index.md): Run your first monitoring query in 5 minutes
+- [First Run](https://nibzard.github.io/llm-answer-watcher/getting-started/first-run/index.md): Step-by-step walkthrough with examples
+- [Basic Configuration](https://nibzard.github.io/llm-answer-watcher/getting-started/basic-configuration/index.md): Configure brands, intents, and models
+
+## Configuration
+
+- [Configuration Overview](https://nibzard.github.io/llm-answer-watcher/user-guide/configuration/overview/index.md): YAML-based config with Pydantic validation
+- [Model Configuration](https://nibzard.github.io/llm-answer-watcher/user-guide/configuration/models/index.md): Multi-provider LLM setup with API keys
+- [Brand Configuration](https://nibzard.github.io/llm-answer-watcher/user-guide/configuration/brands/index.md): Define your brand and competitors with aliases
+- [Intent Configuration](https://nibzard.github.io/llm-answer-watcher/user-guide/configuration/intents/index.md): Buyer-intent queries to monitor
+- [Budget Controls](https://nibzard.github.io/llm-answer-watcher/user-guide/configuration/budget/index.md): Cost limits and token budgets
+- [Web Search](https://nibzard.github.io/llm-answer-watcher/user-guide/configuration/web-search/index.md): Enable web search for Perplexity provider
+- [Post-Intent Operations](https://nibzard.github.io/llm-answer-watcher/user-guide/configuration/operations/index.md): Post-intent operations and hooks
+
+## Core Features
+
+- [Brand Mention Detection](https://nibzard.github.io/llm-answer-watcher/user-guide/features/brand-detection/index.md): Word-boundary regex matching to prevent false positives
+- [Rank Extraction](https://nibzard.github.io/llm-answer-watcher/user-guide/features/rank-extraction/index.md): Pattern-based and LLM-assisted ranking
+- [Function Calling](https://nibzard.github.io/llm-answer-watcher/user-guide/features/function-calling/index.md): Structured extraction via tool use
+- [Sentiment Analysis & Intent Classification](https://nibzard.github.io/llm-answer-watcher/user-guide/features/sentiment-analysis/index.md): Intent classification and sentiment scoring
+- [Historical Tracking](https://nibzard.github.io/llm-answer-watcher/user-guide/features/historical-tracking/index.md): SQLite database for time-series analysis
+- [Cost Management](https://nibzard.github.io/llm-answer-watcher/user-guide/features/cost-management/index.md): Budget controls and cost estimation
+- [HTML Reports](https://nibzard.github.io/llm-answer-watcher/user-guide/features/html-reports/index.md): Beautiful static reports with Jinja2
+
+## CLI Usage
+
+- [CLI Commands](https://nibzard.github.io/llm-answer-watcher/user-guide/usage/cli-commands/index.md): Complete command reference
+- [Output Modes](https://nibzard.github.io/llm-answer-watcher/user-guide/usage/output-modes/index.md): Human (Rich), Agent (JSON), Quiet modes
+- [Exit Codes](https://nibzard.github.io/llm-answer-watcher/user-guide/usage/exit-codes/index.md): Status codes 0-4 for automation
+- [Automation](https://nibzard.github.io/llm-answer-watcher/user-guide/usage/automation/index.md): CI/CD integration and scheduling
+
+## Supported Providers
+
+- [Provider Overview](https://nibzard.github.io/llm-answer-watcher/providers/overview/index.md): All supported LLM providers
+- [OpenAI Provider](https://nibzard.github.io/llm-answer-watcher/providers/openai/index.md): GPT-4o, GPT-4o-mini, o1-preview, o1-mini
+- [Anthropic Provider](https://nibzard.github.io/llm-answer-watcher/providers/anthropic/index.md): Claude 3.5 Sonnet, Claude 3 Opus/Haiku
+- [Mistral AI Provider](https://nibzard.github.io/llm-answer-watcher/providers/mistral/index.md): Mistral Large, Mistral Small, Codestral
+- [X.AI Grok Provider](https://nibzard.github.io/llm-answer-watcher/providers/grok/index.md): Grok Beta, Grok Vision Beta
+- [Google Gemini Provider](https://nibzard.github.io/llm-answer-watcher/providers/google/index.md): Gemini 2.0 Flash, Gemini 1.5 Pro/Flash
+- [Perplexity Provider](https://nibzard.github.io/llm-answer-watcher/providers/perplexity/index.md): Sonar Pro, Sonar with web search
+
+## Examples
+
+- [Basic Monitoring Example](https://nibzard.github.io/llm-answer-watcher/examples/basic-monitoring/index.md): Single-brand, single-provider setup
+- [Multi-Provider Monitoring](https://nibzard.github.io/llm-answer-watcher/examples/multi-provider/index.md): Compare results across OpenAI, Anthropic, Perplexity
+- [Competitor Analysis](https://nibzard.github.io/llm-answer-watcher/examples/competitor-analysis/index.md): Track multiple competitors
+- [Budget-Constrained Monitoring](https://nibzard.github.io/llm-answer-watcher/examples/budget-constrained/index.md): Cost control strategies
+- [CI/CD Integration](https://nibzard.github.io/llm-answer-watcher/examples/ci-cd-integration/index.md): Automated monitoring in pipelines
+
+## Data & Analytics
+
+- [Output Structure](https://nibzard.github.io/llm-answer-watcher/data-analytics/output-structure/index.md): Directory layout and artifact types
+- [SQLite Database](https://nibzard.github.io/llm-answer-watcher/data-analytics/sqlite-database/index.md): Schema design with versioning
+- [SQL Query Examples](https://nibzard.github.io/llm-answer-watcher/data-analytics/query-examples/index.md): SQL queries for analysis
+- [Trends Analysis](https://nibzard.github.io/llm-answer-watcher/data-analytics/trends-analysis/index.md): Time-series tracking and visualization
+
+## Evaluation Framework
+
+- [Evaluation Framework](https://nibzard.github.io/llm-answer-watcher/evaluation/overview/index.md): Comprehensive testing framework
+- [Running Evaluations](https://nibzard.github.io/llm-answer-watcher/evaluation/running-evals/index.md): Running evaluations via CLI
+- [Evaluation Metrics](https://nibzard.github.io/llm-answer-watcher/evaluation/metrics/index.md): Precision, recall, F1 for brand detection
+- [Test Cases](https://nibzard.github.io/llm-answer-watcher/evaluation/test-cases/index.md): Test case structure and examples
+- [CI Integration](https://nibzard.github.io/llm-answer-watcher/evaluation/ci-integration/index.md): Automated evaluation in CI/CD
+
+## Advanced Topics
+
+- [Architecture](https://nibzard.github.io/llm-answer-watcher/advanced/architecture/index.md): Domain-driven design and internal structure
+- [API Contract](https://nibzard.github.io/llm-answer-watcher/advanced/api-contract/index.md): Internal API designed for future HTTP exposure
+- [Extending Providers](https://nibzard.github.io/llm-answer-watcher/advanced/extending-providers/index.md): Add new LLM providers
+- [Custom System Prompts](https://nibzard.github.io/llm-answer-watcher/advanced/custom-system-prompts/index.md): Override default prompts
+- [Security](https://nibzard.github.io/llm-answer-watcher/advanced/security/index.md): Injection prevention, secret management
+- [Performance](https://nibzard.github.io/llm-answer-watcher/advanced/performance/index.md): Retry logic, rate limiting, optimization
+
+## Reference
+
+- [CLI Reference](https://nibzard.github.io/llm-answer-watcher/reference/cli-reference/index.md): Complete CLI documentation
+- [Configuration Schema](https://nibzard.github.io/llm-answer-watcher/reference/configuration-schema/index.md): Pydantic models and validation
+- [Database Schema](https://nibzard.github.io/llm-answer-watcher/reference/database-schema/index.md): SQLite tables and indexes
+- [Python API](https://nibzard.github.io/llm-answer-watcher/reference/python-api/index.md): Programmatic usage
+
+## Contributing
+
+- [Development Setup](https://nibzard.github.io/llm-answer-watcher/contributing/development-setup/index.md): Local environment with uv or pip
+- [Code Standards](https://nibzard.github.io/llm-answer-watcher/contributing/code-standards/index.md): Python 3.12+, Ruff, type hints
+- [Testing Guidelines](https://nibzard.github.io/llm-answer-watcher/contributing/testing/index.md): pytest, 80%+ coverage, httpx mocking
+- [Testing Utilities](https://nibzard.github.io/llm-answer-watcher/contributing/testing-utilities/index.md): MockLLMClient and ChaosLLMClient
+- [Documentation Guidelines](https://nibzard.github.io/llm-answer-watcher/contributing/documentation/index.md): MkDocs contribution guide
+
+## Special Optional
+
+- [Home](https://nibzard.github.io/llm-answer-watcher/index.md): Home page with overview
+- [FAQ](https://nibzard.github.io/llm-answer-watcher/faq/index.md): Frequently asked questions
+- [Changelog](https://nibzard.github.io/llm-answer-watcher/changelog/index.md): Version history and release notes
+

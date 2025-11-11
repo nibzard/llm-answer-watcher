@@ -90,7 +90,7 @@ global_operations:
       Question: {intent:prompt}
       Response: {intent:response}
 
-      Steel brands: {brand:mine}
+      Steel brands: {brand:mine_all}
       Steel rank (if mentioned): {rank:mine}
       Competitors mentioned: {competitors:mentioned}
 
@@ -126,7 +126,7 @@ intents:
     prompt: "How can I use a remote browser over an API without installing or hosting Chrome myself?"
 
     operations:
-      - id: "content-gap-analysis"
+      - id: "remote-api-content-gaps"
         description: "Identify specific content gaps for Steel"
         prompt: |
           You are a technical content strategist for Steel.dev, a remote browser API service.
@@ -150,7 +150,7 @@ intents:
         model: "gpt-5-nano"
         depends_on: ["competitor-messaging-patterns"]
 
-      - id: "blog-post-outline"
+      - id: "remote-api-blog-outline"
         description: "Generate blog post outline to fill content gap"
         prompt: |
           Generate a detailed blog post outline that would position Steel as the answer to: "{intent:prompt}"
@@ -158,7 +158,7 @@ intents:
           Context:
           - Steel is a remote browser API (connect via Playwright/Puppeteer)
           - Competitors mentioned: {competitors:mentioned}
-          - Content gaps identified: {operation:content-gap-analysis}
+          - Content gaps identified: {operation:remote-api-content-gaps}
 
           Create an SEO-optimized blog post outline with:
           - Compelling title (include keywords naturally)
@@ -170,9 +170,9 @@ intents:
 
           Make this actionable for a technical writer to implement immediately.
         model: "gpt-5-nano"
-        depends_on: ["content-gap-analysis"]
+        depends_on: ["remote-api-content-gaps"]
 
-      - id: "technical-talking-points"
+      - id: "remote-api-talking-points"
         description: "Extract technical angles Steel should emphasize"
         prompt: |
           From this LLM response about "{intent:prompt}", extract the technical concepts, pain points, and requirements that users care about.
@@ -190,7 +190,7 @@ intents:
           Format as actionable talking points Steel should incorporate.
         model: "gpt-5-nano"
 
-      - id: "action-items"
+      - id: "remote-api-actions"
         description: "Generate prioritized content action items"
         prompt: |
           Based on these analyses, generate 5 prioritized action items for Steel's content and product teams.
@@ -199,26 +199,26 @@ intents:
           Competitors: {competitors:mentioned}
 
           Content Gaps:
-          {operation:content-gap-analysis}
+          {operation:remote-api-content-gaps}
 
           Blog Post Outline:
-          {operation:blog-post-outline}
+          {operation:remote-api-blog-outline}
 
           Technical Talking Points:
-          {operation:technical-talking-points}
+          {operation:remote-api-talking-points}
 
           Format as:
           1. [Priority: High/Medium/Low] Action item with specific deliverable
 
           Focus on quick wins that will improve Steel's ranking for this query type.
         model: "gpt-5-nano"
-        depends_on: ["content-gap-analysis", "blog-post-outline", "technical-talking-points"]
+        depends_on: ["remote-api-content-gaps", "remote-api-blog-outline", "remote-api-talking-points"]
 
   - id: "headless-browser-for-scraping"
     prompt: "What's the simplest way to run a headless browser in the cloud for scraping websites?"
 
     operations:
-      - id: "content-gap-analysis"
+      - id: "scraping-content-gaps"
         description: "Identify specific content gaps for Steel"
         prompt: |
           You are a technical content strategist for Steel.dev, a remote browser API service.
@@ -235,7 +235,7 @@ intents:
         model: "gpt-5-nano"
         depends_on: ["competitor-messaging-patterns"]
 
-      - id: "simplicity-positioning"
+      - id: "scraping-simplicity-positioning"
         description: "Develop messaging around simplicity/ease-of-use"
         prompt: |
           The user asked for "the simplest way" to run headless browsers.
@@ -253,13 +253,13 @@ intents:
         model: "gpt-5-nano"
         depends_on: ["competitor-messaging-patterns"]
 
-      - id: "code-example-strategy"
+      - id: "scraping-code-strategy"
         description: "Generate code example strategy"
         prompt: |
           Generate a strategy for code examples that would position Steel as the simplest solution for "{intent:prompt}".
 
-          Simplicity positioning: {operation:simplicity-positioning}
-          Content gaps: {operation:content-gap-analysis}
+          Simplicity positioning: {operation:scraping-simplicity-positioning}
+          Content gaps: {operation:scraping-content-gaps}
 
           Specify:
           - 3 code examples to create (language, use case, key benefit shown)
@@ -267,27 +267,27 @@ intents:
           - Exact comparison angle (e.g., "10 lines → 2 lines with Steel")
           - Where to publish these examples (docs, GitHub, blog)
         model: "gpt-5-nano"
-        depends_on: ["simplicity-positioning", "content-gap-analysis"]
+        depends_on: ["scraping-simplicity-positioning", "scraping-content-gaps"]
 
-      - id: "action-items"
+      - id: "scraping-actions"
         description: "Generate prioritized action items"
         prompt: |
           Generate 5 prioritized action items for Steel based on this "simplicity" query.
 
           Steel's Position: {rank:mine}
-          Content Gaps: {operation:content-gap-analysis}
-          Simplicity Messaging: {operation:simplicity-positioning}
-          Code Strategy: {operation:code-example-strategy}
+          Content Gaps: {operation:scraping-content-gaps}
+          Simplicity Messaging: {operation:scraping-simplicity-positioning}
+          Code Strategy: {operation:scraping-code-strategy}
 
           Format: [Priority] Action with deliverable and rationale.
         model: "gpt-5-nano"
-        depends_on: ["content-gap-analysis", "simplicity-positioning", "code-example-strategy"]
+        depends_on: ["scraping-content-gaps", "scraping-simplicity-positioning", "scraping-code-strategy"]
 
   - id: "browser-api-for-playwright-puppeteer"
     prompt: "Can I point Playwright or Puppeteer to a hosted browser instead of running it locally?"
 
     operations:
-      - id: "integration-messaging"
+      - id: "playwright-integration-messaging"
         description: "Analyze how competitors are positioned for Playwright/Puppeteer integration"
         prompt: |
           This query is about Playwright/Puppeteer integration with hosted browsers.
@@ -304,12 +304,12 @@ intents:
           Extract Steel's opportunity to differentiate on integration ease.
         model: "gpt-5-nano"
 
-      - id: "documentation-strategy"
+      - id: "playwright-docs-strategy"
         description: "Generate documentation strategy for Playwright/Puppeteer users"
         prompt: |
           Steel needs to rank #1 for Playwright/Puppeteer + hosted browser queries.
 
-          Integration analysis: {operation:integration-messaging}
+          Integration analysis: {operation:playwright-integration-messaging}
           Steel's current rank: {rank:mine}
 
           Generate a documentation strategy:
@@ -321,20 +321,20 @@ intents:
 
           Make this immediately actionable for Steel's docs team.
         model: "gpt-5-nano"
-        depends_on: ["integration-messaging"]
+        depends_on: ["playwright-integration-messaging"]
 
-      - id: "action-items"
+      - id: "playwright-actions"
         description: "Generate action items"
         prompt: |
           Generate 5 prioritized action items for Steel to dominate Playwright/Puppeteer integration queries.
 
-          Integration Messaging: {operation:integration-messaging}
-          Docs Strategy: {operation:documentation-strategy}
+          Integration Messaging: {operation:playwright-integration-messaging}
+          Docs Strategy: {operation:playwright-docs-strategy}
           Competitor Patterns: {operation:competitor-messaging-patterns}
 
           Format: [Priority] Action with deliverable.
         model: "gpt-5-nano"
-        depends_on: ["integration-messaging", "documentation-strategy"]
+        depends_on: ["playwright-integration-messaging", "playwright-docs-strategy"]
 
   - id: "connect-over-cdp"
     prompt: "How do I connect Playwright using connect_over_cdp to a remote/cloud browser?"

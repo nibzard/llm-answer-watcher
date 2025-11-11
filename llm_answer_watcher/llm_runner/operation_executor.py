@@ -289,7 +289,7 @@ def evaluate_condition(condition: str, context: OperationContext) -> bool:
     return True
 
 
-def execute_operation(
+async def execute_operation(
     operation: RuntimeOperation,
     context: OperationContext,
     runtime_config: RuntimeConfig,
@@ -362,39 +362,114 @@ def execute_operation(
     # Render template
     rendered_prompt = render_template(operation.prompt, context)
 
-    # Select model
+    # Select model (priority: explicit override > operation_models > models)
     if operation.runtime_model:
         # Operation has specific model override
         model = operation.runtime_model
-    else:
-        # Use first model from config as default
-        if not runtime_config.models:
-            raise ValueError("No models configured in runtime config")
+        logger.debug(f"Operation '{operation.id}' using explicit model override")
+    elif runtime_config.operation_models:
+        # Use first operation model as default
+        model = runtime_config.operation_models[0]
+        logger.debug(
+            f"Operation '{operation.id}' using operation_models pool "
+            f"({model.model_name})"
+        )
+    elif runtime_config.models:
+        # Fall back to intent models if no operation models configured
         model = runtime_config.models[0]
+        logger.debug(
+            f"Operation '{operation.id}' using models pool as fallback "
+            f"({model.model_name})"
+        )
+    else:
+        raise ValueError(
+            "No models configured for operations. "
+            "Please configure either run_settings.operation_models or run_settings.models"
+        )
 
     logger.info(
         f"Executing operation '{operation.id}' using {model.provider}/{model.model_name}"
     )
 
     try:
-        # Build client
+        # Determine if function calling should be used
+        tools = None
+        tool_choice = "auto"
+
+        if operation.type == "structured":
+            # Build function calling tools for structured operations
+            if operation.function_schema:
+                # Use inline schema
+                tools = [operation.function_schema]
+                tool_choice = "required"  # Force function call
+                logger.debug(
+                    f"Operation '{operation.id}' using inline function_schema: "
+                    f"{operation.function_schema.get('name')}"
+                )
+
+            elif operation.function_template:
+                # Load from built-in templates
+                from .operation_templates import (
+                    apply_function_params,
+                    load_function_template,
+                )
+
+                schema = load_function_template(operation.function_template)
+
+                # Apply any parameter overrides
+                if operation.function_params:
+                    schema = apply_function_params(schema, operation.function_params)
+                    logger.debug(
+                        f"Operation '{operation.id}' applied function_params overrides"
+                    )
+
+                tools = [schema]
+                tool_choice = "required"  # Force function call
+                logger.debug(
+                    f"Operation '{operation.id}' using function_template: "
+                    f"{operation.function_template}"
+                )
+
+        # Build client with tools if needed
         client = build_client(
             provider=model.provider,
             model_name=model.model_name,
             api_key=model.api_key,
             system_prompt=model.system_prompt,
-            tools=model.tools,
-            tool_choice=model.tool_choice,
+            tools=tools,  # None for standard, schema for structured
+            tool_choice=tool_choice,  # "auto" for standard, "required" for structured
         )
 
         # Execute
-        response: LLMResponse = client.generate_answer(rendered_prompt)
+        response: LLMResponse = await client.generate_answer(rendered_prompt)
+
+        # Parse response based on operation type
+        result_text = response.answer_text
+
+        if operation.type == "structured":
+            # Parse function call result and format as JSON
+            try:
+                import json
+
+                from ..extractor.function_extractor import parse_function_call_response
+
+                function_result = parse_function_call_response(response)
+                result_text = json.dumps(function_result, indent=2)
+                logger.debug(
+                    f"Operation '{operation.id}' successfully parsed function call result"
+                )
+            except Exception as parse_error:
+                logger.warning(
+                    f"Failed to parse function call for operation '{operation.id}': {parse_error}. "
+                    f"Using raw response as fallback."
+                )
+                # Keep raw response as fallback
 
         return OperationResult(
             operation_id=operation.id,
-            result_text=response.answer_text,
-            tokens_used_input=response.tokens_used,  # Total tokens used
-            tokens_used_output=response.tokens_used,  # TODO: Split input/output properly
+            result_text=result_text,
+            tokens_used_input=response.prompt_tokens,
+            tokens_used_output=response.completion_tokens,
             cost_usd=response.cost_usd,
             timestamp_utc=response.timestamp_utc,
             model_provider=response.provider,
@@ -478,7 +553,7 @@ def topological_sort(operations: list[RuntimeOperation]) -> list[RuntimeOperatio
     return [op_map[op_id] for op_id in sorted_ids]
 
 
-def execute_operations_with_dependencies(
+async def execute_operations_with_dependencies(
     operations: list[RuntimeOperation],
     context: OperationContext,
     runtime_config: RuntimeConfig,
@@ -520,7 +595,7 @@ def execute_operations_with_dependencies(
 
     for operation in sorted_operations:
         # Execute operation
-        result = execute_operation(operation, context, runtime_config)
+        result = await execute_operation(operation, context, runtime_config)
         results[operation.id] = result
 
         # Update context with result for chaining

@@ -1,5 +1,17 @@
 # LLM Answer Watcher - Implementation TODO
 
+> **📋 Document Version**: This TODO list represents the **v0.1.0 baseline** implementation tasks.
+>
+> **v0.2.0 features (completed Nov 2025) are NOT tracked here:**
+> - Browser runners (Steel API integration)
+> - Async/await parallelization
+> - Google Search grounding
+> - Post-intent operations
+> - Sentiment analysis and intent classification
+>
+> **This document remains as historical reference for v0.1.0 development.**
+> For current project status, see [Changelog](docs/changelog.md).
+
 This file contains **every task** needed to implement the complete system as defined in [SPECS.md](./SPECS.md).
 
 Tasks are organized by **milestones** that map to development sprints. Use your subagent team:

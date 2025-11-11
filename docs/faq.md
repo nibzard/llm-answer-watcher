@@ -329,6 +329,6 @@ Absolutely! See [Contributing Guide](contributing/development-setup.md).
 
 ## Still Have Questions?
 
-- **GitHub Issues**: [Report bugs or ask questions](https://github.com/nikolabalic/llm-answer-watcher/issues)
+- **GitHub Issues**: [Report bugs or ask questions](https://github.com/nibzard/llm-answer-watcher/issues)
 - **Documentation**: Browse this site
 - **Examples**: Check `examples/` directory in the repository

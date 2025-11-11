@@ -7,31 +7,101 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- **Sentiment Analysis**: Analyze tone (positive/neutral/negative) and context of each brand mention
-- **Intent Classification**: Classify user queries by intent type, buyer journey stage, and urgency signals
-  - Intent types: transactional, informational, navigational, commercial_investigation
-  - Buyer stages: awareness, consideration, decision
-  - Urgency signals: high, medium, low
-  - Confidence scoring and reasoning explanations
+### Planned
+- Additional browser runners (Claude, Gemini web UIs)
+- Enhanced cost tracking for browser runners
+- DeepEval integration for quality metrics
+- Trends command for historical analysis
+
+## [0.2.0] - 2025-11-08
+
+### Added - Major Features
+
+- **🌐 Browser Runners (BETA)**: Steel API integration for web-based LLM interfaces
+  - ChatGPT web UI runner with session management
+  - Perplexity web UI runner with citation extraction
+  - Screenshot capture and HTML snapshot support
+  - Session reuse for cost optimization
+  - Plugin system for extensible browser automation
+  - See [Browser Runners Guide](BROWSER_RUNNERS.md) for details
+
+- **⚡ Async/Await Parallelization**: 3-4x performance improvement
+  - Parallel query execution across models
+  - Async progress callbacks
+  - RuntimeWarning fixes for async operations
+
+- **🔍 Google Search Grounding**: Enhanced Gemini model support
+  - Google Search grounding for Gemini models
+  - Accurate web search cost calculation
+  - Grounded responses with citations
+
+- **🎯 Post-Intent Operations**: Dynamic workflow support
+  - Configurable operations to run after each intent
+  - Operation models with validation
+  - Config filename tracking in reports
+  - Model capability detection
+
+- **📊 Advanced Analysis Features**:
+  - **Sentiment Analysis**: Analyze tone (positive/neutral/negative) and context of each brand mention
+  - **Intent Classification**: Classify user queries by intent type, buyer journey stage, and urgency signals
+    - Intent types: transactional, informational, navigational, commercial_investigation
+    - Buyer stages: awareness, consideration, decision
+    - Urgency signals: high, medium, low
+    - Confidence scoring and reasoning explanations
+  - Brand visibility score in reports
+  - HTML report filtering and web search badges
+
+- **📚 Documentation Expansion**:
+  - Comprehensive MkDocs documentation with Material theme (60+ pages)
+  - Browser runners guide with Steel integration
+  - Google Search grounding documentation
+  - 44 example configurations across 8 directories
+
+### Added - Database & Storage
+
 - New database tables and columns for sentiment and intent data
   - `mentions` table: `sentiment` and `mention_context` columns
   - `intent_classifications` table with query hash caching
   - 5 new indexes for filtering by sentiment, context, intent type, buyer stage, and urgency
+- SQLite schema version 5 (migration support included)
+
+### Added - Configuration
+
 - Configuration options: `enable_sentiment_analysis` and `enable_intent_classification` (both default true)
-- Comprehensive MkDocs documentation with Material theme (60+ pages)
-- Post-intent operations for dynamic workflows
-- Function calling support for improved extraction accuracy
-- Brand visibility score in reports
+- Runner plugin configuration system
+- Browser runner specific settings (Steel API, screenshots, sessions)
 
 ### Changed
+
+- **Breaking**: Configuration format updated to support runner plugins
 - Improved test coverage to 100% for core modules
 - Enhanced error messages for better debugging
 - Function calling extraction schema expanded with sentiment/context fields
+- Correct Responses API format with required type field
+- Improved validation, error handling, and config validation
+
+### Fixed
+
+- Database schema mismatches and exception handling in CLI
+- Rank display in HTML reports (shows actual positions not match positions)
+- GPT-4.1 model support in OpenAI client
+- Code review findings (validation, error handling, config)
+- RuntimeWarnings for async operations
+- Indentation in runner loop to process all models
 
 ### Cost Impact
+
 - Intent classification: ~$0.00012 per query (one-time per unique query, cached)
 - Sentiment extraction: ~33% increase per extraction call (integrated into function calling)
+- Browser runners: $0.10-0.30/hour via Steel (not yet tracked in cost estimates)
+
+### Known Limitations (v0.2.0)
+
+- Browser runner cost tracking returns $0.00 (placeholder - actual Steel costs not calculated)
+- Browser runners are BETA quality (added Nov 8, 2025)
+- CSS selectors for browser runners may break if web UIs change
+- No authentication handling documented for ChatGPT login
+- Response completion detection is heuristic-based
 
 ## [0.1.0] - 2025-11-05
 
@@ -107,9 +177,9 @@ This is the first production-ready release of LLM Answer Watcher. The tool is fe
 - Budget protection
 - CI/CD integration
 
-**Known Limitations**:
-- No async support (intentionally - keeping it simple)
-- Web search only for OpenAI models
+**Known Limitations** (v0.1.0 - resolved in v0.2.0):
+- ~~No async support (intentionally - keeping it simple)~~ - **ADDED in v0.2.0**
+- ~~Web search only for OpenAI models~~ - **Google Search grounding added in v0.2.0**
 - Perplexity request fees not yet in cost estimates
 - Trends command not yet implemented (data collection works)
 
@@ -122,14 +192,20 @@ This is the first production-ready release of LLM Answer Watcher. The tool is fe
 
 ### Planned Features
 
-**v0.2.0** (Q1 2025):
+**v0.2.0** - ✅ **RELEASED 2025-11-08**:
+- ✅ Async support for parallel queries (3-4x faster)
+- ✅ Enhanced web search support (Google Search grounding)
+- ✅ Browser runners (BETA)
+- ⏳ `trends` command for historical analysis (moved to v0.3.0)
+- ⏳ Dashboard UI for visualizing trends (moved to v0.3.0)
+- ⏳ DeepEval integration for quality metrics (moved to v0.3.0)
+
+**v0.3.0** (Q1 2025):
 - `trends` command for historical analysis
 - Dashboard UI for visualizing trends
 - DeepEval integration for quality metrics
-- Async support for parallel queries
-- Enhanced web search support
-
-**v0.3.0** (Q2 2025):
+- Production-ready browser runners (cost tracking, authentication)
+- Additional browser runners (Claude, Gemini web UIs)
 - Cloud deployment option
 - HTTP API (expose internal contract)
 - Real-time alerts and webhooks
@@ -149,7 +225,7 @@ We welcome contributions! See [CONTRIBUTING.md](contributing/development-setup.m
 
 ## Links
 
-- **Repository**: [github.com/nikolabalic/llm-answer-watcher](https://github.com/nikolabalic/llm-answer-watcher)
-- **Issues**: [github.com/nikolabalic/llm-answer-watcher/issues](https://github.com/nikolabalic/llm-answer-watcher/issues)
+- **Repository**: [github.com/nibzard/llm-answer-watcher](https://github.com/nibzard/llm-answer-watcher)
+- **Issues**: [github.com/nibzard/llm-answer-watcher/issues](https://github.com/nibzard/llm-answer-watcher/issues)
 - **Documentation**: This site
 - **License**: MIT

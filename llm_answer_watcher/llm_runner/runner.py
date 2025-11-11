@@ -335,14 +335,70 @@ def estimate_run_cost(config: RuntimeConfig) -> dict:
             }
         )
 
+    # Calculate operation costs if operation_models configured
+    per_operation_model_costs = []
+    total_operations = 0
+
+    if config.operation_models:
+        # Conservative token estimates for operations (larger than queries)
+        # Operations analyze full responses so need more context
+        AVG_OP_INPUT_TOKENS = 1500  # Includes intent response + context
+        AVG_OP_OUTPUT_TOKENS = 800  # Analysis output
+
+        for op_model in config.operation_models:
+            # Get pricing for operation model
+            try:
+                pricing = get_pricing(op_model.provider, op_model.model_name)
+                input_rate = pricing.input / 1_000_000  # Convert to per-token
+                output_rate = pricing.output / 1_000_000
+            except (PricingNotAvailableError, Exception) as e:
+                logger.warning(
+                    f"Cannot estimate operation cost for {op_model.provider}/{op_model.model_name}: {e}. "
+                    "Using $0.002 fallback."
+                )
+                # Fallback: assume ~$0.002 per operation
+                input_rate = 0.00000015  # $0.15/1M
+                output_rate = 0.0000006  # $0.60/1M
+
+            # Calculate per-operation cost
+            operation_cost = (AVG_OP_INPUT_TOKENS * input_rate) + (
+                AVG_OP_OUTPUT_TOKENS * output_rate
+            )
+
+            # Count total operation executions
+            # Each intent runs: len(global_operations) + len(intent.operations)
+            ops_per_intent = len(config.global_operations)
+            for intent in config.intents:
+                ops_per_intent += len(intent.operations)
+
+            # Total operations across all intents
+            num_operations = ops_per_intent * len(config.intents)
+            total_operations += num_operations
+
+            # Calculate total cost for this operation model
+            op_model_total = operation_cost * num_operations
+            total_cost += op_model_total
+
+            per_operation_model_costs.append(
+                {
+                    "provider": op_model.provider,
+                    "model_name": op_model.model_name,
+                    "cost_per_operation": round(operation_cost, 6),
+                    "total_cost": round(op_model_total, 6),
+                    "num_operations": num_operations,
+                }
+            )
+
     # Add safety buffer
     total_with_buffer = total_cost * (1 + BUFFER_PERCENTAGE)
 
     return {
         "total_estimated_cost": round(total_with_buffer, 6),
         "total_queries": len(config.intents) * len(config.models),
+        "total_operations": total_operations,
         "per_intent_costs": per_intent_costs,
         "per_model_costs": per_model_costs,
+        "per_operation_model_costs": per_operation_model_costs,
         "buffer_percentage": BUFFER_PERCENTAGE,
         "base_cost": round(total_cost, 6),
     }
@@ -410,7 +466,9 @@ def validate_budget(config: RuntimeConfig, cost_estimate: dict) -> None:
 
 
 async def run_all(
-    config: RuntimeConfig, progress_callback: Callable[[], None] | None = None
+    config: RuntimeConfig,
+    progress_callback: Callable[[], None] | None = None,
+    config_filename: str | None = None,
 ) -> dict:
     """
     Execute complete LLM query workflow with parallel execution and return results.
@@ -512,6 +570,7 @@ async def run_all(
     success_count = 0
     error_count = 0
     total_cost_usd = 0.0
+    total_operations_cost_usd = 0.0  # Track operations cost separately
     errors = []
 
     # Insert run record into database
@@ -798,7 +857,7 @@ async def run_all(
                         )
 
                         # Execute operations
-                        operation_results = execute_operations_with_dependencies(
+                        operation_results = await execute_operations_with_dependencies(
                             operations=all_operations,
                             context=operation_context,
                             runtime_config=config,
@@ -891,7 +950,7 @@ async def run_all(
                         else:
                             progress_callback()
 
-                    return (True, total_query_cost, None)
+                    return (True, total_query_cost, None, operations_cost_usd)
 
                 # Process browser/custom runner
                 # Create runner instance via plugin registry
@@ -1045,7 +1104,7 @@ async def run_all(
                     else:
                         progress_callback()
 
-                return (True, total_query_cost, None)
+                return (True, total_query_cost, None, 0.0)  # Browser runners don't support operations yet
 
             except Exception as e:
                 # Query failed - write error file and track
@@ -1103,7 +1162,7 @@ async def run_all(
                     else:
                         progress_callback()
 
-                return (False, 0.0, error_dict)
+                return (False, 0.0, error_dict, 0.0)
 
     # Build list of tasks for all (intent x model) and (intent x runner) combinations
     tasks = []
@@ -1195,9 +1254,11 @@ async def run_all(
         elif result[0]:  # Success
             success_count += 1
             total_cost_usd += result[1]
+            total_operations_cost_usd += result[3]  # Track operations cost separately
         else:  # Returned error
             error_count += 1
             total_cost_usd += result[1]
+            total_operations_cost_usd += result[3]  # Track operations cost even on error
             if result[2]:
                 errors.append(result[2])
 
@@ -1205,6 +1266,7 @@ async def run_all(
     run_meta = {
         "run_id": run_id,
         "timestamp_utc": timestamp_utc,
+        "config_filename": config_filename,
         "output_dir": run_dir,
         "total_intents": len(config.intents),
         "total_models": len(config.models),
@@ -1212,6 +1274,8 @@ async def run_all(
         "success_count": success_count,
         "error_count": error_count,
         "total_cost_usd": round(total_cost_usd, 6),
+        "total_llm_cost_usd": round(total_cost_usd - total_operations_cost_usd, 6),
+        "total_operations_cost_usd": round(total_operations_cost_usd, 6),
         "my_brands": config.brands.mine,
         "competitors": config.brands.competitors,
         "database_path": config.run_settings.sqlite_db_path,
@@ -1236,5 +1300,7 @@ async def run_all(
         "success_count": success_count,
         "error_count": error_count,
         "total_cost_usd": round(total_cost_usd, 6),
+        "total_llm_cost_usd": round(total_cost_usd - total_operations_cost_usd, 6),
+        "total_operations_cost_usd": round(total_operations_cost_usd, 6),
         "errors": errors,
     }

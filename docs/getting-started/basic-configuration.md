@@ -374,8 +374,8 @@ Now that you understand basic configuration:
 
     ---
 
-    Browse real-world configuration examples
+    Browse organized configuration examples
 
-    [Examples →](../examples/basic-monitoring.md)
+    [Quickstart Examples →](https://github.com/nibzard/llm-answer-watcher/tree/main/examples/01-quickstart) | [All Examples →](https://github.com/nibzard/llm-answer-watcher/tree/main/examples)
 
 </div>

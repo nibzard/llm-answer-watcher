@@ -47,7 +47,7 @@ class ModelConfig(BaseModel):
                     Note: Only used by OpenAI. Google auto-decides when to use tools.
     """
 
-    provider: Literal["openai", "anthropic", "google", "mistral"]
+    provider: Literal["openai", "anthropic", "google", "mistral", "grok", "perplexity"]
     model_name: str
     env_api_key: str
     system_prompt: str | None = None
@@ -175,7 +175,7 @@ class ExtractionModelConfig(BaseModel):
         system_prompt: Optional relative path to system prompt JSON
     """
 
-    provider: Literal["openai", "anthropic", "google", "mistral"]
+    provider: Literal["openai", "anthropic", "google", "mistral", "grok", "perplexity"]
     model_name: str
     env_api_key: str
     system_prompt: str | None = None
@@ -253,6 +253,9 @@ class RunSettings(BaseModel):
                                 Respects provider rate limits. Range: 1-50.
         models: List of LLM models to query for each intent (LEGACY - use runners instead)
                Optional when using the new runners format
+        operation_models: List of LLM models used ONLY for operations, not intent queries
+                         Enables strategic model selection (e.g., reasoning models for analysis)
+                         Optional - if empty, operations fall back to models list
         use_llm_rank_extraction: Enable LLM-assisted ranking (slower, more accurate)
         budget: Optional budget controls to prevent runaway costs
     """
@@ -261,6 +264,7 @@ class RunSettings(BaseModel):
     sqlite_db_path: str
     max_concurrent_requests: int = 10
     models: list[ModelConfig] = []  # Now optional with default empty list
+    operation_models: list[ModelConfig] = []  # Models used only for operations
     use_llm_rank_extraction: bool = False
     budget: BudgetConfig | None = None
 
@@ -310,6 +314,19 @@ class RunSettings(BaseModel):
         """
         # Just return the list - WatcherConfig.validate_models_or_runners
         # will ensure either models or runners is configured
+        return v
+
+    @field_validator("operation_models")
+    @classmethod
+    def validate_operation_models(cls, v: list[ModelConfig]) -> list[ModelConfig]:
+        """
+        Validate operation_models list format.
+
+        Note: Empty list is valid - operations will fall back to models list.
+        This field enables strategic model selection where expensive/specialized
+        models (e.g., o3-mini reasoning) are used only for post-query analysis,
+        not for the initial intent queries.
+        """
         return v
 
 
@@ -432,9 +449,12 @@ class Operation(BaseModel):
         depends_on: List of operation IDs this depends on (for chaining)
         condition: Optional condition string for conditional execution
         output_format: Expected output format ("text" or "json")
-        type: Operation type ("standard", "structured", or "webhook")
+        type: Operation type - "standard" (default), "structured" (function calling), or "webhook"
+        function_schema: Optional inline function calling schema (for type="structured")
+        function_template: Optional built-in function template name (for type="structured")
+        function_params: Optional parameters to override in function template
 
-    Example:
+    Example (standard operation - backward compatible):
         operations:
           - id: "content-gaps"
             description: "Identify content opportunities"
@@ -443,14 +463,33 @@ class Operation(BaseModel):
               Current rank: {rank:mine}
               Response: {intent:response}
             model: "gpt-4o-mini"
-            enabled: true
+            # type: "standard" is default, no need to specify
 
-          - id: "action-items"
-            description: "Generate action items"
-            prompt: |
-              Based on this analysis: {operation:content-gaps}
-              Create 3 specific action items.
-            depends_on: ["content-gaps"]
+    Example (structured operation with inline schema):
+        operations:
+          - id: "extract-features"
+            type: "structured"
+            function_schema:
+              type: "function"
+              name: "extract_features"
+              parameters:
+                type: "object"
+                properties:
+                  products:
+                    type: "array"
+                    items:
+                      type: "object"
+                      properties:
+                        name: {type: "string"}
+                        features: {type: "array", items: {type: "string"}}
+            prompt: "Extract features from: {intent:response}"
+
+    Example (structured operation with built-in template):
+        operations:
+          - id: "generate-actions"
+            type: "structured"
+            function_template: "generate_action_items"
+            prompt: "Generate action items based on: {operation:gap-analysis}"
     """
 
     id: str
@@ -462,6 +501,11 @@ class Operation(BaseModel):
     condition: str | None = None
     output_format: Literal["text", "json"] = "text"
     type: Literal["standard", "structured", "webhook"] = "standard"
+
+    # Function calling support (for type="structured")
+    function_schema: dict | None = None
+    function_template: str | None = None
+    function_params: dict | None = None
 
     @field_validator("id")
     @classmethod
@@ -492,8 +536,7 @@ class Operation(BaseModel):
         if not v or v.isspace():
             raise ValueError("Operation prompt cannot be empty")
 
-        # Import at function level to avoid circular dependency
-        from llm_answer_watcher.llm_runner.openai_client import MAX_PROMPT_LENGTH
+        from llm_answer_watcher.config.constants import MAX_PROMPT_LENGTH
 
         if len(v) > MAX_PROMPT_LENGTH:
             raise ValueError(
@@ -530,6 +573,36 @@ class Operation(BaseModel):
                 )
 
         return cleaned
+
+    @model_validator(mode="after")
+    def validate_structured_operations(self) -> "Operation":
+        """
+        Validate structured operations have function schema or template.
+
+        For type="structured", either function_schema or function_template
+        must be specified. Standard operations don't need these fields.
+
+        Raises:
+            ValueError: If structured operation missing function definition
+        """
+        if self.type == "structured":
+            if not self.function_schema and not self.function_template:
+                raise ValueError(
+                    f"Operation '{self.id}' has type='structured' but no "
+                    f"function_schema or function_template defined. "
+                    f"Structured operations require function calling schema."
+                )
+
+            # Warn if both are specified (function_schema takes precedence)
+            if self.function_schema and self.function_template:
+                import logging
+
+                logging.warning(
+                    f"Operation '{self.id}' has both function_schema and function_template. "
+                    f"Using function_schema (function_template will be ignored)."
+                )
+
+        return self
 
 
 class Intent(BaseModel):
@@ -578,8 +651,7 @@ class Intent(BaseModel):
         if not v or v.isspace():
             raise ValueError("Intent prompt cannot be empty")
 
-        # Import at function level to avoid circular dependency
-        from llm_answer_watcher.llm_runner.openai_client import MAX_PROMPT_LENGTH
+        from llm_answer_watcher.config.constants import MAX_PROMPT_LENGTH
 
         if len(v) > MAX_PROMPT_LENGTH:
             raise ValueError(
@@ -832,7 +904,7 @@ class RuntimeModel(BaseModel):
     provider: str
     model_name: str
     api_key: str
-    system_prompt: str = "You are ChatGPT, a large language model trained by OpenAI."
+    system_prompt: str = "You are a helpful AI assistant."
     tools: list[dict] | None = None
     tool_choice: str = "auto"
 
@@ -961,6 +1033,9 @@ class RuntimeOperation(BaseModel):
         condition: Optional condition string for conditional execution
         output_format: Expected output format ("text" or "json")
         type: Operation type ("standard", "structured", or "webhook")
+        function_schema: Resolved function calling schema (for type="structured")
+        function_template: Function template name (for type="structured")
+        function_params: Function template parameters (for type="structured")
     """
 
     id: str
@@ -972,6 +1047,11 @@ class RuntimeOperation(BaseModel):
     condition: str | None = None
     output_format: Literal["text", "json"] = "text"
     type: Literal["standard", "structured", "webhook"] = "standard"
+
+    # Function calling support (for type="structured")
+    function_schema: dict | None = None
+    function_template: str | None = None
+    function_params: dict | None = None
 
 
 class RuntimeConfig(BaseModel):
@@ -990,6 +1070,9 @@ class RuntimeConfig(BaseModel):
         brands: Brand aliases from config
         intents: Intent queries from config
         models: Resolved model configurations with API keys (LEGACY)
+        operation_models: Resolved model configurations used ONLY for operations
+                         Enables strategic model selection (e.g., reasoning models)
+                         Optional - if empty, operations fall back to models list
         runner_configs: Resolved runner configurations (NEW)
         global_operations: Operations that run for every intent
     """
@@ -999,23 +1082,26 @@ class RuntimeConfig(BaseModel):
     brands: Brands
     intents: list[Intent]
     models: list[RuntimeModel] = []  # Now optional for backward compatibility
+    operation_models: list[RuntimeModel] = []  # Models used only for operations
     runner_configs: list[RunnerConfig] | None = None  # New format
     global_operations: list[RuntimeOperation] = []
 
     @model_validator(mode="after")
     def validate_models_or_runners(self) -> "RuntimeConfig":
         """
-        Validate that either models or runner_configs is configured.
+        Validate that either models, operation_models, or runner_configs is configured.
 
         Raises:
-            ValueError: If neither is configured
+            ValueError: If none are configured
         """
         has_models = self.models and len(self.models) > 0
+        has_operation_models = self.operation_models and len(self.operation_models) > 0
         has_runners = self.runner_configs and len(self.runner_configs) > 0
 
-        if not has_models and not has_runners:
+        if not has_models and not has_operation_models and not has_runners:
             raise ValueError(
-                "Either models or runner_configs must be configured in runtime config"
+                "At least one of models, operation_models, or runner_configs "
+                "must be configured in runtime config"
             )
 
         return self

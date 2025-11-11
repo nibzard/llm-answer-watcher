@@ -34,7 +34,10 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-import httpx
+try:
+    from steel import Steel
+except ImportError:
+    Steel = None
 
 from ...utils.time import utc_timestamp
 
@@ -117,11 +120,19 @@ class SteelBaseRunner:
 
         Args:
             config: Steel configuration
+
+        Raises:
+            ImportError: If steel-sdk is not installed
         """
+        if Steel is None:
+            raise ImportError(
+                "Steel SDK is not installed. Install it with: pip install steel-sdk"
+            )
+
         self.config = config
-        self.steel_api_url = "https://api.steel.dev/v1"
         self.session_id: str | None = None
-        self._client = httpx.Client(timeout=60.0)
+        self._steel_client = Steel(steel_api_key=config.steel_api_key)
+        self._current_session = None
 
     @property
     def runner_type(self) -> str:
@@ -135,39 +146,62 @@ class SteelBaseRunner:
 
     def _create_session(self) -> dict:
         """
-        Create Steel browser session.
+        Create Steel browser session using Steel SDK.
 
         Returns:
             dict: Session data from Steel API with keys:
                 - id: Session identifier
-                - url: Session viewer URL
+                - cdp_url: CDP WebSocket URL for Playwright
                 - status: Session status
 
         Raises:
-            httpx.HTTPError: If session creation fails
+            Exception: If session creation fails
+
+        Note:
+            Steel sessions are created blank. Navigation to target_url
+            happens separately via Playwright CDP or scrape API calls.
         """
-        logger.debug(f"Creating Steel session for {self.config.target_url}")
+        logger.debug(f"Creating Steel session (will navigate to {self.config.target_url})")
 
-        response = self._client.post(
-            f"{self.steel_api_url}/sessions",
-            headers={"Steel-Api-Key": self.config.steel_api_key},
-            json={
-                "url": self.config.target_url,
-                "timeout": self.config.session_timeout,
-                "solver": self.config.solver,
-                "proxy": self.config.proxy,
-            },
-        )
-        response.raise_for_status()
+        try:
+            # Create session using Steel SDK
+            # Note: sessions.create() doesn't take a 'url' parameter
+            # Sessions are created blank and you navigate via Playwright/scrape API
+            create_params = {
+                "api_timeout": self.config.session_timeout,
+            }
 
-        session_data = response.json()
-        logger.info(f"Created Steel session: {session_data.get('id', 'unknown')}")
+            # Only add solve_captcha if solver is configured (not available on hobby plan)
+            if self.config.solver and self.config.solver != "capsolver":
+                # Hobby plan doesn't support captcha solving
+                logger.warning("CAPTCHA solving requires paid plan, skipping")
 
-        return session_data
+            # Only add proxy if configured
+            if self.config.proxy:
+                create_params["use_proxy"] = {"value": self.config.proxy}
+
+            session = self._steel_client.sessions.create(**create_params)
+
+            # Convert to dict for consistent interface
+            session_data = {
+                "id": session.id,
+                "cdp_url": getattr(session, "cdp_url", None) or getattr(session, "websocket_url", None),
+                "status": getattr(session, "status", "created"),
+                "url": self.config.target_url,  # Store target URL for navigation
+            }
+
+            logger.info(f"Created Steel session: {session_data['id']}")
+            self._current_session = session
+
+            return session_data
+
+        except Exception as e:
+            logger.error(f"Failed to create Steel session: {e}")
+            raise
 
     def _release_session(self, session_id: str) -> None:
         """
-        Release Steel browser session.
+        Release Steel browser session using Steel SDK.
 
         Args:
             session_id: Session identifier to release
@@ -177,18 +211,15 @@ class SteelBaseRunner:
         """
         try:
             logger.debug(f"Releasing Steel session: {session_id}")
-            response = self._client.delete(
-                f"{self.steel_api_url}/sessions/{session_id}",
-                headers={"Steel-Api-Key": self.config.steel_api_key},
-            )
-            response.raise_for_status()
+            self._steel_client.sessions.release(session_id)
             logger.info(f"Released Steel session: {session_id}")
+            self._current_session = None
         except Exception as e:
             logger.warning(f"Failed to release session {session_id}: {e}")
 
     def _take_screenshot(self, session_id: str, intent_id: str) -> str | None:
         """
-        Capture screenshot from browser session.
+        Capture screenshot using Steel SDK screenshot API.
 
         Args:
             session_id: Session identifier
@@ -198,7 +229,7 @@ class SteelBaseRunner:
             str | None: Path to saved screenshot, or None if capture failed
 
         Note:
-            Screenshot is saved as PNG in output directory.
+            Uses Steel's screenshot API which captures the current page state.
         """
         if not self.config.take_screenshots:
             return None
@@ -206,22 +237,36 @@ class SteelBaseRunner:
         try:
             logger.debug(f"Taking screenshot for session {session_id}")
 
-            response = self._client.get(
-                f"{self.steel_api_url}/sessions/{session_id}/screenshot",
-                headers={"Steel-Api-Key": self.config.steel_api_key},
+            # Use Steel's screenshot API - pass the session's current URL
+            # Get the session to retrieve its current URL
+            session = self._steel_client.sessions.retrieve(session_id)
+            current_url = getattr(session, "url", self.config.target_url)
+
+            # Call Steel screenshot API
+            screenshot_response = self._steel_client.screenshot(
+                url=current_url, session_id=session_id
             )
-            response.raise_for_status()
 
-            # Screenshot is returned as base64-encoded PNG
-            screenshot_data = response.json()
-            image_base64 = screenshot_data.get("image", "")
+            # Extract screenshot data
+            screenshot_data = getattr(screenshot_response, "data", None) or getattr(
+                screenshot_response, "image", None
+            )
 
-            if not image_base64:
+            if not screenshot_data:
                 logger.warning("Screenshot response missing image data")
                 return None
 
-            # Decode and save
-            image_bytes = base64.b64decode(image_base64)
+            # Handle different response formats
+            if isinstance(screenshot_data, bytes):
+                image_bytes = screenshot_data
+            elif isinstance(screenshot_data, str):
+                # Base64 encoded
+                image_bytes = base64.b64decode(screenshot_data)
+            else:
+                logger.warning(f"Unexpected screenshot data type: {type(screenshot_data)}")
+                return None
+
+            # Save screenshot
             output_dir = Path(self.config.output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -237,7 +282,7 @@ class SteelBaseRunner:
 
     def _save_html(self, session_id: str, intent_id: str) -> str | None:
         """
-        Save HTML snapshot from browser session.
+        Save HTML snapshot using Steel SDK scrape API.
 
         Args:
             session_id: Session identifier
@@ -252,18 +297,28 @@ class SteelBaseRunner:
         try:
             logger.debug(f"Extracting HTML for session {session_id}")
 
-            response = self._client.get(
-                f"{self.steel_api_url}/sessions/{session_id}/html",
-                headers={"Steel-Api-Key": self.config.steel_api_key},
-            )
-            response.raise_for_status()
+            # Get session URL
+            session = self._steel_client.sessions.retrieve(session_id)
+            current_url = getattr(session, "url", self.config.target_url)
 
-            html_content = response.text
+            # Use Steel's scrape API to get HTML
+            scrape_response = self._steel_client.scrape(
+                url=current_url, format=["html"], session_id=session_id
+            )
+
+            # Extract HTML content
+            html_content = getattr(scrape_response, "html", None)
+
+            if not html_content:
+                logger.warning("Scrape response missing HTML content")
+                return None
+
+            # Save HTML
             output_dir = Path(self.config.output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
 
             html_path = output_dir / f"html_{intent_id}_{session_id}.html"
-            html_path.write_text(html_content, encoding="utf-8")
+            html_path.write_text(str(html_content), encoding="utf-8")
 
             logger.info(f"Saved HTML snapshot: {html_path}")
             return str(html_path)
@@ -324,9 +379,50 @@ class SteelBaseRunner:
         # Can calculate: (time.time() - start_time) / 3600 * hourly_rate
         return 0.0
 
-    def __del__(self):
-        """Cleanup: close HTTP client."""
+    def _scrape_page_content(
+        self, session_id: str, format: str = "markdown"
+    ) -> str | None:
+        """
+        Scrape page content using Steel SDK scrape API.
+
+        Args:
+            session_id: Session identifier
+            format: Output format ("markdown", "html", "cleaned_html", "readability")
+
+        Returns:
+            str | None: Scraped content, or None if scraping failed
+        """
         try:
-            self._client.close()
+            logger.debug(f"Scraping page content for session {session_id} (format={format})")
+
+            # Get session URL
+            session = self._steel_client.sessions.retrieve(session_id)
+            current_url = getattr(session, "url", self.config.target_url)
+
+            # Use Steel's scrape API
+            scrape_response = self._steel_client.scrape(
+                url=current_url, format=[format], session_id=session_id
+            )
+
+            # Extract content based on format
+            content = getattr(scrape_response, format, None)
+
+            if not content:
+                logger.warning(f"Scrape response missing {format} content")
+                return None
+
+            logger.info(f"Scraped {len(str(content))} chars in {format} format")
+            return str(content)
+
+        except Exception as e:
+            logger.warning(f"Failed to scrape page content: {e}", exc_info=True)
+            return None
+
+    def __del__(self):
+        """Cleanup: release any active sessions."""
+        try:
+            if self.session_id and self._current_session:
+                logger.debug(f"Cleanup: Releasing session {self.session_id}")
+                self._steel_client.sessions.release(self.session_id)
         except Exception:
             pass

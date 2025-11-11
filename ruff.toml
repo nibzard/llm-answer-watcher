@@ -4,8 +4,8 @@
 # Target Python 3.12+
 target-version = "py312"
 
-# Line length to match Black default
-line-length = 88
+# Line length set to 100 for better readability on modern displays
+line-length = 100
 
 [lint]
 # Enable recommended rules plus additional quality checks

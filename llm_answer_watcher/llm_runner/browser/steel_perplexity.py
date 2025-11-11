@@ -156,53 +156,97 @@ class SteelPerplexityRunner(SteelBaseRunner):
 
     def _navigate_and_submit(self, session: dict, prompt: str) -> None:
         """
-        Navigate to Perplexity and submit query.
-
-        Uses Steel's CDP API to:
-        1. Wait for page load
-        2. Find search input element
-        3. Type query text
-        4. Submit search
+        Navigate to Perplexity and submit query using Playwright.
 
         Args:
             session: Steel session data
             prompt: User intent prompt to submit
 
         Raises:
-            httpx.HTTPError: If Steel API calls fail
-            TimeoutError: If navigation/submission times out
+            Exception: If navigation or submission fails
         """
         session_id = session["id"]
 
         logger.debug(f"Navigating to Perplexity for session {session_id}")
 
-        # Wait for page to load
-        time.sleep(3)
+        try:
+            # Import Playwright here to avoid import errors if not installed
+            from playwright.sync_api import sync_playwright
 
-        # Use Steel's scrape API to interact with page
-        logger.info(f"Submitting query to Perplexity: {prompt[:50]}...")
+            # Get websocket URL from session
+            session_obj = self._steel_client.sessions.retrieve(session_id)
+            ws_url = getattr(session_obj, "websocket_url", None) or getattr(
+                session_obj, "cdp_url", None
+            )
 
-        # TODO: Implement actual CDP commands via Steel API:
-        # 1. Wait for search input: selector = 'textarea' or 'input[type="text"]'
-        # 2. Type query text
-        # 3. Submit (Enter key)
-        # 4. Wait for search to start (page navigation or loading indicator)
+            if not ws_url:
+                logger.warning("No websocket URL available, falling back to simple navigation")
+                time.sleep(5)  # Wait for page to load
+                return
 
-        # Placeholder: Steel API interactions would go here
-        # Example structure (pseudo-code):
-        # self._client.post(
-        #     f"{self.steel_api_url}/sessions/{session_id}/execute",
-        #     json={"command": "type", "selector": "textarea", "text": prompt}
-        # )
+            logger.info(f"Connecting to Steel session via websocket: {ws_url}")
+
+            with sync_playwright() as p:
+                # Connect to Steel browser session via CDP
+                browser = p.chromium.connect_over_cdp(ws_url)
+                context = browser.contexts[0] if browser.contexts else browser.new_context()
+                page = context.pages[0] if context.pages else context.new_page()
+
+                # Navigate to target URL
+                logger.info(f"Navigating to {self.config.target_url}")
+                page.goto(self.config.target_url)
+
+                # Wait for page to be ready
+                page.wait_for_load_state("domcontentloaded")
+                logger.debug("Perplexity page loaded")
+
+                # Find and fill the search textarea
+                logger.info(f"Submitting query to Perplexity: {prompt[:50]}...")
+
+                # Try multiple selectors for Perplexity search input
+                selectors = [
+                    'textarea[placeholder*="Ask"]',
+                    'textarea[placeholder*="Search"]',
+                    'textarea',
+                    'input[type="text"]',
+                ]
+
+                search_input = None
+                for selector in selectors:
+                    try:
+                        search_input = page.wait_for_selector(selector, timeout=5000)
+                        if search_input:
+                            logger.debug(f"Found input using selector: {selector}")
+                            break
+                    except Exception:
+                        continue
+
+                if not search_input:
+                    raise RuntimeError("Could not find Perplexity search input field")
+
+                # Type the query
+                search_input.fill(prompt)
+                logger.debug("Query typed into input field")
+
+                # Submit the search (Enter key)
+                search_input.press("Enter")
+                logger.debug("Submitted query with Enter key")
+
+                # Wait for search to start (page navigation or loading indicator)
+                logger.debug("Waiting for Perplexity search to start...")
+                page.wait_for_timeout(2000)  # Initial delay for search to start
+
+                logger.info("Query submitted successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to navigate and submit: {e}", exc_info=True)
+            # Fallback: just wait and hope the session is navigated correctly
+            logger.warning("Falling back to simple wait")
+            time.sleep(5)
 
     def _extract_answer(self, session: dict) -> str:
         """
-        Extract answer text from Perplexity response.
-
-        Uses Steel's scrape API to:
-        1. Wait for response completion (sources loaded)
-        2. Find answer container element
-        3. Extract text content
+        Extract answer text from Perplexity response using Playwright and Steel scrape API.
 
         Args:
             session: Steel session data
@@ -211,45 +255,106 @@ class SteelPerplexityRunner(SteelBaseRunner):
             str: Extracted answer text
 
         Raises:
-            httpx.HTTPError: If Steel API calls fail
-            TimeoutError: If response doesn't complete within timeout
+            Exception: If extraction fails
         """
         session_id = session["id"]
 
         logger.debug(f"Waiting for Perplexity response in session {session_id}")
 
         # Wait for response to complete
-        # Perplexity shows progress indicator while searching
         timeout = self.config.wait_for_response_timeout
         start_time = time.time()
 
-        while time.time() - start_time < timeout:
-            time.sleep(2)
+        answer_text = None
 
-            # TODO: Check if response is complete using Steel's scrape API
-            # Example: Look for absence of loading indicator
-            # and presence of source citations
+        try:
+            from playwright.sync_api import sync_playwright
 
-            # For now, just wait fixed duration
-            if time.time() - start_time > 15:
-                break
+            # Get websocket URL
+            session_obj = self._steel_client.sessions.retrieve(session_id)
+            ws_url = getattr(session_obj, "websocket_url", None) or getattr(
+                session_obj, "cdp_url", None
+            )
 
-        # Extract answer text
-        logger.debug("Extracting answer text from Perplexity")
+            if ws_url:
+                logger.info("Using Playwright to extract Perplexity response")
 
-        # TODO: Implement actual extraction via Steel's scrape API
-        # Example structure (pseudo-code):
-        # response = self._client.post(
-        #     f"{self.steel_api_url}/sessions/{session_id}/scrape",
-        #     json={"selector": ".answer-container"}
-        # )
-        # answer_text = response.json()["text"]
+                with sync_playwright() as p:
+                    browser = p.chromium.connect_over_cdp(ws_url)
+                    context = browser.contexts[0] if browser.contexts else browser.new_context()
+                    page = context.pages[0] if context.pages else context.new_page()
 
-        # Placeholder: Return mock answer for now
-        answer_text = (
-            "[Perplexity response would be extracted here via Steel API]\n"
-            f"Query submitted: {session['url']}"
-        )
+                    # Wait for response to complete
+                    # Perplexity shows loading indicators while searching
+                    logger.debug("Waiting for response to complete...")
+
+                    while time.time() - start_time < timeout:
+                        # Check if still loading (look for loading spinner or similar)
+                        loading_indicators = page.query_selector_all('[data-testid*="loading"]')
+                        if not loading_indicators:
+                            logger.debug("Response appears complete (no loading indicators)")
+                            break
+
+                        time.sleep(2)
+
+                    # Additional wait for sources to load
+                    time.sleep(3)
+
+                    # Extract the answer text
+                    logger.debug("Extracting answer text")
+
+                    # Try multiple selectors for Perplexity answer
+                    answer_selectors = [
+                        '[data-testid="answer"]',
+                        '.prose',
+                        '[class*="answer"]',
+                        'article',
+                    ]
+
+                    for selector in answer_selectors:
+                        try:
+                            element = page.query_selector(selector)
+                            if element:
+                                answer_text = element.inner_text()
+                                logger.debug(f"Found answer using selector: {selector}")
+                                break
+                        except Exception as e:
+                            logger.debug(f"Selector {selector} failed: {e}")
+                            continue
+
+            else:
+                logger.warning("No websocket URL available for Playwright extraction")
+
+        except Exception as e:
+            logger.warning(f"Playwright extraction failed: {e}", exc_info=True)
+
+        # Fallback: use Steel's scrape API to get markdown content
+        if not answer_text:
+            logger.info("Falling back to Steel scrape API for content extraction")
+
+            try:
+                # Wait a bit more for content to stabilize
+                time.sleep(5)
+
+                # Use base class method to scrape page content
+                markdown_content = self._scrape_page_content(session_id, format="markdown")
+
+                if markdown_content:
+                    answer_text = markdown_content
+                    logger.info("Successfully extracted content using scrape API")
+                else:
+                    # Last resort: get cleaned HTML
+                    html_content = self._scrape_page_content(session_id, format="cleaned_html")
+                    if html_content:
+                        answer_text = html_content
+                        logger.info("Extracted content from cleaned HTML")
+
+            except Exception as e:
+                logger.warning(f"Scrape API extraction failed: {e}", exc_info=True)
+
+        # If we still don't have content, return a placeholder
+        if not answer_text:
+            answer_text = "[Failed to extract Perplexity response - see logs for details]"
 
         logger.info(f"Extracted answer ({len(answer_text)} chars)")
 
@@ -272,28 +377,69 @@ class SteelPerplexityRunner(SteelBaseRunner):
             This is a key differentiator for Perplexity - sources are always shown.
         """
         session_id = session["id"]
+        sources = []
 
-        logger.debug(f"Extracting web sources from Perplexity session {session_id}")
+        try:
+            from playwright.sync_api import sync_playwright
 
-        # TODO: Implement source extraction via Steel's scrape API
-        # Look for source citation elements (usually numbered [1], [2], etc.)
-        # Extract URL, title, and optional snippet for each source
-        #
-        # Example structure (pseudo-code):
-        # response = self._client.post(
-        #     f"{self.steel_api_url}/sessions/{session_id}/scrape",
-        #     json={"selector": ".source-citation"}
-        # )
-        # sources = response.json()["sources"]
+            # Get websocket URL
+            session_obj = self._steel_client.sessions.retrieve(session_id)
+            ws_url = getattr(session_obj, "websocket_url", None) or getattr(
+                session_obj, "cdp_url", None
+            )
 
-        # Placeholder: Return empty list for now
-        # In production, this would return:
-        # [
-        #     {"url": "https://example.com", "title": "Source Title", "snippet": "..."},
-        #     ...
-        # ]
+            if ws_url:
+                logger.debug("Extracting web sources from Perplexity response")
 
-        return None
+                with sync_playwright() as p:
+                    browser = p.chromium.connect_over_cdp(ws_url)
+                    context = browser.contexts[0] if browser.contexts else browser.new_context()
+                    page = context.pages[0] if context.pages else context.new_page()
+
+                    # Look for source citations - Perplexity typically shows them as numbered links
+                    source_selectors = [
+                        '[data-testid*="citation"]',
+                        '[data-testid*="source"]',
+                        'cite a',
+                        '.citation a',
+                        '[class*="source"] a',
+                    ]
+
+                    for selector in source_selectors:
+                        try:
+                            elements = page.query_selector_all(selector)
+                            for elem in elements:
+                                url = elem.get_attribute("href")
+                                title = elem.inner_text() or elem.get_attribute("title") or "Source"
+
+                                if url:
+                                    # Try to get snippet if available
+                                    snippet = None
+                                    parent = elem.eval_on_selector(
+                                        "..", "el => el.getAttribute('data-snippet')"
+                                    )
+                                    if parent:
+                                        snippet = parent
+
+                                    sources.append({
+                                        "url": url,
+                                        "title": title.strip(),
+                                        "snippet": snippet or "",
+                                    })
+
+                            if sources:
+                                logger.debug(f"Found sources using selector: {selector}")
+                                break
+
+                        except Exception as e:
+                            logger.debug(f"Source selector {selector} failed: {e}")
+
+                    logger.info(f"Extracted {len(sources)} web sources")
+
+        except Exception as e:
+            logger.warning(f"Web source extraction failed: {e}", exc_info=True)
+
+        return sources if sources else None
 
 
 @RunnerRegistry.register

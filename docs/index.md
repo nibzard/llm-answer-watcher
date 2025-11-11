@@ -1,16 +1,16 @@
 # LLM Answer Watcher
 
-<div align="center">
+<div align="center" markdown>
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/nibzard/llm-answer-watcher/blob/main/LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/nibzard/llm-answer-watcher/workflows/Tests/badge.svg)](https://github.com/nibzard/llm-answer-watcher/actions/workflows/test.yml)
+[![Coverage](https://codecov.io/gh/nibzard/llm-answer-watcher/branch/main/graph/badge.svg)](https://codecov.io/gh/nibzard/llm-answer-watcher)
 
 **Monitor how Large Language Models talk about your brand versus competitors in buyer-intent queries**
 
 [Get Started](getting-started/quick-start.md){ .md-button .md-button--primary }
-[View on GitHub](https://github.com/nikolabalic/llm-answer-watcher){ .md-button }
+[View on GitHub](https://github.com/nibzard/llm-answer-watcher){ .md-button }
 
 </div>
 
@@ -27,6 +27,27 @@ As AI-powered search becomes mainstream, monitoring your brand's presence in LLM
 - **Market Positioning**: Understand your ranking compared to alternatives
 - **Trend Analysis**: Historical data shows how your presence changes over time
 
+## Demo
+
+See LLM Answer Watcher in action:
+
+<div align="center" markdown>
+
+![LLM Answer Watcher Demo](assets/demo.gif)
+
+</div>
+
+**What you're seeing:**
+
+- Configuration validation with brand and competitor definitions
+- Real-time progress bars showing query execution across LLM providers
+- Brand mention extraction and ranking from AI responses
+- Cost tracking and results summary
+
+**Try it yourself:** Run `llm-answer-watcher demo` for an interactive demo (no API keys needed!)
+
+---
+
 ## Key Features
 
 ### 🔍 Brand Mention Detection
@@ -37,6 +58,12 @@ All responses are stored in a local SQLite database, enabling powerful trend ana
 
 ### 🤖 Multi-Provider Support
 Works with **6+ LLM providers**: OpenAI, Anthropic, Mistral, X.AI Grok, Google Gemini, and Perplexity, with an extensible architecture for adding more.
+
+### 🌐 Browser Runners (BETA - New in v0.2.0)
+Interact with web-based LLM interfaces (ChatGPT, Perplexity) using headless browser automation via Steel API. Captures true user experience with screenshots and HTML snapshots.
+
+### ⚡ Async Parallelization (New in v0.2.0)
+3-4x faster performance with async/await parallel query execution across multiple models and providers.
 
 ### 📈 Intelligent Rank Extraction
 Automatically detects where your brand appears in ranked lists using pattern-based extraction and optional LLM-assisted ranking.
@@ -122,6 +149,8 @@ LLM Answer Watcher is built with production-ready patterns:
 
 - **Domain-Driven Design**: Clear separation between config, LLM clients, extraction, storage, and reporting
 - **Provider Abstraction**: Easy to add new LLM providers with unified interface
+- **Plugin System**: Extensible runner architecture supporting both API and browser-based runners
+- **Async/Await**: Parallel query execution for 3-4x performance improvement (v0.2.0+)
 - **Retry Logic**: Exponential backoff with tenacity for resilient API calls
 - **Type Safety**: Full Pydantic validation and modern Python 3.12+ type hints
 - **Testability**: 750+ test cases with 100% coverage on critical paths
@@ -205,12 +234,12 @@ LLM Answer Watcher is built on these principles:
 
 ## Community & Support
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/nikolabalic/llm-answer-watcher/issues)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/nibzard/llm-answer-watcher/issues)
 - **Contributing**: [Read our contributing guide](contributing/development-setup.md)
-- **License**: MIT - see [LICENSE](https://github.com/nikolabalic/llm-answer-watcher/blob/main/LICENSE)
+- **License**: MIT - see [LICENSE](https://github.com/nibzard/llm-answer-watcher/blob/main/LICENSE)
 
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/nikolabalic">Nikola Balić</a></sub>
+  <sub>Built with ❤️ by <a href="https://github.com/nibzard">Nikola Balić</a></sub>
 </div>

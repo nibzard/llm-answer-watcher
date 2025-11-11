@@ -3,8 +3,10 @@
 Real Steel API integration test.
 
 Tests actual Steel API calls with provided API key.
+Updated to use Steel SDK instead of raw httpx.
 """
 
+import os
 import sys
 import time
 from pathlib import Path
@@ -12,11 +14,14 @@ from pathlib import Path
 # Add project to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Check if Steel API key is available
+STEEL_API_KEY = os.getenv("STEEL_API_KEY") or "ste-6XExQVwZBn1808PgMwIdMwGceNSK4RX2CPYSkhZNWtVrj3g46pc6xAZedIiG0GCBybKSXyRS2W7xAYpTb4ZWFM77oEOaPgdjMRM"
+
 
 def test_steel_session_creation():
-    """Test real Steel session creation."""
+    """Test real Steel session creation using Steel SDK."""
     print("=" * 60)
-    print("TEST: Steel Session Creation (Real API)")
+    print("TEST: Steel Session Creation (Steel SDK)")
     print("=" * 60)
 
     from llm_answer_watcher.llm_runner.browser.steel_base import (
@@ -24,11 +29,8 @@ def test_steel_session_creation():
         SteelConfig,
     )
 
-    # Use provided Steel API key
-    steel_api_key = "ste-6XExQVwZBn1808PgMwIdMwGceNSK4RX2CPYSkhZNWtVrj3g46pc6xAZedIiG0GCBybKSXyRS2W7xAYpTb4ZWFM77oEOaPgdjMRM"
-
     config = SteelConfig(
-        steel_api_key=steel_api_key,
+        steel_api_key=STEEL_API_KEY,
         target_url="https://example.com",  # Simple test page
         session_timeout=120,
         take_screenshots=True,
@@ -105,9 +107,9 @@ def test_steel_session_creation():
 
 
 def test_chatgpt_runner_structure():
-    """Test ChatGPT runner can be instantiated."""
+    """Test ChatGPT runner can be instantiated with Steel SDK."""
     print("\n" + "=" * 60)
-    print("TEST: ChatGPT Runner Instantiation")
+    print("TEST: ChatGPT Runner Instantiation (Steel SDK)")
     print("=" * 60)
 
     from llm_answer_watcher.llm_runner.browser.steel_chatgpt import (
@@ -115,10 +117,8 @@ def test_chatgpt_runner_structure():
     )
     from llm_answer_watcher.llm_runner.browser.steel_base import SteelConfig
 
-    steel_api_key = "ste-6XExQVwZBn1808PgMwIdMwGceNSK4RX2CPYSkhZNWtVrj3g46pc6xAZedIiG0GCBybKSXyRS2W7xAYpTb4ZWFM77oEOaPgdjMRM"
-
     config = SteelConfig(
-        steel_api_key=steel_api_key,
+        steel_api_key=STEEL_API_KEY,
         target_url="https://chat.openai.com",
         take_screenshots=True,
     )
@@ -138,9 +138,9 @@ def test_chatgpt_runner_structure():
 
 
 def test_perplexity_runner_structure():
-    """Test Perplexity runner can be instantiated."""
+    """Test Perplexity runner can be instantiated with Steel SDK."""
     print("\n" + "=" * 60)
-    print("TEST: Perplexity Runner Instantiation")
+    print("TEST: Perplexity Runner Instantiation (Steel SDK)")
     print("=" * 60)
 
     from llm_answer_watcher.llm_runner.browser.steel_perplexity import (
@@ -148,10 +148,8 @@ def test_perplexity_runner_structure():
     )
     from llm_answer_watcher.llm_runner.browser.steel_base import SteelConfig
 
-    steel_api_key = "ste-6XExQVwZBn1808PgMwIdMwGceNSK4RX2CPYSkhZNWtVrj3g46pc6xAZedIiG0GCBybKSXyRS2W7xAYpTb4ZWFM77oEOaPgdjMRM"
-
     config = SteelConfig(
-        steel_api_key=steel_api_key,
+        steel_api_key=STEEL_API_KEY,
         target_url="https://www.perplexity.ai",
         take_screenshots=True,
     )
@@ -168,10 +166,11 @@ def test_perplexity_runner_structure():
 def main():
     """Run Steel API integration tests."""
     print("\n" + "=" * 60)
-    print("STEEL API - REAL INTEGRATION TESTS")
+    print("STEEL SDK - REAL INTEGRATION TESTS")
     print("=" * 60)
-    print("\nNote: These tests use real Steel API calls.")
+    print("\nNote: These tests use real Steel API calls via Steel SDK.")
     print("Expected cost: ~$0.01 (a few seconds of browser time)")
+    print(f"Using API key: {STEEL_API_KEY[:20]}...")
     print()
 
     tests = [

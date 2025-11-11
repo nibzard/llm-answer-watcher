@@ -1,5 +1,16 @@
 # Browser Runners Guide
 
+> **⚠️ BETA FEATURE** - Browser runners were added on November 8, 2025 and are currently in BETA quality.
+>
+> **Known Limitations:**
+> - Cost tracking returns $0.00 (placeholder - actual Steel API costs not yet calculated)
+> - CSS selectors may break if web UIs change
+> - ChatGPT authentication not fully documented
+> - Response completion detection is heuristic-based
+>
+> **Suitable for:** Research, testing, screenshot capture, hobby/startup monitoring
+> **Not recommended for:** Fully automated production systems relying on accurate cost tracking
+
 ## Overview
 
 Browser runners enable LLM Answer Watcher to interact with web-based LLM interfaces like ChatGPT and Perplexity using headless browser automation. This captures the **true user experience** that differs from direct API access.
@@ -252,15 +263,17 @@ llm-answer-watcher run --config config.yaml --verbose
 
 ## Cost Management
 
+> **⚠️ IMPORTANT**: Cost tracking for browser runners currently returns $0.00 in reports. This is a placeholder - you WILL be charged by Steel based on session duration. Monitor your Steel dashboard for actual costs.
+
 ### Browser Runner Costs
 
-Browser runners have **zero API cost** but incur Steel charges:
+Browser runners have **zero LLM API cost** but incur Steel charges that are **not yet tracked** in LLM Answer Watcher cost estimates:
 
-| Activity | Cost |
-|----------|------|
-| API runners | Per token (normal rates) |
-| Browser runners | $0.10-0.30/hour via Steel |
-| CAPTCHA solving | $1-3 per 1,000 solves |
+| Activity | Cost | Tracked in Reports? |
+|----------|------|---------------------|
+| API runners | Per token (normal rates) | ✅ Yes |
+| Browser runners | $0.10-0.30/hour via Steel | ❌ **No** (shows $0.00) |
+| CAPTCHA solving | $1-3 per 1,000 solves | ❌ No |
 
 ### Cost Optimization
 
@@ -278,23 +291,27 @@ config:
 
 ## Limitations
 
-### Current Limitations
+### Current Limitations (BETA Status)
 
-1. **No Token Tracking**: Browser responses don't expose token counts
-2. **No Model Detection**: Can't determine which ChatGPT model is used
-3. **Slower than API**: Browser automation adds 10-30s overhead
-4. **Rate Limits**: Subject to web UI rate limits (not API limits)
-5. **Placeholder Extraction**: CDP commands need full implementation
+1. **❌ No Cost Tracking**: Browser runner costs show $0.00 (placeholder - Steel charges not calculated)
+2. **❌ No Token Tracking**: Browser responses don't expose token counts
+3. **❌ No Model Detection**: Can't determine which ChatGPT model is used
+4. **⚠️ Slower than API**: Browser automation adds 10-30s overhead per query
+5. **⚠️ Rate Limits**: Subject to web UI rate limits (not API limits)
+6. **⚠️ Fragile Selectors**: CSS selectors may break if ChatGPT/Perplexity UI changes
+7. **⚠️ Limited CDP Implementation**: Full Steel CDP commands need implementation for advanced features
 
-### Future Enhancements
+### Future Enhancements (Planned for v0.3.0)
 
+- [ ] **Implement accurate cost tracking** based on Steel session duration (HIGH PRIORITY)
 - [ ] Implement full Steel CDP commands for navigation/extraction
 - [ ] Add web source extraction (citations, search results)
 - [ ] Support Claude and Gemini web UIs
 - [ ] Add browser action recording (interaction_steps)
-- [ ] Implement cost tracking based on session duration
+- [ ] Add authentication documentation for ChatGPT login
 - [ ] Add browser pool for parallel execution
 - [ ] Support custom browser configurations (extensions, etc.)
+- [ ] Implement retry logic for selector failures
 
 ## Plugin Development
 
@@ -332,5 +349,5 @@ For issues with browser runners:
 
 1. Check Steel API status: https://status.steel.dev
 2. Review logs with `--verbose` flag
-3. Report issues: https://github.com/nikolabalic/llm-answer-watcher/issues
+3. Report issues: https://github.com/nibzard/llm-answer-watcher/issues
 4. Tag with `browser-runner` label

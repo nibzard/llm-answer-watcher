@@ -1,9 +1,9 @@
 # LLM Answer Watcher
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/nibzard/llm-answer-watcher/blob/main/LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/nibzard/llm-answer-watcher/workflows/Tests/badge.svg)](https://github.com/nibzard/llm-answer-watcher/actions/workflows/test.yml)
+[![Coverage](https://codecov.io/gh/nibzard/llm-answer-watcher/branch/main/graph/badge.svg)](https://codecov.io/gh/nibzard/llm-answer-watcher)
 
 **[📖 Documentation](https://nibzard.github.io/llm-answer-watcher)**
 
@@ -23,6 +23,20 @@ LLM Answer Watcher is a production-ready CLI tool that asks LLMs specific questi
 - **🎯 Dual-Mode CLI**: Beautiful Rich output for humans, structured JSON for AI agents
 - **📋 HTML Reports**: Auto-generated reports with historical data visualizations
 - **🔒 Local-First**: All data stored locally, BYOK (Bring Your Own Keys)
+
+## 🎬 Demo
+
+See LLM Answer Watcher in action:
+
+![LLM Answer Watcher Demo](demo.gif)
+
+**What you're seeing:**
+- Configuration validation with brand and competitor definitions
+- Real-time progress bars showing query execution across LLM providers
+- Brand mention extraction and ranking from AI responses
+- Cost tracking and results summary
+
+**Watch the full recording:** [asciinema.org](https://asciinema.org) (upload `demo.cast`) or play locally with `asciinema play demo.cast`
 
 ## 🚀 Quick Start
 
@@ -81,7 +95,7 @@ export PERPLEXITY_API_KEY=pplx-your-perplexity-key-here
 
 ```bash
 # Clone the repository
-git clone https://github.com/nikolabalic/llm-answer-watcher.git
+git clone https://github.com/nibzard/llm-answer-watcher.git
 cd llm-answer-watcher
 
 # Install dependencies and create virtual environment
@@ -95,7 +109,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 ```bash
 # Clone the repository
-git clone https://github.com/nikolabalic/llm-answer-watcher.git
+git clone https://github.com/nibzard/llm-answer-watcher.git
 cd llm-answer-watcher
 
 # Create virtual environment
@@ -812,7 +826,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ```bash
 # Clone and install development dependencies
-git clone https://github.com/nikolabalic/llm-answer-watcher.git
+git clone https://github.com/nibzard/llm-answer-watcher.git
 cd llm-answer-watcher
 uv sync --dev
 
@@ -842,8 +856,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/nikolabalic/llm-answer-watcher/issues)
-- **Documentation**: [GitHub Wiki](https://github.com/nikolabalic/llm-answer-watcher/wiki)
+- **Issues**: [GitHub Issues](https://github.com/nibzard/llm-answer-watcher/issues)
+- **Documentation**: [GitHub Wiki](https://github.com/nibzard/llm-answer-watcher/wiki)
 - **Author**: Nikola Balić
 
 ---

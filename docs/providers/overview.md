@@ -2,6 +2,8 @@
 
 LLM Answer Watcher supports 6 major LLM providers with a unified interface. Choose providers based on cost, performance, and feature requirements.
 
+> **🌐 New in v0.2.0**: Browser Runners - Access ChatGPT and Perplexity via web UI automation to capture the true user experience. See [Browser vs API Access](#browser-vs-api-access) below.
+
 ## Supported Providers
 
 | Provider | Models | Cost Range | Web Search | Best For |
@@ -398,6 +400,75 @@ See provider docs for valid models.
 2. Regenerate key at provider console
 3. Verify key has correct permissions
 
+## Browser vs API Access
+
+### Two Ways to Access Providers
+
+Starting in v0.2.0, LLM Answer Watcher supports **two access methods** for supported providers:
+
+| Access Method | Providers | How It Works | Use Cases |
+|--------------|-----------|--------------|-----------|
+| **API Access** | All 6 providers | Direct API calls with your API key | Production monitoring, cost-optimized, fast |
+| **Browser Access (BETA)** | ChatGPT, Perplexity | Headless browser via Steel API | True user experience, screenshots, web UI testing |
+
+### Key Differences
+
+**API Access:**
+- ✅ Faster (no browser overhead)
+- ✅ Accurate cost tracking
+- ✅ Token usage metrics
+- ✅ Programmatic control
+- ❌ May differ from web UI behavior
+- ❌ No visual evidence
+
+**Browser Access:**
+- ✅ Captures actual user experience
+- ✅ Screenshots and HTML snapshots
+- ✅ Tests web UI behavior
+- ✅ Free tier usage (no API costs)
+- ❌ Slower (10-30s overhead)
+- ❌ No cost tracking yet (shows $0.00)
+- ❌ Subject to UI changes
+
+### When to Use Each
+
+**Use API Access when:**
+- You need fast, automated monitoring
+- Cost tracking is important
+- You're running high-volume queries
+- You need programmatic control
+
+**Use Browser Access when:**
+- You want to verify web UI behavior
+- You need visual evidence (screenshots)
+- You're testing free tier experience
+- You want to see what actual users see
+
+### Example: Comparing Both
+
+```yaml
+runners:
+  # API access for production monitoring
+  - runner_plugin: "api"
+    config:
+      provider: "openai"
+      model_name: "gpt-4o-mini"
+      api_key: "${OPENAI_API_KEY}"
+
+  # Browser access to verify web UI
+  - runner_plugin: "steel-chatgpt"
+    config:
+      steel_api_key: "${STEEL_API_KEY}"
+      take_screenshots: true
+```
+
+This configuration runs the same query through both methods, letting you compare:
+- Does the API response match what users see in ChatGPT?
+- Are citations/sources displayed differently?
+- Does the web UI recommend different brands?
+
+See [Browser Runners Guide](../BROWSER_RUNNERS.md) for complete details.
+
 ## Next Steps
 
 <div class="grid cards" markdown>
@@ -426,12 +497,12 @@ See provider docs for valid models.
 
     [Perplexity Provider →](perplexity.md)
 
--   :material-cog: **Configuration**
+-   :material-web: **Browser Runners**
 
     ---
 
-    Model configuration details
+    Web UI automation guide
 
-    [Model Config →](../user-guide/configuration/models.md)
+    [Browser Runners →](../BROWSER_RUNNERS.md)
 
 </div>

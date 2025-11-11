@@ -1,5 +1,19 @@
 # LLM Answer Watcher - Engineering Specification
 
+> **📋 Document Version**: This specification represents the **v0.1.0 baseline** (released 2025-11-05).
+>
+> **New features added in v0.2.0+ are NOT documented here:**
+> - Browser runners (Steel API integration)
+> - Async/await parallelization
+> - Google Search grounding
+> - Post-intent operations
+> - Sentiment analysis and intent classification
+>
+> **For v0.2.0 features**, see:
+> - [Changelog](docs/changelog.md) for v0.2.0 release notes
+> - [Browser Runners Guide](docs/BROWSER_RUNNERS.md) for browser automation
+> - Updated documentation at [docs/](docs/)
+
 Below is the complete engineering specification for the OSS "LLM Answer Watcher" component, incorporating:
 - API-first contract mindset
 - Provider abstraction aligned with multi-model routing patterns

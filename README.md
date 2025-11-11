@@ -11,15 +11,6 @@
 
 LLM Answer Watcher is a production-ready CLI tool that asks LLMs specific questions (e.g., "best email warmup tools"), extracts structured signals (Did we appear? Who else appeared? In what rank?), and stores results in SQLite for historical tracking.
 
-## 🤖 For LLMs & AI Agents
-
-This project provides LLM-optimized documentation following the [llmstxt.org](https://llmstxt.org) standard:
-
-- **[llms.txt](https://nibzard.github.io/llm-answer-watcher/llms.txt)** (~800 tokens) - Concise navigation index with curated links
-- **[llms-full.txt](https://nibzard.github.io/llm-answer-watcher/llms-full.txt)** (~59K tokens) - Complete documentation in a single file
-
-These files are auto-generated on every documentation build and provide structured, markdown-formatted content optimized for LLM context injection.
-
 ## ✨ Key Features
 
 - **🔍 Brand Mention Detection**: Word-boundary regex matching prevents false positives

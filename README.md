@@ -5,6 +5,8 @@
 ![Tests](https://img.shields.io/badge/tests-passing-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 
+**[📖 Documentation](https://nibzard.github.io/llm-answer-watcher)**
+
 > Monitor how Large Language Models talk about your brand versus competitors in buyer-intent queries
 
 LLM Answer Watcher is a production-ready CLI tool that asks LLMs specific questions (e.g., "best email warmup tools"), extracts structured signals (Did we appear? Who else appeared? In what rank?), and stores results in SQLite for historical tracking.
